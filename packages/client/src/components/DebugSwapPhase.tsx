@@ -156,7 +156,6 @@ export function DebugSwapPhase({ state, humanId, onCompose }: DebugSwapPhaseProp
     const handIds = hand.map((c) => c.id);
     const faceUpIds = faceUp.map((c) => c.id);
     const faceDownIds = faceDown.map((c) => c.id);
-    console.log('[DebugSwapPhase] Submit:', { handIds, faceUpIds, faceDownIds });
     onCompose(handIds, faceUpIds, faceDownIds);
   };
 

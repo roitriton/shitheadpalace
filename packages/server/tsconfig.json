@@ -4,11 +4,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "lib": ["ES2022"],
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@shit-head-palace/engine": ["../engine/src/index"]
-    }
+    "types": ["node"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

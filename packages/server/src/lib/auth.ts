@@ -29,7 +29,7 @@ function getJwtSecret(): string {
 /** Sign a JWT containing the user ID. Expires in 15 minutes by default. */
 export function generateToken(userId: string): string {
   const expiresIn = process.env.JWT_EXPIRES_IN ?? '15m';
-  return jwt.sign({ userId } satisfies JwtPayload, getJwtSecret(), { expiresIn });
+  return jwt.sign({ userId } satisfies JwtPayload, getJwtSecret(), { expiresIn } as jwt.SignOptions);
 }
 
 /** Verify a JWT and return its payload. Throws on invalid/expired tokens. */

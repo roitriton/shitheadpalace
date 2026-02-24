@@ -402,7 +402,7 @@ describe('resolveAutoSkip', () => {
     expect(result.pendingAction).not.toBeNull();
     expect(result.pendingAction!.type).toBe('allBlockedShifumi');
     if (result.pendingAction!.type === 'allBlockedShifumi') {
-      expect(result.pendingAction.playerIds).toHaveLength(4);
+      expect(result.pendingAction!.playerIds).toHaveLength(4);
     }
   });
 });

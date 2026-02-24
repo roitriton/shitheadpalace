@@ -1106,14 +1106,6 @@ export function GameBoard({
   const human = state.players[humanIdx];
   const bots = state.players.filter((_, i) => i !== humanIdx);
 
-  console.log('[GameBoard] Render:', {
-    phase: state.phase,
-    humanIdx,
-    humanId,
-    humanFound: !!human,
-    currentPlayerIndex: state.currentPlayerIndex,
-  });
-
   if (!human) {
     return (
       <div className="min-h-screen bg-felt-dark flex items-center justify-center">
