@@ -34,11 +34,23 @@ export interface RoomConfig {
 
 export type RoomStatus = 'waiting' | 'playing' | 'finished';
 
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  message: string;
+  timestamp: number;
+  type: 'player' | 'system';
+}
+
 /** Reconnection timeout in milliseconds (60 seconds). */
 const RECONNECT_TIMEOUT_MS = 60_000;
 
 /** Bot turn delay in milliseconds. */
 const BOT_DELAY_MS = 800;
+
+const MAX_CHAT_MESSAGE_LENGTH = 200;
+const MAX_CHAT_HISTORY = 100;
 
 // ─── GameRoom ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +61,7 @@ export class GameRoom {
   players: RoomPlayer[] = [];
   spectatorSocketIds: Set<string> = new Set();
   state: GameState | null = null;
+  chatMessages: ChatMessage[] = [];
 
   /** Callbacks set by the Socket.IO layer to broadcast state. */
   private onBroadcast: ((room: GameRoom) => void) | null = null;
@@ -299,6 +312,50 @@ export class GameRoom {
 
   removeSpectator(socketId: string): void {
     this.spectatorSocketIds.delete(socketId);
+  }
+
+  // ─── Chat ──────────────────────────────────────────────────────────────────
+
+  /** Add a player chat message. Returns the ChatMessage or null if invalid. */
+  addChatMessage(userId: string, message: string): ChatMessage | null {
+    const player = this.players.find((p) => p.userId === userId && !p.isBot);
+    if (!player) return null;
+
+    const trimmed = message.trim();
+    if (trimmed.length === 0 || trimmed.length > MAX_CHAT_MESSAGE_LENGTH) return null;
+
+    const chatMsg: ChatMessage = {
+      id: randomBytes(6).toString('hex'),
+      playerId: player.playerId,
+      playerName: player.username,
+      message: trimmed,
+      timestamp: Date.now(),
+      type: 'player',
+    };
+
+    this.chatMessages.push(chatMsg);
+    if (this.chatMessages.length > MAX_CHAT_HISTORY) {
+      this.chatMessages.splice(0, this.chatMessages.length - MAX_CHAT_HISTORY);
+    }
+    return chatMsg;
+  }
+
+  /** Add a system chat message. Returns the ChatMessage. */
+  addSystemMessage(text: string): ChatMessage {
+    const chatMsg: ChatMessage = {
+      id: randomBytes(6).toString('hex'),
+      playerId: '__system__',
+      playerName: 'Système',
+      message: text,
+      timestamp: Date.now(),
+      type: 'system',
+    };
+
+    this.chatMessages.push(chatMsg);
+    if (this.chatMessages.length > MAX_CHAT_HISTORY) {
+      this.chatMessages.splice(0, this.chatMessages.length - MAX_CHAT_HISTORY);
+    }
+    return chatMsg;
   }
 
   // ─── Broadcast ──────────────────────────────────────────────────────────────

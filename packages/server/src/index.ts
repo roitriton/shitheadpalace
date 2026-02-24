@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import express from 'express';
 import { createServer } from 'http';
 import { Server, type Socket } from 'socket.io';
@@ -7,7 +8,8 @@ import { authRouter } from './routes/auth';
 import { lobbyRouter } from './routes/lobby';
 import { socketAuthMiddleware, type AuthenticatedSocket } from './middleware/socketAuth';
 import { lobby } from './game/Lobby';
-import { GameRoom } from './game/GameRoom';
+import { GameRoom, type ChatMessage } from './game/GameRoom';
+import { chatSendSchema } from './lib/validation';
 import {
   createInitialGameState,
   filterGameStateForPlayer,
@@ -97,6 +99,19 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
   }, 800);
 }
 
+/** Emit a system chat message to a solo socket. */
+function emitSoloSystemMessage(socket: Socket, text: string): void {
+  const msg: ChatMessage = {
+    id: randomBytes(6).toString('hex'),
+    playerId: '__system__',
+    playerName: 'Système',
+    message: text,
+    timestamp: Date.now(),
+    type: 'system',
+  };
+  socket.emit('chat:message', msg);
+}
+
 // ─── Room broadcast helper ──────────────────────────────────────────────────
 
 function broadcastRoomState(room: GameRoom, io: Server): void {
@@ -167,6 +182,7 @@ io.on('connection', (rawSocket) => {
     const session = createSoloSession(socket.id);
     soloSessions.set(socket.id, session);
     sendSoloState(socket, session);
+    emitSoloSystemMessage(socket, 'La partie commence');
   });
 
   socket.on('solo:action', (rawAction: unknown) => {
@@ -192,6 +208,7 @@ io.on('connection', (rawSocket) => {
     const fresh = createSoloSession(socket.id);
     soloSessions.set(socket.id, fresh);
     sendSoloState(socket, fresh);
+    emitSoloSystemMessage(socket, 'La partie commence');
   });
 
   // ── Legacy game:action / game:restart (backward compat with current client) ─
@@ -233,6 +250,7 @@ io.on('connection', (rawSocket) => {
     const fresh = createSoloSession(socket.id);
     soloSessions.set(socket.id, fresh);
     sendSoloState(socket, fresh);
+    emitSoloSystemMessage(socket, 'La partie commence');
   });
 
   // ── Debug: composition libre (dev only) ───────────────────────────────────
@@ -341,6 +359,14 @@ io.on('connection', (rawSocket) => {
           playerId,
         });
       }
+      // Send chat history
+      socket.emit('chat:history', room.chatMessages);
+      // System message: reconnected
+      const reconnPlayer = room.players.find((p) => p.userId === userId);
+      if (reconnPlayer) {
+        const sysMsg = room.addSystemMessage(`${reconnPlayer.username} s'est reconnecté`);
+        io.to(`room:${room.id}`).emit('chat:message', sysMsg);
+      }
       socket.emit('room:joined', { room: room.toLobbySummary(), reconnected: true });
       return;
     }
@@ -352,11 +378,15 @@ io.on('connection', (rawSocket) => {
     }
 
     try {
-      room.addPlayer(userId, `Player ${room.humanCount + 1}`, socket.id);
+      const playerName = `Player ${room.humanCount + 1}`;
+      room.addPlayer(userId, playerName, socket.id);
       socket.join(`room:${room.id}`);
       room.setBroadcast((r) => broadcastRoomState(r, io));
       socket.emit('room:joined', { room: room.toLobbySummary(), reconnected: false });
       io.to(`room:${room.id}`).emit('room:updated', { room: room.toLobbySummary() });
+      // System message: player joined
+      const sysMsg = room.addSystemMessage(`${playerName} a rejoint la partie`);
+      io.to(`room:${room.id}`).emit('chat:message', sysMsg);
     } catch (err) {
       socket.emit('game:error', { message: (err as Error).message });
     }
@@ -367,10 +397,17 @@ io.on('connection', (rawSocket) => {
     const room = lobby.findRoomByUserId(userId);
     if (!room) return;
 
+    const leavingPlayer = room.players.find((p) => p.userId === userId);
+
     if (room.status === 'waiting') {
       room.removePlayer(userId);
       socket.leave(`room:${room.id}`);
       io.to(`room:${room.id}`).emit('room:updated', { room: room.toLobbySummary() });
+      // System message: player left
+      if (leavingPlayer) {
+        const sysMsg = room.addSystemMessage(`${leavingPlayer.username} a quitté la partie`);
+        io.to(`room:${room.id}`).emit('chat:message', sysMsg);
+      }
 
       // Remove empty rooms
       if (room.humanCount === 0) {
@@ -379,6 +416,10 @@ io.on('connection', (rawSocket) => {
     } else {
       // Game in progress — treat as disconnect
       room.handleDisconnect(userId);
+      if (leavingPlayer) {
+        const sysMsg = room.addSystemMessage(`${leavingPlayer.username} a quitté la partie`);
+        io.to(`room:${room.id}`).emit('chat:message', sysMsg);
+      }
     }
   });
 
@@ -396,6 +437,9 @@ io.on('connection', (rawSocket) => {
       room.setBroadcast((r) => broadcastRoomState(r, io));
       room.start();
       io.to(`room:${room.id}`).emit('room:started', { room: room.toLobbySummary() });
+      // System message: game started
+      const sysMsg = room.addSystemMessage('La partie commence');
+      io.to(`room:${room.id}`).emit('chat:message', sysMsg);
       broadcastRoomState(room, io);
     } catch (err) {
       socket.emit('game:error', { message: (err as Error).message });
@@ -435,12 +479,58 @@ io.on('connection', (rawSocket) => {
     }
   });
 
+  // ── Chat ────────────────────────────────────────────────────────────────
+
+  socket.on('chat:send', (data: unknown) => {
+    const result = chatSendSchema.safeParse(data);
+    if (!result.success) {
+      socket.emit('game:error', { message: result.error.issues[0]?.message ?? 'Invalid message' });
+      return;
+    }
+
+    // Multiplayer: try room first
+    if (userId) {
+      const room = lobby.findRoomByUserId(userId);
+      if (room) {
+        const chatMsg = room.addChatMessage(userId, result.data.message);
+        if (!chatMsg) {
+          socket.emit('game:error', { message: 'Failed to send message' });
+          return;
+        }
+        io.to(`room:${room.id}`).emit('chat:message', chatMsg);
+        return;
+      }
+    }
+
+    // Solo: handle chat locally
+    const session = soloSessions.get(socket.id);
+    if (!session) {
+      socket.emit('game:error', { message: 'Not in a game' });
+      return;
+    }
+
+    const trimmed = result.data.message.trim();
+    if (trimmed.length === 0) return;
+
+    const human = session.state.players.find((p) => p.id === session.humanId);
+    const chatMsg: ChatMessage = {
+      id: randomBytes(6).toString('hex'),
+      playerId: session.humanId,
+      playerName: human?.name ?? 'Vous',
+      message: trimmed,
+      timestamp: Date.now(),
+      type: 'player',
+    };
+    socket.emit('chat:message', chatMsg);
+  });
+
   // ── Auto-start solo for backward compatibility ────────────────────────────
 
   if (isAnonymous) {
     const session = createSoloSession(socket.id);
     soloSessions.set(socket.id, session);
     sendSoloState(socket, session);
+    emitSoloSystemMessage(socket, 'La partie commence');
   }
 
   // ── Disconnect ────────────────────────────────────────────────────────────

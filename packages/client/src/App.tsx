@@ -7,6 +7,7 @@ import { SwapPhase } from './components/SwapPhase';
 import { DebugSwapPhase } from './components/DebugSwapPhase';
 import { GameBoard } from './components/GameBoard';
 import { DebugToolbar, DebugLogPanel, ZoneInspectorModal, type InspectZone } from './components/DebugPanel';
+import { ChatPanel, type ChatMessage } from './components/ChatPanel';
 
 // ─── Socket (singleton module-level) ──────────────────────────────────────────
 
@@ -21,6 +22,13 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   // Card IDs waiting for a target to be picked before the play is sent (J♠)
   const [targetPickerCardIds, setTargetPickerCardIds] = useState<string[] | null>(null);
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
+  const chatOpenRef = useRef(chatOpen);
+  chatOpenRef.current = chatOpen;
 
   // Debug state (dev mode only)
   const [debugRevealHands, setDebugRevealHands] = useState(false);
@@ -54,15 +62,33 @@ function App() {
       setTimeout(() => setError(null), 3500);
     });
 
+    socket.on('chat:message', (msg: ChatMessage) => {
+      setChatMessages((prev) => [...prev, msg]);
+      if (!chatOpenRef.current) setChatUnread((prev) => prev + 1);
+    });
+
+    socket.on('chat:history', (msgs: ChatMessage[]) => {
+      setChatMessages(msgs);
+    });
+
     return () => {
       socket.off('game:state');
       socket.off('game:error');
+      socket.off('chat:message');
+      socket.off('chat:history');
     };
   }, []);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   const emit = (event: string, data?: unknown) => socket.emit(event, data);
+
+  const handleChatSend = (message: string) => socket.emit('chat:send', { message });
+  const handleChatToggle = () =>
+    setChatOpen((prev) => {
+      if (!prev) setChatUnread(0);
+      return !prev;
+    });
 
   /**
    * Returns true when the selected cards include a J♠ (Manouche / Super Manouche)
@@ -168,6 +194,9 @@ function App() {
     setSelectedCards([]);
     setError(null);
     setTargetPickerCardIds(null);
+    setChatMessages([]);
+    setChatUnread(0);
+    setChatOpen(false);
     emit('game:restart');
   };
 
@@ -323,6 +352,13 @@ function App() {
           onFlopRemake={handleFlopRemake}
           debugRevealHands={isDev ? debugRevealHands : undefined}
           onInspectZone={isDev ? setDebugInspectZone : undefined}
+        />
+        <ChatPanel
+          messages={chatMessages}
+          isOpen={chatOpen}
+          onToggle={handleChatToggle}
+          onSend={handleChatSend}
+          unreadCount={chatUnread}
         />
         {isDev && (
           <DebugLogPanel

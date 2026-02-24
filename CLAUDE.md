@@ -49,11 +49,19 @@ Outils de debug et améliorations UI :
   - [x] Routes : POST /auth/register, POST /auth/login, GET /auth/me
   - [x] Middleware requireAuth, PrismaClient singleton
 
+Étapes terminées (suite) :
+- [x] Étape 7 — Multijoueur en ligne (Socket.IO rooms, lobby, reconnexions) (821 tests au total, +55 server)
+
 Étape en cours :
-- [ ] Étape 7 — Multijoueur en ligne (Socket.IO rooms, lobby, reconnexions) — EN COURS (821 tests au total, +55 server)
+- [ ] Étape 8 — Chat et messagerie — EN COURS (828 tests au total, +7 server)
+  - [x] Étape 8A — Chat en temps réel en partie (828 tests, +7 chat.test.ts)
+    - ChatMessage type, addChatMessage(), addSystemMessage() dans GameRoom
+    - chatSendSchema Zod validation
+    - Handler chat:send + messages système (join/leave/reconnect/start)
+    - ChatPanel.tsx (panneau rétractable, badge unread, auto-scroll)
+    - Intégration App.tsx (state, listeners, handlers)
 
 Étapes à venir :
-- [ ] Étape 8 — Chat et messagerie
 - [ ] Étape 9-10 — Client : layout casino + espace de jeu
 - [ ] Étape 11 — Client : UI pouvoirs et interactions spéciales
 - [ ] Étape 12 — Lobby, profil, variantes (client)
@@ -594,4 +602,15 @@ npx prisma studio        # interface visuelle BDD
 ```
 
 
+
+\## Idées à implémenter plus tard
+
+\### Étape 12 — Pouvoirs uniques configurables
+\- Permettre d'ajouter de nouveaux pouvoirs uniques au-delà des 4 actuels (manouche, shifumi, flop reverse, révolution)
+\- Chaque pouvoir unique a un effet standard + un effet "super" (déclenché par mirror)
+\- La valeur qui porte les pouvoirs uniques est configurable (ex: valets, ou une autre valeur)
+\- Deux modes de sélection lors de la création de variante :
+  \- \*\*Manuel\*\* : choisir dans une liste quel pouvoir unique attribuer à chaque carte
+  \- \*\*Tirage au sort\*\* : bouton "random" qui pioche 4 pouvoirs au hasard dans la liste des pouvoirs uniques disponibles et les assigne aux 4 cartes de la valeur choisie
+\- Implique : étendre le type Variant avec un mapping uniquePowerSlots, créer une liste availableUniquePowers, refactor du mapping pouvoir↔carte dans l'engine
 

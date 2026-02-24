@@ -20,5 +20,11 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+/** Zod schema for chat:send event. */
+export const chatSendSchema = z.object({
+  message: z.string().min(1, 'Message cannot be empty').max(200, 'Message exceeds 200 characters'),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type ChatSendInput = z.infer<typeof chatSendSchema>;
