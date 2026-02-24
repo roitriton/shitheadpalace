@@ -25,6 +25,13 @@ export const chatSendSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty').max(200, 'Message exceeds 200 characters'),
 });
 
+/** Zod schema for POST /messages/send body. */
+export const pmSendSchema = z.object({
+  receiverId: z.string().min(1, 'Receiver ID is required'),
+  message: z.string().min(1, 'Message cannot be empty').max(500, 'Message exceeds 500 characters'),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChatSendInput = z.infer<typeof chatSendSchema>;
+export type PmSendInput = z.infer<typeof pmSendSchema>;

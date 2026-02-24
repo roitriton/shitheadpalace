@@ -53,13 +53,19 @@ Outils de debug et améliorations UI :
 - [x] Étape 7 — Multijoueur en ligne (Socket.IO rooms, lobby, reconnexions) (821 tests au total, +55 server)
 
 Étape en cours :
-- [ ] Étape 8 — Chat et messagerie — EN COURS (828 tests au total, +7 server)
+- [ ] Étape 8 — Chat et messagerie — EN COURS (836 tests au total, +8 server)
   - [x] Étape 8A — Chat en temps réel en partie (828 tests, +7 chat.test.ts)
     - ChatMessage type, addChatMessage(), addSystemMessage() dans GameRoom
     - chatSendSchema Zod validation
     - Handler chat:send + messages système (join/leave/reconnect/start)
     - ChatPanel.tsx (panneau rétractable, badge unread, auto-scroll)
     - Intégration App.tsx (state, listeners, handlers)
+  - [x] Étape 8B — Messages privés entre joueurs (836 tests, +8 messages.test.ts)
+    - Réutilisation du modèle DirectMessage existant (Prisma)
+    - Routes REST : POST /messages/send, GET /messages/:userId, GET /messages/unread/count, PATCH /messages/read/:userId
+    - Validation Zod (pmSendSchema, max 500 chars)
+    - Notification temps réel Socket.IO (pm:receive)
+    - createMessagesRouter(io) factory pattern
 
 Étapes à venir :
 - [ ] Étape 9-10 — Client : layout casino + espace de jeu

@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { authRouter } from './routes/auth';
 import { lobbyRouter } from './routes/lobby';
+import { createMessagesRouter } from './routes/messages';
 import { socketAuthMiddleware, type AuthenticatedSocket } from './middleware/socketAuth';
 import { lobby } from './game/Lobby';
 import { GameRoom, type ChatMessage } from './game/GameRoom';
@@ -164,6 +165,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/auth', authRouter);
 app.use('/lobby', lobbyRouter);
+app.use('/messages', createMessagesRouter(io));
 
 // ─── Socket.IO ────────────────────────────────────────────────────────────────
 
