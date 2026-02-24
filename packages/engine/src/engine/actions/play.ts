@@ -1,0 +1,459 @@
+import type { Card, GameState, PileEntry } from '../../types';
+import {
+  canPlayCards,
+  getActiveZone,
+  getZoneCards,
+  setZoneCards,
+  allSameRank,
+} from '../validation';
+import { autoDraw, isPlayerFinished, advanceTurn, isGameOver, resolveAutoSkip } from '../turn';
+import { appendLog } from '../../utils/log';
+import { resolvePowers } from '../powers';
+import { getMirrorEffectiveRank } from '../../powers/mirror';
+import { matchesPowerRank } from '../../powers/utils';
+
+// ─── Flop helper ──────────────────────────────────────────────────────────────
+
+/**
+ * Sets a pending Flop Reverse or Flop Remake action on the state and appends
+ * a log entry. Called from applyPlay when the corresponding power is triggered
+ * and the launcher has not finished.
+ */
+function setPendingFlop(
+  state: GameState,
+  flopType: 'flopReverse' | 'flopRemake',
+  launcherId: string,
+  launcherName: string,
+  timestamp: number,
+): GameState {
+  let newState: GameState = {
+    ...state,
+    pendingAction: { type: flopType, launcherId },
+  };
+  newState = appendLog(newState, flopType, timestamp, launcherId, launcherName, {});
+  return newState;
+}
+
+// ─── Shifumi helper ───────────────────────────────────────────────────────────
+
+/**
+ * Sets a pending Shifumi or Super Shifumi action on the state and appends
+ * a log entry. Called from applyPlay when the corresponding power is triggered
+ * and the launcher has not finished.
+ */
+function setPendingShifumi(
+  state: GameState,
+  shifumiType: 'shifumi' | 'superShifumi',
+  launcherId: string,
+  launcherName: string,
+  timestamp: number,
+): GameState {
+  let newState: GameState = {
+    ...state,
+    pendingAction: { type: shifumiType, initiatorId: launcherId },
+  };
+  newState = appendLog(newState, shifumiType, timestamp, launcherId, launcherName, {});
+  return newState;
+}
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+function markPlayerFinished(
+  state: GameState,
+  playerIndex: number,
+  timestamp: number,
+): GameState {
+  const player = state.players[playerIndex]!;
+  const newPlayers = [...state.players];
+  newPlayers[playerIndex] = { ...player, isFinished: true };
+  const newFinishOrder = [...state.finishOrder, player.id];
+  const place = newFinishOrder.length;
+  let newState: GameState = { ...state, players: newPlayers, finishOrder: newFinishOrder };
+  newState = appendLog(newState, 'playerFinished', timestamp, player.id, player.name, { place });
+  return newState;
+}
+
+function finalizeGame(state: GameState, timestamp: number): GameState {
+  const lastActive = state.players.find((p) => !p.isFinished);
+  const newPlayers = state.players.map((p) => (p.isFinished ? p : { ...p, isFinished: true }));
+  const finishOrder = lastActive
+    ? [...state.finishOrder, lastActive.id]
+    : state.finishOrder;
+
+  let newState: GameState = {
+    ...state,
+    players: newPlayers,
+    finishOrder,
+    phase: 'finished',
+    turnOrder: [],
+  };
+
+  if (lastActive) {
+    newState = appendLog(newState, 'playerFinished', timestamp, lastActive.id, lastActive.name, {
+      place: newState.finishOrder.length,
+    });
+  }
+
+  newState = appendLog(newState, 'gameOver', timestamp, undefined, undefined, {
+    finishOrder: newState.finishOrder,
+  });
+
+  return newState;
+}
+
+// ─── Manouche helper ──────────────────────────────────────────────────────────
+
+/**
+ * Validates the Manouche target and sets the pendingAction on the state.
+ * Throws if `targetPlayerId` is missing, invalid, finished, or is the launcher.
+ */
+function setPendingManouche(
+  state: GameState,
+  manoucheType: 'manouche' | 'superManouche',
+  launcherId: string,
+  targetPlayerId: string | undefined,
+  timestamp: number,
+  launcherName: string,
+): GameState {
+  if (!targetPlayerId) {
+    throw new Error(
+      `targetPlayerId is required when playing a ${manoucheType} card (J\u2660)`,
+    );
+  }
+  const targetIdx = state.players.findIndex((p) => p.id === targetPlayerId);
+  if (targetIdx === -1) throw new Error(`Target player '${targetPlayerId}' not found`);
+  const target = state.players[targetIdx]!;
+  if (target.isFinished) {
+    throw new Error(`Target player '${targetPlayerId}' is already finished`);
+  }
+  if (targetPlayerId === launcherId) {
+    throw new Error('Cannot target yourself with Manouche');
+  }
+
+  let newState: GameState = {
+    ...state,
+    pendingAction: { type: manoucheType, launcherId, targetId: targetPlayerId },
+  };
+  newState = appendLog(newState, manoucheType, timestamp, launcherId, launcherName, {
+    targetId: targetPlayerId,
+  });
+  return newState;
+}
+
+// ─── applyPlay ────────────────────────────────────────────────────────────────
+
+/**
+ * Applies a play-cards action.
+ *
+ * Covers all three zones (hand → faceUp → faceDown) and integrates power effects:
+ *   - Burn (rank or 4-identical): pile → graveyard, player replays.
+ *   - Reset: next player can play any card.
+ *   - Under: next player must play ≤ Under value.
+ *   - Skip: next N players lose their turn.
+ *   - Mirror: accompanied card's rank becomes the effective pile value.
+ *   - Manouche / Super Manouche: sets pendingAction; turn is not advanced
+ *     until the launcher resolves the exchange via manouchePick / superManouchePick.
+ *
+ * @param state          - Current game state.
+ * @param playerId       - ID of the acting player.
+ * @param cardIds        - IDs of the cards to play (must all be from the active zone).
+ * @param timestamp      - Wall-clock time for log/pile records (pass 0 in tests).
+ * @param targetPlayerId - Required when playing a Manouche (J♠) card: ID of the
+ *                         player to exchange cards with.
+ */
+export function applyPlay(
+  state: GameState,
+  playerId: string,
+  cardIds: string[],
+  timestamp = 0,
+  targetPlayerId?: string,
+): GameState {
+  // ── Phase guard ────────────────────────────────────────────────────────────
+  if (
+    state.phase !== 'playing' &&
+    state.phase !== 'revolution' &&
+    state.phase !== 'superRevolution'
+  ) {
+    throw new Error(`Cannot play cards in phase '${state.phase}'`);
+  }
+
+  // ── Player / turn guard ────────────────────────────────────────────────────
+  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) throw new Error(`Player '${playerId}' not found`);
+  if (playerIndex !== state.currentPlayerIndex) throw new Error("Not this player's turn");
+  if (cardIds.length === 0) throw new Error('Must specify at least one card to play');
+
+  const player = state.players[playerIndex]!;
+  const zone = getActiveZone(player);
+  if (zone === null) throw new Error(`Player '${playerId}' has no cards left to play`);
+
+  // ── Locate the cards in the active zone ────────────────────────────────────
+  const zoneCards = getZoneCards(player, zone);
+  const cardsToPlay: Card[] = cardIds.map((id) => {
+    const found = zoneCards.find((c) => c.id === id);
+    if (!found) throw new Error(`Card '${id}' not found in player's ${zone}`);
+    return found;
+  });
+
+  // Shared helper — used in both the revealed dark-flop path and the normal path
+  const isMirrorCard = (c: Card) => matchesPowerRank(c.rank, state.variant, 'mirror');
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Dark flop path
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (zone === 'faceDown') {
+    // ── After Flop Reverse: revealed dark flop ──────────────────────────────
+    // The player knows their cards; validate and play like a normal hand/faceUp
+    // play (multi-card allowed, Mirror rules apply, no blind logic).
+    if (player.faceDownRevealed) {
+      if (cardsToPlay.some(isMirrorCard) && cardsToPlay.every(isMirrorCard)) {
+        throw new Error('Mirror cannot be played alone — it must accompany another card');
+      }
+      const mirrorRankRevealed = getMirrorEffectiveRank(cardsToPlay, state.variant);
+      if (mirrorRankRevealed !== null) {
+        const nonMirrors = cardsToPlay.filter((c) => !isMirrorCard(c));
+        if (!allSameRank(nonMirrors)) {
+          throw new Error('Non-Mirror cards in a Mirror play must all share the same rank');
+        }
+        if (!canPlayCards(nonMirrors, state)) {
+          throw new Error('These cards cannot be played on the current pile (value too low)');
+        }
+      } else {
+        if (!allSameRank(cardsToPlay)) {
+          throw new Error('All played cards must share the same rank');
+        }
+        if (!canPlayCards(cardsToPlay, state)) {
+          throw new Error('These cards cannot be played on the current pile (value too low)');
+        }
+      }
+
+      const remaining = player.faceDown.filter((c) => !cardIds.includes(c.id));
+      const updatedPlayerRevealed = { ...player, faceDown: remaining };
+      const entryRevealed: PileEntry = {
+        cards: cardsToPlay,
+        playerId: player.id,
+        playerName: player.name,
+        timestamp,
+      };
+      const newPlayersRevealed = [...state.players];
+      newPlayersRevealed[playerIndex] = updatedPlayerRevealed;
+      let newStateRevealed: GameState = {
+        ...state,
+        players: newPlayersRevealed,
+        pile: [...state.pile, entryRevealed],
+      };
+      newStateRevealed = appendLog(
+        newStateRevealed,
+        'play',
+        timestamp,
+        player.id,
+        player.name,
+        { cardIds, ranks: cardsToPlay.map((c) => c.rank), zone },
+      );
+
+      const {
+        state: poweredRevealed,
+        playerReplays: prRevealed,
+        skipCount: scRevealed,
+        pendingTarget: ptRevealed,
+        pendingManoucheType: pmRevealed,
+        pendingFlopType: pfRevealed,
+        pendingShifumiType: psRevealed,
+      } = resolvePowers(newStateRevealed, cardsToPlay, playerId, timestamp);
+      newStateRevealed = poweredRevealed;
+
+      const finishedRevealed = isPlayerFinished(newStateRevealed.players[playerIndex]!);
+      if (finishedRevealed) newStateRevealed = markPlayerFinished(newStateRevealed, playerIndex, timestamp);
+      if (isGameOver(newStateRevealed)) return finalizeGame(newStateRevealed, timestamp);
+      if (prRevealed && !finishedRevealed) return newStateRevealed;
+      if (ptRevealed && !finishedRevealed) return newStateRevealed;
+      if (pmRevealed !== null && !finishedRevealed) {
+        return setPendingManouche(newStateRevealed, pmRevealed, playerId, targetPlayerId, timestamp, player.name);
+      }
+      if (pfRevealed !== null && !finishedRevealed) {
+        return setPendingFlop(newStateRevealed, pfRevealed, playerId, player.name, timestamp);
+      }
+      if (psRevealed !== null && !finishedRevealed) {
+        return setPendingShifumi(newStateRevealed, psRevealed, playerId, player.name, timestamp);
+      }
+      return resolveAutoSkip(advanceTurn(newStateRevealed, finishedRevealed, scRevealed));
+    }
+
+    // ── Blind dark flop: one card at a time ─────────────────────────────────
+    if (cardsToPlay.length !== 1) {
+      throw new Error('Only one dark-flop card may be played at a time');
+    }
+    const revealedCard = cardsToPlay[0]!;
+    const newFaceDown = player.faceDown.filter((c) => c.id !== revealedCard.id);
+    const playerWithoutCard: typeof player = { ...player, faceDown: newFaceDown };
+
+    if (!canPlayCards([revealedCard], state)) {
+      // Invalid blind play: player picks up the pile AND the revealed card
+      const pileCards = state.pile.flatMap((e) => e.cards);
+      const newHand = [...player.hand, ...pileCards, revealedCard];
+      const newPlayers = [...state.players];
+      newPlayers[playerIndex] = { ...playerWithoutCard, hand: newHand };
+      // Clear Under/Reset (current player's constraint consumed)
+      let newState: GameState = {
+        ...state,
+        players: newPlayers,
+        pile: [],
+        activeUnder: null,
+        pileResetActive: false,
+      };
+      newState = appendLog(newState, 'darkPlayFail', timestamp, player.id, player.name, {
+        cardId: revealedCard.id,
+        rank: revealedCard.rank,
+        pileCardCount: pileCards.length,
+      });
+      return resolveAutoSkip(advanceTurn(newState, false));
+    }
+
+    // Valid blind play — place card on pile
+    const entry: PileEntry = {
+      cards: [revealedCard],
+      playerId: player.id,
+      playerName: player.name,
+      timestamp,
+    };
+    const newPlayers = [...state.players];
+    newPlayers[playerIndex] = playerWithoutCard;
+    let newState: GameState = { ...state, players: newPlayers, pile: [...state.pile, entry] };
+    newState = appendLog(newState, 'darkPlay', timestamp, player.id, player.name, {
+      cardId: revealedCard.id,
+      rank: revealedCard.rank,
+    });
+
+    // Resolve power effects (Mirror is a no-op for a single dark-flop card)
+    const {
+      state: powered,
+      playerReplays,
+      skipCount,
+      pendingTarget,
+      pendingManoucheType,
+      pendingFlopType,
+      pendingShifumiType,
+    } = resolvePowers(newState, [revealedCard], playerId, timestamp);
+    newState = powered;
+
+    const finished = isPlayerFinished(newState.players[playerIndex]!);
+    if (finished) newState = markPlayerFinished(newState, playerIndex, timestamp);
+    if (isGameOver(newState)) return finalizeGame(newState, timestamp);
+    if (playerReplays && !finished) return newState;
+    if (pendingTarget && !finished) return newState;
+    if (pendingManoucheType !== null && !finished) {
+      return setPendingManouche(newState, pendingManoucheType, playerId, targetPlayerId, timestamp, player.name);
+    }
+    if (pendingFlopType !== null && !finished) {
+      return setPendingFlop(newState, pendingFlopType, playerId, player.name, timestamp);
+    }
+    if (pendingShifumiType !== null && !finished) {
+      return setPendingShifumi(newState, pendingShifumiType, playerId, player.name, timestamp);
+    }
+    return resolveAutoSkip(advanceTurn(newState, finished, skipCount));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Normal play path — hand or faceUp
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Mirror play validation ─────────────────────────────────────────────────
+
+  // Mirror-alone: every card is a Mirror (getMirrorEffectiveRank returns null in this case)
+  if (cardsToPlay.some(isMirrorCard) && cardsToPlay.every(isMirrorCard)) {
+    throw new Error('Mirror cannot be played alone — it must accompany another card');
+  }
+
+  const mirrorRank = getMirrorEffectiveRank(cardsToPlay, state.variant);
+
+  if (mirrorRank !== null) {
+    // Mirror play: validate non-Mirror cards
+    const nonMirrors = cardsToPlay.filter((c) => !isMirrorCard(c));
+
+    if (!allSameRank(nonMirrors)) {
+      throw new Error('Non-Mirror cards in a Mirror play must all share the same rank');
+    }
+    // Validate using the effective rank (the non-Mirror card's rank)
+    if (!canPlayCards(nonMirrors, state)) {
+      throw new Error('These cards cannot be played on the current pile (value too low)');
+    }
+  } else {
+    // Standard play: all cards must be the same rank
+    if (!allSameRank(cardsToPlay)) {
+      throw new Error('All played cards must share the same rank');
+    }
+    if (!canPlayCards(cardsToPlay, state)) {
+      throw new Error('These cards cannot be played on the current pile (value too low)');
+    }
+  }
+
+  // ── Remove played cards from zone, build pile entry ────────────────────────
+  const remaining = zoneCards.filter((c) => !cardIds.includes(c.id));
+  const updatedPlayer = setZoneCards(player, zone, remaining);
+
+  const entry: PileEntry = {
+    cards: cardsToPlay,
+    playerId: player.id,
+    playerName: player.name,
+    timestamp,
+  };
+
+  let newPlayers = [...state.players];
+  newPlayers[playerIndex] = updatedPlayer;
+  let newState: GameState = { ...state, players: newPlayers, pile: [...state.pile, entry] };
+
+  // Log the play action
+  newState = appendLog(newState, 'play', timestamp, player.id, player.name, {
+    cardIds,
+    ranks: cardsToPlay.map((c) => c.rank),
+    zone,
+  });
+
+  // ── Auto-draw (Phase 1 only) ───────────────────────────────────────────────
+  if (zone === 'hand' && newState.deck.length > 0) {
+    const { player: drawn, deck: newDeck } = autoDraw(updatedPlayer, newState.deck);
+    newPlayers = [...newState.players];
+    newPlayers[playerIndex] = drawn;
+    newState = { ...newState, players: newPlayers, deck: newDeck };
+  }
+
+  // ── Resolve power effects ──────────────────────────────────────────────────
+  const {
+    state: powered,
+    playerReplays,
+    skipCount,
+    pendingTarget,
+    pendingManoucheType,
+    pendingFlopType,
+    pendingShifumiType,
+  } = resolvePowers(newState, cardsToPlay, playerId, timestamp);
+  newState = powered;
+
+  // ── Finish / game-over detection ───────────────────────────────────────────
+  const finished = isPlayerFinished(newState.players[playerIndex]!);
+  if (finished) newState = markPlayerFinished(newState, playerIndex, timestamp);
+  if (isGameOver(newState)) return finalizeGame(newState, timestamp);
+
+  // ── Turn advancement ───────────────────────────────────────────────────────
+  if (playerReplays && !finished) {
+    // Burn triggered and player still has cards → they play again
+    return newState;
+  }
+  if (pendingTarget && !finished) {
+    // Target triggered: wait for launcher's targetChoice before advancing
+    return newState;
+  }
+  if (pendingManoucheType !== null && !finished) {
+    // Manouche triggered: validate target and set pendingAction; turn waits
+    return setPendingManouche(newState, pendingManoucheType, playerId, targetPlayerId, timestamp, player.name);
+  }
+  if (pendingFlopType !== null && !finished) {
+    // Flop Reverse / Remake triggered: wait for launcher's target choice
+    return setPendingFlop(newState, pendingFlopType, playerId, player.name, timestamp);
+  }
+  if (pendingShifumiType !== null && !finished) {
+    // Shifumi triggered: set pendingAction; initiator will pick two targets
+    return setPendingShifumi(newState, pendingShifumiType, playerId, player.name, timestamp);
+  }
+  return resolveAutoSkip(advanceTurn(newState, finished, skipCount));
+}

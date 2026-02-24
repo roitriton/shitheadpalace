@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String          @id @default(cuid())
+  email            String          @unique
+  username         String          @unique
+  passwordHash     String?
+  googleId         String?         @unique
+  appleId          String?         @unique
+  avatarUrl        String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  gamesPlayed      GamePlayer[]
+  savedVariants    SavedVariant[]
+  sentMessages     DirectMessage[] @relation("sender")
+  receivedMessages DirectMessage[] @relation("receiver")
+  refreshTokens    RefreshToken[]
+}
+
+model Game {
+  id          String       @id @default(cuid())
+  status      String       @default("WAITING")
+  variantData String
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  players     GamePlayer[]
+}
+
+model GamePlayer {
+  id          String   @id @default(cuid())
+  userId      String
+  gameId      String
+  finishPlace Int?
+  isShitHead  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+}
+
+model SavedVariant {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  variantData String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+}
+
+model DirectMessage {
+  id         String    @id @default(cuid())
+  senderId   String
+  receiverId String
+  text       String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  sender     User      @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User      @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

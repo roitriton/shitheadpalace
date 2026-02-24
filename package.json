@@ -1,0 +1,25 @@
+{
+  "name": "shit-head-palace",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w @shit-head-palace/server\" \"npm run dev -w @shit-head-palace/client\"",
+    "test": "npm run test --workspaces --if-present",
+    "test:engine": "npm run test -w @shit-head-palace/engine",
+    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
+    "build": "npm run build --workspaces --if-present",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

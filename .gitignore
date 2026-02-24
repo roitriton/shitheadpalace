@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+.DS_Store
+coverage/
+.nyc_output/
+prisma/migrations/
+*.db
+*.db-journal
+*.tsbuildinfo
+
+# TypeScript compiled artifacts in src/
+packages/engine/src/**/*.js
+packages/engine/src/**/*.d.ts
+packages/engine/src/**/*.js.map
+packages/engine/src/**/*.d.ts.map
+
+# Claude Code
+.claude/

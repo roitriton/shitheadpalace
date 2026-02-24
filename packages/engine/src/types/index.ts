@@ -1,0 +1,269 @@
+// ─── Primitives ───────────────────────────────────────────────────────────────
+
+export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades';
+
+export type Rank = '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K' | 'A';
+
+export type Power =
+  | 'burn'
+  | 'reset'
+  | 'under'
+  | 'skip'
+  | 'target'
+  | 'mirror'
+  | 'revolution'
+  | 'superRevolution'
+  | 'manouche'
+  | 'superManouche'
+  | 'flopReverse'
+  | 'flopRemake'
+  | 'shifumi'
+  | 'superShifumi';
+
+export type GamePhase =
+  | 'setup'
+  | 'swapping'
+  | 'playing'
+  | 'revolution'
+  | 'superRevolution'
+  | 'finished';
+
+/** 1 = clockwise, -1 = counter-clockwise */
+export type Direction = 1 | -1;
+
+export type BotDifficulty = 'easy' | 'medium' | 'hard';
+
+export type ShifumiChoice = 'rock' | 'paper' | 'scissors';
+
+// ─── Core Entities ────────────────────────────────────────────────────────────
+
+export interface Card {
+  /** Unique identifier within the game instance */
+  id: string;
+  suit: Suit;
+  rank: Rank;
+  /**
+   * When true, rank and suit are placeholders — the actual card is hidden from
+   * this viewer. Used by filterGameStateForPlayer to mask opponents' cards.
+   */
+  hidden?: true;
+}
+
+/** One "move" recorded in the pile for history display */
+export interface PileEntry {
+  cards: Card[];
+  playerId: string;
+  playerName: string;
+  timestamp: number;
+  /**
+   * When Mirror (9) accompanies another card, the effective pile value is
+   * overridden to this rank. Set by the Mirror power module; absent otherwise.
+   */
+  effectiveRank?: Rank;
+}
+
+export interface Player {
+  id: string;
+  name: string;
+  /** Cards in hand — visible only to this player */
+  hand: Card[];
+  /** Face-up cards in front of the player (flop) — visible to all */
+  faceUp: Card[];
+  /** Face-down cards under the flop (dark flop) — hidden from everyone */
+  faceDown: Card[];
+  isFinished: boolean;
+  isBot: boolean;
+  botDifficulty?: BotDifficulty;
+  /** True once the player has signalled 'ready' during the swapping phase */
+  isReady?: boolean;
+  /**
+   * When true, the player knows the contents of their dark flop (after a
+   * Flop Reverse swapped their faceUp and faceDown). They may play multiple
+   * dark-flop cards at once, subject to the same rank/value rules as a
+   * normal hand play.
+   */
+  faceDownRevealed?: boolean;
+  /**
+   * When true, this player lost a Super Shifumi and is the designated Shit Head.
+   * Only set by the Super Shifumi resolution; ends the game immediately.
+   */
+  isShitHead?: boolean;
+}
+
+// ─── Variant ──────────────────────────────────────────────────────────────────
+
+export interface GameVariant {
+  name: string;
+  /** Maps each power to the card rank(s) that trigger it */
+  powerAssignments: Partial<Record<Power, Rank | Rank[]>>;
+  playerCount: number;
+  /** Number of standard 52-card decks to use */
+  deckCount: number;
+}
+
+// ─── Pending Actions ──────────────────────────────────────────────────────────
+
+export interface PendingShifumi {
+  type: 'shifumi' | 'superShifumi';
+  initiatorId: string;
+  /**
+   * ID of the first combatant. Set when the initiator submits a
+   * 'shifumiTarget' action choosing both participants.
+   */
+  player1Id?: string;
+  /**
+   * ID of the second combatant. Set when the initiator submits a
+   * 'shifumiTarget' action choosing both participants.
+   */
+  player2Id?: string;
+  player1Choice?: ShifumiChoice;
+  player2Choice?: ShifumiChoice;
+}
+
+export interface PendingManouche {
+  type: 'manouche' | 'superManouche';
+  launcherId: string;
+  targetId: string;
+}
+
+export interface PendingFlopReverse {
+  type: 'flopReverse';
+  launcherId: string;
+  targetId?: string;
+}
+
+export interface PendingFlopRemake {
+  type: 'flopRemake';
+  launcherId: string;
+  targetId?: string;
+}
+
+export interface PendingTarget {
+  type: 'target';
+  launcherId: string;
+}
+
+export interface PendingFirstPlayerShifumi {
+  type: 'firstPlayerShifumi';
+  playerIds: string[];
+  choices: Partial<Record<string, ShifumiChoice>>;
+}
+
+export interface PendingAllBlockedShifumi {
+  type: 'allBlockedShifumi';
+  /** IDs of all active players who need to play shifumi to determine finish order */
+  playerIds: string[];
+  /** Accumulated shifumi choices for the current round */
+  choices: Partial<Record<string, ShifumiChoice>>;
+  /** Player IDs ranked so far (first = best position) — built across elimination rounds */
+  rankedIds: string[];
+}
+
+export type PendingAction =
+  | PendingShifumi
+  | PendingManouche
+  | PendingFlopReverse
+  | PendingFlopRemake
+  | PendingTarget
+  | PendingFirstPlayerShifumi
+  | PendingAllBlockedShifumi;
+
+// ─── Log ──────────────────────────────────────────────────────────────────────
+
+export interface LogEntry {
+  id: string;
+  timestamp: number;
+  type: string;
+  playerId?: string;
+  playerName?: string;
+  data: Record<string, unknown>;
+}
+
+// ─── Game State ───────────────────────────────────────────────────────────────
+
+export interface GameState {
+  id: string;
+  phase: GamePhase;
+  players: Player[];
+  /** The draw pile */
+  deck: Card[];
+  /** Active play pile with full history of who played what */
+  pile: PileEntry[];
+  /** Burned cards (face-down) */
+  graveyard: Card[];
+  currentPlayerIndex: number;
+  direction: Direction;
+  /** Remaining turn order indices (handles skip, target) */
+  turnOrder: number[];
+  /** Player IDs who have finished, in order of finishing */
+  finishOrder: string[];
+  variant: GameVariant;
+  /** Non-null when an action requires player input before continuing */
+  pendingAction: PendingAction | null;
+  log: LogEntry[];
+  /**
+   * When set, the current player must play a card with value ≤ this number
+   * (Under / 8 power effect). Cleared at the start of the constrained player's action.
+   */
+  activeUnder?: number | null;
+  /**
+   * When true, the current player may play any card regardless of pile value
+   * (Reset / 2 power effect). Cleared at the start of the constrained player's action.
+   */
+  pileResetActive?: boolean;
+  /**
+   * When true, the game is in Revolution mode: card values are inverted (low beats high)
+   * and all card powers are suppressed. Mirrors `phase === 'revolution' | 'superRevolution'`.
+   * Set by the J♦ power; cleared when any player picks up the pile (unless superRevolution).
+   */
+  revolution?: boolean;
+  /**
+   * When true, the Revolution is permanent for the rest of the game and is never
+   * cancelled by a pile pick-up. Mirrors `phase === 'superRevolution'`.
+   * Set by the J♦ + Mirror play.
+   */
+  superRevolution?: boolean;
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+
+export type GameAction =
+  | { type: 'play'; cardIds: string[]; targetPlayerId?: string }
+  | { type: 'pickUp' }
+  | { type: 'swap'; handCardId: string; flopCardId: string }
+  | { type: 'ready' }
+  | { type: 'shifumiChoice'; choice: ShifumiChoice }
+  | { type: 'shifumiTarget'; player1Id: string; player2Id: string }
+  | { type: 'manouchePick'; takeCardId: string; giveCardIds: string[] }
+  | { type: 'superManouchePick'; giveCardIds: string[]; takeCardIds: string[] }
+  | { type: 'flopReverseTarget'; targetPlayerId: string }
+  | { type: 'flopRemakeTarget'; targetPlayerId: string }
+  | { type: 'flopRemake'; faceUp: string[]; faceDown: string[] }
+  | { type: 'targetChoice'; targetPlayerId: string };
+
+// ─── Bot Strategy Interface ───────────────────────────────────────────────────
+
+export interface ManoucheChoice {
+  takeCardId: string;
+  giveCardIds: string[];
+}
+
+export interface SuperManoucheChoice {
+  giveCardIds: string[];
+  takeCardIds: string[];
+}
+
+export interface BotStrategy {
+  /** Choose the next game action for a bot player */
+  chooseAction(state: GameState, playerId: string): GameAction;
+  /** Choose a shifumi move */
+  chooseShifumiChoice(): ShifumiChoice;
+  /** Choose cards to exchange in a Manouche */
+  chooseManoucheCards(state: GameState, playerId: string, targetId: string): ManoucheChoice;
+  /** Choose cards to exchange in a Super Manouche */
+  chooseSuperManoucheCards(
+    state: GameState,
+    playerId: string,
+    targetId: string,
+  ): SuperManoucheChoice;
+}
