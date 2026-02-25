@@ -94,6 +94,12 @@ Outils de debug et améliorations UI :
     - PlayerZone refactorisé : layout flex-row (avatar+nom à gauche, cartes à droite)
     - Zone humain centrée horizontalement (flex justify-center)
     - playerIndex prop ajouté à PlayerZone pour couleur avatar
+  - [x] Étape 9C — Rendu des cartes amélioré (842 tests, pas de nouveaux tests)
+    - Card.tsx : nouvelle taille xs (36×52px), prop noMotion pour déléguer animations au parent
+    - Éventail paramétrable fanStyle(index, total, maxAngle, arcY) partagé bots/humain
+    - Main humaine : éventail ±12° arc 8px, hover redresse+soulève, sélection zIndex 20
+    - Main bots : éventail ±8° arc 5px combiné avec chevauchement (marginLeft négatif, max -24px)
+    - Flop bots en taille xs avec gap réduit, flop humain inchangé (ligne droite)
 
 Étapes à venir :
 - [ ] Étape 10 — Client : espace de jeu (disposition des zones)

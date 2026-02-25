@@ -23,21 +23,24 @@ interface CardProps {
   onClick?: () => void;
   /** Désactive le hover et le click */
   disabled?: boolean;
-  size?: 'sm' | 'md';
+  size?: 'xs' | 'sm' | 'md';
   /** Disable layoutId animation (prevents cross-phase layout conflicts) */
   noLayout?: boolean;
+  /** Skip built-in y-shift and hover animations (parent handles them) */
+  noMotion?: boolean;
 }
 
 // ─── Dos de carte ──────────────────────────────────────────────────────────────
 
-function CardBack({ size = 'md' }: { size?: 'sm' | 'md' }) {
-  const dims = size === 'sm' ? 'w-11 h-16' : 'w-14 h-20';
+function CardBack({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
+  const dims = size === 'xs' ? 'w-9 h-[52px]' : size === 'sm' ? 'w-11 h-16' : 'w-14 h-20';
+  const symbolSize = size === 'xs' ? 'text-[10px]' : 'text-base';
   return (
     <div
       className={`${dims} rounded-lg border-2 border-blue-900 bg-gradient-to-br from-blue-800 to-blue-950 shadow-md flex items-center justify-center`}
     >
       <div className="w-[85%] h-[85%] rounded border border-blue-600 flex items-center justify-center">
-        <span className="text-gold text-base select-none">✦</span>
+        <span className={`text-gold ${symbolSize} select-none`}>✦</span>
       </div>
     </div>
   );
@@ -45,36 +48,38 @@ function CardBack({ size = 'md' }: { size?: 'sm' | 'md' }) {
 
 // ─── Face de carte ─────────────────────────────────────────────────────────────
 
-function CardFace({ card, size = 'md' }: { card: CardType; size?: 'sm' | 'md' }) {
+function CardFace({ card, size = 'md' }: { card: CardType; size?: 'xs' | 'sm' | 'md' }) {
   const isRed = RED_SUITS.has(card.suit);
   const color = isRed ? 'text-red-600' : 'text-gray-900';
   const symbol = SUIT_SYMBOL[card.suit] ?? '?';
-  const dims = size === 'sm' ? 'w-11 h-16 text-xs' : 'w-14 h-20 text-sm';
+  const dims = size === 'xs' ? 'w-9 h-[52px]' : size === 'sm' ? 'w-11 h-16' : 'w-14 h-20';
+  const cornerText = size === 'xs' ? 'text-[8px]' : 'text-xs';
+  const centerSize = size === 'xs' ? '0.9rem' : size === 'sm' ? '1.2rem' : '1.5rem';
 
   return (
     <div
       className={`${dims} rounded-lg border-2 border-gray-200 bg-white shadow-md relative select-none`}
     >
       {/* Coin haut-gauche */}
-      <div className={`absolute top-0.5 left-1 leading-none font-bold ${color}`}>
-        <div className="text-xs">{card.rank}</div>
-        <div className="text-xs">{symbol}</div>
+      <div className={`absolute top-0.5 left-0.5 leading-none font-bold ${color}`}>
+        <div className={cornerText}>{card.rank}</div>
+        <div className={cornerText}>{symbol}</div>
       </div>
 
       {/* Symbole central */}
       <div
         className={`absolute inset-0 flex items-center justify-center font-bold ${color}`}
-        style={{ fontSize: size === 'sm' ? '1.2rem' : '1.5rem' }}
+        style={{ fontSize: centerSize }}
       >
         {symbol}
       </div>
 
       {/* Coin bas-droit (inversé) */}
       <div
-        className={`absolute bottom-0.5 right-1 leading-none font-bold rotate-180 ${color}`}
+        className={`absolute bottom-0.5 right-0.5 leading-none font-bold rotate-180 ${color}`}
       >
-        <div className="text-xs">{card.rank}</div>
-        <div className="text-xs">{symbol}</div>
+        <div className={cornerText}>{card.rank}</div>
+        <div className={cornerText}>{symbol}</div>
       </div>
     </div>
   );
@@ -82,7 +87,7 @@ function CardFace({ card, size = 'md' }: { card: CardType; size?: 'sm' | 'md' })
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-export function Card({ card, faceDown, selected, onClick, disabled, size = 'md', noLayout }: CardProps) {
+export function Card({ card, faceDown, selected, onClick, disabled, size = 'md', noLayout, noMotion }: CardProps) {
   const isHidden = faceDown || card.hidden;
   const isClickable = !!onClick && !disabled;
 
@@ -95,12 +100,12 @@ export function Card({ card, faceDown, selected, onClick, disabled, size = 'md',
       layoutId={noLayout || isHidden ? undefined : card.id}
       className={`relative rounded-lg ${borderClass} ${isClickable ? 'cursor-pointer' : 'cursor-default'} ${disabled ? 'opacity-60' : ''}`}
       style={{
-        zIndex: selected ? 10 : 'auto',
+        zIndex: noMotion ? undefined : (selected ? 10 : 'auto'),
         boxShadow: selected ? '0 0 12px rgba(201, 168, 76, 0.6)' : 'none',
       }}
-      animate={{ y: selected ? -18 : 0 }}
-      whileHover={isClickable && !selected ? { y: -10, scale: 1.04 } : {}}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      animate={noMotion ? undefined : { y: selected ? -18 : 0 }}
+      whileHover={noMotion ? undefined : (isClickable && !selected ? { y: -10, scale: 1.04 } : {})}
+      transition={noMotion ? undefined : { type: 'spring', stiffness: 400, damping: 25 }}
       onClick={isClickable ? onClick : undefined}
     >
       {isHidden ? <CardBack size={size} /> : <CardFace card={card} size={size} />}

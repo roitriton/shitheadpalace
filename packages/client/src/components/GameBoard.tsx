@@ -41,15 +41,48 @@ function PlayerZone({
   const canClickFaceUp = isActive && activeZone === 'faceUp' && !isBot;
   const canClickFaceDown = isActive && activeZone === 'faceDown' && !isBot;
 
+  // ── Chevauchement pour les cartes adversaires ──
+  const botCardSize: 'xs' | 'sm' = 'xs';
+  const botCardW = 36; // w-9 = 36px
+  const botCardH = 52; // h-[52px]
+
+  /** Compute the overlap margin (px) for a row of `count` bot cards. */
+  const botOverlap = (count: number) => (count > 3 ? Math.min((count - 3) * 12, 24) : 0);
+
+  // ── Éventail (paramétrable) ──
+  const fanStyle = (index: number, total: number, maxAngle: number, arcY: number): { rotate: number; y: number } => {
+    if (total <= 1) return { rotate: 0, y: 0 };
+    const mid = (total - 1) / 2;
+    const t = (index - mid) / mid; // -1 à 1
+    return { rotate: t * maxAngle, y: Math.abs(t) * arcY };
+  };
+
+  const humanFanAngle = 12;
+  const humanFanArc = 8;
+  const botFanAngle = 8;
+  const botFanArc = 5;
+
   // ── Bloc de cartes (main + flop) ──
   const cardBlock = (
     <div className="flex flex-col items-center gap-1">
-      {/* Main (visible pour bot, en dessous du flop pour humain) */}
+      {/* Main (visible pour bot) — chevauchement + éventail */}
       {isBot ? (
-        <div className="flex gap-1">
-          {player.hand.map((card) => (
-            <Card key={card.id} card={card} faceDown={!debugRevealHands} size="sm" />
-          ))}
+        <div className="flex items-end" style={{ paddingBottom: botFanArc }}>
+          {player.hand.map((card, i) => {
+            const { rotate, y } = fanStyle(i, player.hand.length, botFanAngle, botFanArc);
+            return (
+              <div
+                key={card.id}
+                style={{
+                  marginLeft: i === 0 ? 0 : -botOverlap(player.hand.length),
+                  zIndex: i,
+                  transform: `rotate(${rotate}deg) translateY(${y}px)`,
+                }}
+              >
+                <Card card={card} faceDown={!debugRevealHands} size={botCardSize} />
+              </div>
+            );
+          })}
           {player.hand.length === 0 && (
             <span className="text-gray-500 text-xs italic">main vide</span>
           )}
@@ -57,20 +90,23 @@ function PlayerZone({
       ) : null}
 
       {/* Flop empilé sur dark flop */}
-      <div className="flex gap-2">
+      <div className="flex" style={{ gap: isBot ? 4 : 8 }}>
         {(player.faceDown.length > 0 || player.faceUp.length > 0) ? (
           Array.from({ length: Math.max(player.faceDown.length, player.faceUp.length) }).map(
             (_, i) => {
               const fdCard = player.faceDown[i];
               const fuCard = player.faceUp[i];
+              const cardSize = isBot ? botCardSize : 'sm';
+              const w = isBot ? botCardW : 44; // w-11 = 44px
+              const h = isBot ? botCardH + 12 : 76;
               return (
-                <div key={i} className="relative w-11 h-[76px]">
+                <div key={i} className="relative" style={{ width: w, height: h }}>
                   {fdCard && (
                     <div className="absolute top-0 z-0">
                       <Card
                         card={fdCard}
                         faceDown={isBot ? !debugRevealHands : true}
-                        size="sm"
+                        size={cardSize}
                         onClick={canClickFaceDown ? () => onFaceDownClick?.(fdCard) : undefined}
                       />
                     </div>
@@ -79,7 +115,7 @@ function PlayerZone({
                     <div className={`absolute z-10 ${fdCard ? 'top-3' : 'top-0'}`}>
                       <Card
                         card={fuCard}
-                        size="sm"
+                        size={cardSize}
                         selected={!isBot && selectedCards.includes(fuCard.id)}
                         onClick={canClickFaceUp ? () => onCardClick?.(fuCard) : undefined}
                       />
@@ -90,30 +126,43 @@ function PlayerZone({
             },
           )
         ) : (
-          <div className="w-11 h-[76px] opacity-0" />
+          <div style={{ width: isBot ? botCardW : 44, height: isBot ? botCardH + 12 : 76 }} className="opacity-0" />
         )}
       </div>
 
-      {/* Main humain (en bas) */}
+      {/* Main humain — éventail */}
       {!isBot && (
-        <div className="flex gap-2 flex-wrap justify-center mt-1">
+        <div className="flex justify-center mt-1" style={{ paddingBottom: humanFanArc }}>
           <AnimatePresence mode="popLayout">
-            {player.hand.map((card) => (
-              <motion.div
-                key={card.id}
-                initial={{ scale: 0.7, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.7, opacity: 0, y: -10 }}
-                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-              >
-                <Card
-                  card={card}
-                  selected={selectedCards.includes(card.id)}
-                  onClick={canClickHand ? () => onCardClick?.(card) : undefined}
-                  disabled={!canClickHand}
-                />
-              </motion.div>
-            ))}
+            {player.hand.map((card, i) => {
+              const { rotate, y } = fanStyle(i, player.hand.length, humanFanAngle, humanFanArc);
+              const isSelected = selectedCards.includes(card.id);
+              return (
+                <motion.div
+                  key={card.id}
+                  className="relative"
+                  style={{ marginLeft: i === 0 ? 0 : -4, zIndex: isSelected ? 20 : i }}
+                  initial={{ scale: 0.7, opacity: 0, y: 20 }}
+                  animate={{
+                    scale: 1,
+                    opacity: 1,
+                    rotate: isSelected ? 0 : rotate,
+                    y: isSelected ? -18 : y,
+                  }}
+                  exit={{ scale: 0.7, opacity: 0, y: -10 }}
+                  whileHover={canClickHand && !isSelected ? { y: y - 10, rotate: 0, scale: 1.06 } : {}}
+                  transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                >
+                  <Card
+                    card={card}
+                    selected={isSelected}
+                    onClick={canClickHand ? () => onCardClick?.(card) : undefined}
+                    disabled={!canClickHand}
+                    noMotion
+                  />
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       )}
