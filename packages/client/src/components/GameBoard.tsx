@@ -24,6 +24,8 @@ interface PlayerZoneProps {
   onCardClick?: (card: CardType) => void;
   onFaceDownClick?: (card: CardType) => void;
   debugRevealHands?: boolean;
+  /** Mobile compact mode: smaller cards, reduced fan */
+  compact?: boolean;
 }
 
 function PlayerZone({
@@ -36,6 +38,7 @@ function PlayerZone({
   onCardClick,
   onFaceDownClick,
   debugRevealHands,
+  compact,
 }: PlayerZoneProps) {
   const canClickHand = isActive && activeZone === 'hand' && !isBot;
   const canClickFaceUp = isActive && activeZone === 'faceUp' && !isBot;
@@ -57,8 +60,9 @@ function PlayerZone({
     return { rotate: t * maxAngle, y: Math.abs(t) * arcY };
   };
 
-  const humanFanAngle = 12;
-  const humanFanArc = 8;
+  const humanFanAngle = compact ? 6 : 12;
+  const humanFanArc = compact ? 4 : 8;
+  const humanCardSize: 'xs' | 'sm' | 'md' = compact ? 'sm' : 'md';
   const botFanAngle = 8;
   const botFanArc = 5;
 
@@ -90,7 +94,7 @@ function PlayerZone({
       ) : null}
 
       {/* Flop empilé sur dark flop */}
-      <div className="flex" style={{ gap: isBot ? 4 : 8 }}>
+      <div className="flex" style={{ gap: isBot ? 4 : (compact ? 4 : 8) }}>
         {(player.faceDown.length > 0 || player.faceUp.length > 0) ? (
           Array.from({ length: Math.max(player.faceDown.length, player.faceUp.length) }).map(
             (_, i) => {
@@ -155,6 +159,7 @@ function PlayerZone({
                 >
                   <Card
                     card={card}
+                    size={humanCardSize}
                     selected={isSelected}
                     onClick={canClickHand ? () => onCardClick?.(card) : undefined}
                     disabled={!canClickHand}
@@ -170,11 +175,11 @@ function PlayerZone({
   );
 
   return (
-    <div className="flex flex-row items-center gap-3">
+    <div className="flex flex-row items-center gap-1.5 sm:gap-2 md:gap-3">
       {/* Avatar + nom à gauche */}
-      <div className="flex flex-col items-center gap-1 shrink-0">
+      <div className="flex flex-col items-center gap-0.5 sm:gap-1 shrink-0">
         <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} />
-        <span className={`text-xs font-semibold max-w-[56px] truncate text-center ${isActive ? 'text-gold' : 'text-gray-400'}`}>
+        <span className={`text-[10px] sm:text-xs font-semibold max-w-[40px] sm:max-w-[56px] truncate text-center ${isActive ? 'text-gold' : 'text-gray-400'}`}>
           {player.name}
         </span>
       </div>
@@ -189,39 +194,45 @@ function PlayerZone({
 interface CenterAreaProps {
   state: GameState;
   onInspectZone?: (zone: InspectZone) => void;
+  compact?: boolean;
 }
 
-function CenterArea({ state, onInspectZone }: CenterAreaProps) {
+function CenterArea({ state, onInspectZone, compact }: CenterAreaProps) {
   const topEntry = state.pile[state.pile.length - 1];
   const topCard = topEntry?.cards[topEntry.cards.length - 1];
   const effectiveRank = topEntry?.effectiveRank;
   const topValue = getTopPileValue(state);
 
+  // Responsive: sm on mobile, md on desktop
+  const centerCardSize = 'sm' as const;
+  const centerCardSizeLg = 'md' as const;
+
   return (
-    <div className="flex items-center justify-center gap-8 py-2">
+    <div className={`flex items-center justify-center ${compact ? 'gap-2 py-0.5' : 'gap-3 sm:gap-6 md:gap-8 py-1 sm:py-2'}`}>
       {/* Pioche */}
       <div
-        className={`flex flex-col items-center gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
+        className={`flex flex-col items-center gap-0.5 sm:gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
         onClick={onInspectZone ? () => onInspectZone('deck') : undefined}
       >
         <div className="relative">
           {state.deck.length > 1 && (
-            <div className="absolute top-0.5 left-0.5 w-14 h-20 rounded-lg bg-blue-900 border-2 border-blue-800" />
+            <div className="absolute top-0.5 left-0.5 w-11 h-16 sm:w-14 sm:h-20 rounded-lg bg-blue-900 border-2 border-blue-800" />
           )}
           <div className="relative">
-            <Card
-              card={{ id: 'deck', suit: 'spades', rank: '2' }}
-              faceDown
-              size="md"
-            />
+            <div className="hidden sm:block">
+              <Card card={{ id: 'deck', suit: 'spades', rank: '2' }} faceDown size={centerCardSizeLg} />
+            </div>
+            <div className="sm:hidden">
+              <Card card={{ id: 'deck', suit: 'spades', rank: '2' }} faceDown size={centerCardSize} />
+            </div>
           </div>
         </div>
-        <span className="text-xs text-gray-400">{state.deck.length} carte{state.deck.length !== 1 ? 's' : ''}</span>
+        <span className="text-[10px] sm:text-xs text-gray-400">{state.deck.length}</span>
         {onInspectZone && <span className="text-[10px] text-gold/50 hover:text-gold transition-colors">inspecter</span>}
       </div>
 
       {/* Modifieurs actifs */}
-      <div className="flex flex-col items-center gap-1 min-w-[80px]">
+      <div className="flex flex-col items-center gap-0.5 sm:gap-1 min-w-[40px] sm:min-w-[80px]">
         <AnimatePresence>
           {state.pileResetActive && (
             <motion.div
@@ -229,9 +240,9 @@ function CenterArea({ state, onInspectZone }: CenterAreaProps) {
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
-              className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full font-bold"
+              className="px-1.5 sm:px-2 py-0.5 bg-blue-600 text-white text-[10px] sm:text-xs rounded-full font-bold"
             >
-              RESET ★
+              RESET
             </motion.div>
           )}
           {state.activeUnder != null && (
@@ -240,7 +251,7 @@ function CenterArea({ state, onInspectZone }: CenterAreaProps) {
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
-              className="px-2 py-0.5 bg-orange-600 text-white text-xs rounded-full font-bold"
+              className="px-1.5 sm:px-2 py-0.5 bg-orange-600 text-white text-[10px] sm:text-xs rounded-full font-bold"
             >
               ≤ {state.activeUnder}
             </motion.div>
@@ -251,9 +262,9 @@ function CenterArea({ state, onInspectZone }: CenterAreaProps) {
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
-              className="px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full font-bold"
+              className="px-1.5 sm:px-2 py-0.5 bg-purple-600 text-white text-[10px] sm:text-xs rounded-full font-bold"
             >
-              🔄 RÉVOLUTION
+              RÉV.
             </motion.div>
           )}
         </AnimatePresence>
@@ -261,16 +272,16 @@ function CenterArea({ state, onInspectZone }: CenterAreaProps) {
 
       {/* Pile */}
       <div
-        className={`flex flex-col items-center gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
+        className={`flex flex-col items-center gap-0.5 sm:gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
         onClick={onInspectZone ? () => onInspectZone('pile') : undefined}
       >
-        <div className="relative w-14 h-20">
+        <div className="relative w-11 h-16 sm:w-14 sm:h-20">
           {/* Cartes "derrière" */}
           {state.pile.length > 2 && (
-            <div className="absolute top-1 left-1 w-14 h-20 rounded-lg bg-gray-300 border-2 border-gray-400 opacity-40" />
+            <div className="absolute top-1 left-1 w-11 h-16 sm:w-14 sm:h-20 rounded-lg bg-gray-300 border-2 border-gray-400 opacity-40" />
           )}
           {state.pile.length > 1 && (
-            <div className="absolute top-0.5 left-0.5 w-14 h-20 rounded-lg bg-white border-2 border-gray-300 opacity-70" />
+            <div className="absolute top-0.5 left-0.5 w-11 h-16 sm:w-14 sm:h-20 rounded-lg bg-white border-2 border-gray-300 opacity-70" />
           )}
 
           {/* Carte du dessus */}
@@ -283,25 +294,27 @@ function CenterArea({ state, onInspectZone }: CenterAreaProps) {
                 transition={{ type: 'spring', stiffness: 400, damping: 26 }}
                 className="absolute inset-0"
               >
-                <Card card={topCard} size="md" />
+                <div className="hidden sm:block"><Card card={topCard} size={centerCardSizeLg} /></div>
+                <div className="sm:hidden"><Card card={topCard} size={centerCardSize} /></div>
               </motion.div>
             ) : (
               <motion.div
                 key="empty"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="w-14 h-20 rounded-lg border-2 border-dashed border-gray-600 flex items-center justify-center"
+                className="w-11 h-16 sm:w-14 sm:h-20 rounded-lg border-2 border-dashed border-gray-600 flex items-center justify-center"
               >
-                <span className="text-gray-600 text-xs">vide</span>
+                <span className="text-gray-600 text-[10px] sm:text-xs">vide</span>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
         <div className="text-center">
-          <span className="text-xs text-gray-400">
-            Pile · {state.pile.length > 0
-              ? `valeur ${effectiveRank != null ? `${effectiveRank} (Mirror)` : topValue ?? '?'}`
+          <span className="text-[10px] sm:text-xs text-gray-400">
+            <span className="hidden sm:inline">Pile · </span>
+            {state.pile.length > 0
+              ? `${effectiveRank != null ? `${effectiveRank}` : topValue ?? '?'}`
               : 'vide'}
           </span>
         </div>
@@ -310,92 +323,21 @@ function CenterArea({ state, onInspectZone }: CenterAreaProps) {
 
       {/* Cimetière */}
       <div
-        className={`flex flex-col items-center gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
+        className={`flex flex-col items-center gap-0.5 sm:gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
         onClick={onInspectZone ? () => onInspectZone('graveyard') : undefined}
       >
         <div
-          className="w-14 h-20 rounded-lg border-2 border-dashed border-red-900 bg-red-950/30 flex items-center justify-center"
+          className="w-11 h-16 sm:w-14 sm:h-20 rounded-lg border-2 border-dashed border-red-900 bg-red-950/30 flex items-center justify-center"
           title="Cimetière"
         >
           {state.graveyard.length > 0 ? (
-            <span className="text-red-400 font-bold text-sm">{state.graveyard.length}</span>
+            <span className="text-red-400 font-bold text-xs sm:text-sm">{state.graveyard.length}</span>
           ) : (
-            <span className="text-red-900 text-xs">—</span>
+            <span className="text-red-900 text-[10px] sm:text-xs">—</span>
           )}
         </div>
-        <span className="text-xs text-gray-500">brûlées</span>
+        <span className="text-[10px] sm:text-xs text-gray-500">brûlées</span>
         {onInspectZone && <span className="text-[10px] text-gold/50 hover:text-gold transition-colors">inspecter</span>}
-      </div>
-    </div>
-  );
-}
-
-// ─── Barre d'action ────────────────────────────────────────────────────────────
-
-interface ActionBarProps {
-  isMyTurn: boolean;
-  selectedCards: string[];
-  pileEmpty: boolean;
-  onPlay: () => void;
-  onPickUp: () => void;
-  onClearSelection: () => void;
-  status: string;
-}
-
-function ActionBar({
-  isMyTurn,
-  selectedCards,
-  pileEmpty,
-  onPlay,
-  onPickUp,
-  onClearSelection,
-  status,
-}: ActionBarProps) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <p className="text-sm text-gray-300 h-5">{status}</p>
-      <div className="flex gap-3">
-        <motion.button
-          whileHover={isMyTurn && selectedCards.length > 0 ? { scale: 1.05 } : {}}
-          whileTap={isMyTurn && selectedCards.length > 0 ? { scale: 0.95 } : {}}
-          onClick={onPlay}
-          disabled={!isMyTurn || selectedCards.length === 0}
-          className={`px-6 py-2 rounded-full font-semibold text-sm shadow transition-colors ${
-            isMyTurn && selectedCards.length > 0
-              ? 'bg-gold text-gray-900 hover:bg-yellow-400'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Jouer {selectedCards.length > 0 ? `(${selectedCards.length})` : ''}
-        </motion.button>
-
-        {selectedCards.length > 0 && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onClearSelection}
-            className="px-4 py-2 rounded-full text-sm bg-gray-700 text-gray-300 hover:bg-gray-600"
-          >
-            Annuler
-          </motion.button>
-        )}
-
-        <motion.button
-          whileHover={isMyTurn && !pileEmpty ? { scale: 1.05 } : {}}
-          whileTap={isMyTurn && !pileEmpty ? { scale: 0.95 } : {}}
-          onClick={onPickUp}
-          disabled={!isMyTurn || pileEmpty}
-          className={`px-6 py-2 rounded-full font-semibold text-sm shadow transition-colors ${
-            isMyTurn && !pileEmpty
-              ? 'bg-red-800 text-white hover:bg-red-700'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Ramasser la pile
-        </motion.button>
       </div>
     </div>
   );
@@ -1123,9 +1065,6 @@ interface GameBoardProps {
   selectedCards: string[];
   onCardClick: (card: CardType) => void;
   onFaceDownPlay: (card: CardType) => void;
-  onPlay: () => void;
-  onPickUp: () => void;
-  onClearSelection: () => void;
   onRestart: () => void;
   error: string | null;
   // Target picker (pre-play: choisir la cible avant d'envoyer J♠)
@@ -1155,9 +1094,6 @@ export function GameBoard({
   selectedCards,
   onCardClick,
   onFaceDownPlay,
-  onPlay,
-  onPickUp,
-  onClearSelection,
   onRestart,
   error,
   targetPickerVisible,
@@ -1175,6 +1111,18 @@ export function GameBoard({
   onInspectZone,
 }: GameBoardProps) {
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
+
+  // Mobile/landscape detection for compact rendering
+  const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+  const [isLandscape, setIsLandscape] = React.useState(typeof window !== 'undefined' ? window.innerHeight < 500 : false);
+  React.useEffect(() => {
+    const onResize = () => {
+      setIsMobile(window.innerWidth < 640);
+      setIsLandscape(window.innerHeight < 500);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // Re-show popup when a new game finishes
   React.useEffect(() => {
@@ -1282,15 +1230,16 @@ export function GameBoard({
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden select-none z-[1]
-      rounded-[2.5rem] mx-3 my-2
-      border-[6px] border-casino-wood
-      shadow-[inset_0_0_80px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.7)]"
+      rounded-xl sm:rounded-[2rem] md:rounded-[2.5rem]
+      mx-1 my-1 sm:mx-2 sm:my-1.5 md:mx-3 md:my-2
+      border-4 sm:border-[5px] md:border-[6px] border-casino-wood
+      shadow-[inset_0_0_40px_rgba(0,0,0,0.4),0_4px_16px_rgba(0,0,0,0.7)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.7)]"
       style={{
         background: 'radial-gradient(ellipse at 50% 50%, #0d5e2e 0%, #0a4a24 60%, #073d1c 100%)',
       }}
     >
       {/* Bordure dorée intérieure */}
-      <div className="absolute inset-0 rounded-[2rem] border border-gold/30 pointer-events-none" />
+      <div className="absolute inset-0 rounded-lg sm:rounded-[1.5rem] md:rounded-[2rem] border border-gold/30 pointer-events-none" />
 
       {/* Erreur */}
       <AnimatePresence>
@@ -1308,7 +1257,7 @@ export function GameBoard({
       </AnimatePresence>
 
       {/* ── Grille : adversaires + centre ── */}
-      <div className="flex-1 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] grid-rows-[auto_1fr] gap-2 px-4 pt-3">
+      <div className={`flex-1 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] grid-rows-[auto_1fr] ${isLandscape ? 'gap-0.5 px-1 pt-0.5' : 'gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 pt-1 sm:pt-2 md:pt-3'}`}>
         {/* Adversaires positionnés */}
         {(() => {
           const seats = getOpponentSeats(bots.length);
@@ -1316,7 +1265,7 @@ export function GameBoard({
             const seat = seats[i];
             const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
             return (
-              <div key={bot.id} className={`${SEAT_CLASSES[seat]} z-[2]`}>
+              <div key={bot.id} className={`${SEAT_CLASSES[seat]} z-[2] overflow-hidden`}>
                 <PlayerZone
                   player={bot}
                   isBot={true}
@@ -1333,12 +1282,17 @@ export function GameBoard({
 
         {/* Zone Centrale */}
         <div className="col-start-2 row-start-2 flex items-center justify-center">
-          <CenterArea state={state} onInspectZone={onInspectZone} />
+          <CenterArea state={state} onInspectZone={onInspectZone} compact={isLandscape} />
         </div>
       </div>
 
+      {/* ── Statut ── */}
+      <div className="flex-none text-center px-4 py-0.5">
+        <p className="text-[10px] sm:text-xs text-gray-300/80 truncate">{status}</p>
+      </div>
+
       {/* ── Zone Humain (bas) ── */}
-      <div className="flex-none px-6 pb-2 flex justify-center">
+      <div className="flex-none px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 flex justify-center">
         <PlayerZone
           player={human}
           isBot={false}
@@ -1348,19 +1302,7 @@ export function GameBoard({
           playerIndex={humanIdx}
           onCardClick={onCardClick}
           onFaceDownClick={onFaceDownPlay}
-        />
-      </div>
-
-      {/* ── Barre d'actions ── */}
-      <div className="flex-none pb-6 pt-2 flex justify-center">
-        <ActionBar
-          isMyTurn={isMyTurn && humanActiveZone !== 'faceDown'}
-          selectedCards={selectedCards}
-          pileEmpty={state.pile.length === 0}
-          onPlay={onPlay}
-          onPickUp={onPickUp}
-          onClearSelection={onClearSelection}
-          status={status}
+          compact={isMobile}
         />
       </div>
 

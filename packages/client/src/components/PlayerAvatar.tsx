@@ -36,7 +36,7 @@ export function PlayerAvatar({ name, playerIndex, isActive }: PlayerAvatarProps)
         />
       )}
       <div
-        className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg
+        className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-[10px] sm:text-sm md:text-base
           border-2 ${isActive ? 'border-gold' : 'border-gold/40'}`}
         style={{
           background: `linear-gradient(135deg, ${from}, ${to})`,

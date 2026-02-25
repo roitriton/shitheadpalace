@@ -9,6 +9,7 @@ import { GameBoard } from './components/GameBoard';
 import { DebugToolbar, ZoneInspectorModal, type InspectZone } from './components/DebugPanel';
 import { ChatPanel, type ChatMessage } from './components/ChatPanel';
 import { ActionLog } from './components/ActionLog';
+import { BottomBar } from './components/BottomBar';
 
 // ─── Socket (singleton module-level) ──────────────────────────────────────────
 
@@ -98,16 +99,26 @@ function App() {
   const emit = (event: string, data?: unknown) => socket.emit(event, data);
 
   const handleChatSend = (message: string) => socket.emit('chat:send', { message });
+  const isMobile = () => window.innerWidth < 768;
+
   const handleChatToggle = () =>
     setChatOpen((prev) => {
-      if (!prev) setChatUnread(0);
-      return !prev;
+      const opening = !prev;
+      if (opening) {
+        setChatUnread(0);
+        if (isMobile()) setActionLogOpen(false);
+      }
+      return opening;
     });
 
   const handleActionLogToggle = () =>
     setActionLogOpen((prev) => {
-      if (!prev) setActionLogUnread(0);
-      return !prev;
+      const opening = !prev;
+      if (opening) {
+        setActionLogUnread(0);
+        if (isMobile()) setChatOpen(false);
+      }
+      return opening;
     });
 
   /**
@@ -334,6 +345,14 @@ function App() {
 
   const isDev = import.meta.env.DEV;
 
+  // Compute action bar state for BottomBar
+  const humanIdx = gameState.players.findIndex((p) => p.id === humanId);
+  const human = gameState.players[humanIdx];
+  const isMyTurn = human ? gameState.currentPlayerIndex === humanIdx : false;
+  const humanActiveZone = human ? getActiveZone(human) : null;
+  const canPlay = isMyTurn && selectedCards.length > 0 && humanActiveZone !== 'faceDown';
+  const canPickUp = isMyTurn && gameState.pile.length > 0;
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -341,7 +360,7 @@ function App() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`h-screen bg-casino-room relative flex flex-col overflow-hidden ${isDev ? 'pt-8' : ''}`}
+        className={`h-screen bg-casino-room relative flex flex-col overflow-hidden pb-14 ${isDev ? 'pt-8' : ''}`}
       >
         {/* Vignette sombre sur les bords de la salle */}
         <div
@@ -350,8 +369,8 @@ function App() {
             background: 'radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%)',
           }}
         />
-        {/* Titre discret */}
-        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+        {/* Titre discret — masqué en mobile */}
+        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-10 pointer-events-none hidden sm:block">
           <span className="font-serif text-gold/60 text-xs tracking-widest uppercase">
             Shit Head Palace
           </span>
@@ -368,9 +387,6 @@ function App() {
           selectedCards={selectedCards}
           onCardClick={handleCardClick}
           onFaceDownPlay={handleFaceDownPlay}
-          onPlay={handlePlay}
-          onPickUp={handlePickUp}
-          onClearSelection={() => setSelectedCards([])}
           onRestart={handleRestart}
           error={error}
           targetPickerVisible={targetPickerCardIds !== null}
@@ -392,15 +408,25 @@ function App() {
           isOpen={chatOpen}
           onToggle={handleChatToggle}
           onSend={handleChatSend}
-          unreadCount={chatUnread}
           debugBarOffset={isDev}
         />
         <ActionLog
           log={gameState.log}
           isOpen={actionLogOpen}
           onToggle={handleActionLogToggle}
-          unreadCount={actionLogUnread}
           debugBarOffset={isDev}
+        />
+        <BottomBar
+          onChatToggle={handleChatToggle}
+          chatUnread={chatUnread}
+          canPlay={canPlay}
+          canPickUp={canPickUp}
+          selectedCount={selectedCards.length}
+          onPlay={handlePlay}
+          onPickUp={handlePickUp}
+          onClearSelection={() => setSelectedCards([])}
+          onActionLogToggle={handleActionLogToggle}
+          actionLogUnread={actionLogUnread}
         />
         {isDev && debugInspectZone && (
           <ZoneInspectorModal

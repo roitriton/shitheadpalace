@@ -77,8 +77,8 @@ Outils de debug et améliorations UI :
     - Intégration App.tsx : state actionLogOpen/actionLogUnread, tracking nouvelles entrées
     - 6 tests d'intégration engine : play, pickUp, burn, skip, swap, darkPlayFail
 
-Étape en cours :
-- [ ] Étape 9 — Client : layout casino + espace de jeu — EN COURS
+Étapes terminées (suite) :
+- [x] Étape 9 — Client : layout casino + espace de jeu (842 tests au total)
   - [x] Étape 9A — Fond de table casino (842 tests, pas de nouveaux tests)
     - Body bg quasi noir (#0a0a0f) "salle de casino" + vignette radiale sombre aux bords
     - Table ovale arrondie (rounded-[2.5rem]) avec feutre vert radial-gradient (#0d5e2e → #0a4a24 → #073d1c)
@@ -100,6 +100,25 @@ Outils de debug et améliorations UI :
     - Main humaine : éventail ±12° arc 8px, hover redresse+soulève, sélection zIndex 20
     - Main bots : éventail ±8° arc 5px combiné avec chevauchement (marginLeft négatif, max -24px)
     - Flop bots en taille xs avec gap réduit, flop humain inchangé (ligne droite)
+  - [x] Étape 9D — Responsive desktop/tablette + bandeau fixe BottomBar (842 tests, pas de nouveaux tests)
+    - BottomBar.tsx : bandeau fixe h-14 en bas (fixed bottom-0, z-50, bg-gray-900/95 backdrop-blur)
+      - Gauche : bouton Chat (💬 + badge unread)
+      - Centre : Jouer (gold + compteur) / ✕ Annuler (animé) / Ramasser (rouge)
+      - Droite : bouton LOG (+ badge unread)
+    - ActionBar supprimé de GameBoard — boutons migrés dans BottomBar, statut gardé au-dessus de la zone humain
+    - ChatPanel / ActionLog : boutons toggle flottants supprimés, panneaux s'arrêtent au-dessus du bandeau (bottom-14)
+    - Props unreadCount retirées de ChatPanel/ActionLog (badges dans BottomBar)
+    - Breakpoints responsive recalibrés : base→mobile, sm:→640px, md:→768px
+    - PlayerAvatar : tailles réduites (w-6 → sm:w-8 → md:w-10)
+    - GameBoard : détection mobile (isMobile <640px) et landscape (isLandscape height<500px)
+      - Mobile : cartes humaines sm, éventail ±6°/4px, flop gap 4px
+      - Landscape : grille gaps réduits, centre compact
+    - PlayerZone : prop compact pour mode mobile (card size, fan, gap)
+    - CenterArea : prop compact pour paysage (gaps réduits)
+    - App.tsx : pb-14 sur wrapper, calcul canPlay/canPickUp depuis game state
+
+Bugs connus :
+- Le responsive mobile (portrait + paysage) nécessite un polish supplémentaire : cartes qui débordent, swap phase non scrollable, éléments trop grands. À résoudre à l'étape 15 avec tests sur appareil réel via Capacitor.
 
 Étapes à venir :
 - [ ] Étape 10 — Client : espace de jeu (disposition des zones)
