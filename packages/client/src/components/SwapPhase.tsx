@@ -86,7 +86,7 @@ export function SwapPhase({ state, humanId, onSwap, onReady }: SwapPhaseProps) {
   const isReady = human.isReady === true;
 
   return (
-    <div className="min-h-screen bg-felt-dark flex flex-col items-center justify-center p-6 gap-8">
+    <div className="min-h-screen bg-casino-room flex flex-col items-center justify-center p-6 gap-8">
       {/* Titre */}
       <div className="text-center">
         <h1 className="font-serif text-3xl text-gold mb-1">Phase de préparation</h1>

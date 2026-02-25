@@ -52,8 +52,8 @@ Outils de debug et améliorations UI :
 Étapes terminées (suite) :
 - [x] Étape 7 — Multijoueur en ligne (Socket.IO rooms, lobby, reconnexions) (821 tests au total, +55 server)
 
-Étape en cours :
-- [ ] Étape 8 — Chat et messagerie — EN COURS (842 tests au total, +6 engine)
+Étapes terminées (suite) :
+- [x] Étape 8 — Chat et messagerie (842 tests au total, +6 engine)
   - [x] Étape 8A — Chat en temps réel en partie (828 tests, +7 chat.test.ts)
     - ChatMessage type, addChatMessage(), addSystemMessage() dans GameRoom
     - chatSendSchema Zod validation
@@ -77,8 +77,19 @@ Outils de debug et améliorations UI :
     - Intégration App.tsx : state actionLogOpen/actionLogUnread, tracking nouvelles entrées
     - 6 tests d'intégration engine : play, pickUp, burn, skip, swap, darkPlayFail
 
+Étape en cours :
+- [ ] Étape 9 — Client : layout casino + espace de jeu — EN COURS
+  - [x] Étape 9A — Fond de table casino (842 tests, pas de nouveaux tests)
+    - Body bg quasi noir (#0a0a0f) "salle de casino" + vignette radiale sombre aux bords
+    - Table ovale arrondie (rounded-[2.5rem]) avec feutre vert radial-gradient (#0d5e2e → #0a4a24 → #073d1c)
+    - Double bordure : intérieure dorée (#c9a84c/30) + extérieure bois (#3d2b1f, 6px)
+    - Ombre portée (inset + externe) pour profondeur
+    - Titre discret "SHIT HEAD PALACE" serif doré opacité 0.6 au-dessus de la table
+    - Cohérence : SwapPhase, DebugSwapPhase, loading screen mis à jour
+    - Couleurs Tailwind ajoutées : casino.room, casino.wood
+
 Étapes à venir :
-- [ ] Étape 9-10 — Client : layout casino + espace de jeu
+- [ ] Étape 10 — Client : espace de jeu (disposition des zones)
 - [ ] Étape 11 — Client : UI pouvoirs et interactions spéciales
 - [ ] Étape 12 — Lobby, profil, variantes (client)
 - [ ] Étape 13 — IA (bots intermédiaire et expert)

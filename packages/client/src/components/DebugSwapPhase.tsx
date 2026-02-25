@@ -180,7 +180,7 @@ export function DebugSwapPhase({ state, humanId, onCompose }: DebugSwapPhaseProp
   };
 
   return (
-    <div className="min-h-screen bg-felt-dark flex flex-col items-center p-4 gap-4 overflow-y-auto">
+    <div className="min-h-screen bg-casino-room flex flex-col items-center p-4 gap-4 overflow-y-auto">
       {/* Titre */}
       <div className="text-center">
         <h1 className="font-serif text-2xl text-gold mb-1">Debug — Composition libre</h1>

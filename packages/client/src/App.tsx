@@ -286,7 +286,7 @@ function App() {
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-felt-dark flex items-center justify-center">
+      <div className="min-h-screen bg-casino-room flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -341,8 +341,21 @@ function App() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`h-screen ${isDev ? 'pt-8' : ''}`}
+        className={`h-screen bg-casino-room relative flex flex-col overflow-hidden ${isDev ? 'pt-8' : ''}`}
       >
+        {/* Vignette sombre sur les bords de la salle */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            background: 'radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%)',
+          }}
+        />
+        {/* Titre discret */}
+        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+          <span className="font-serif text-gold/60 text-xs tracking-widest uppercase">
+            Shit Head Palace
+          </span>
+        </div>
         {isDev && (
           <DebugToolbar
             revealHands={debugRevealHands}

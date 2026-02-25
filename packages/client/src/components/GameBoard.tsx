@@ -1108,7 +1108,7 @@ export function GameBoard({
 
   if (!human) {
     return (
-      <div className="min-h-screen bg-felt-dark flex items-center justify-center">
+      <div className="min-h-screen bg-casino-room flex items-center justify-center">
         <p className="text-red-400">Erreur : joueur non trouvé (humanId={humanId})</p>
       </div>
     );
@@ -1200,9 +1200,16 @@ export function GameBoard({
   }
 
   return (
-    <div className="min-h-screen bg-felt-dark flex flex-col relative overflow-hidden select-none">
-      {/* Bordure dorée décorative */}
-      <div className="absolute inset-2 rounded-2xl border border-gold/20 pointer-events-none" />
+    <div className="flex-1 flex flex-col relative overflow-hidden select-none z-[1]
+      rounded-[2.5rem] mx-3 my-2
+      border-[6px] border-casino-wood
+      shadow-[inset_0_0_80px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.7)]"
+      style={{
+        background: 'radial-gradient(ellipse at 50% 50%, #0d5e2e 0%, #0a4a24 60%, #073d1c 100%)',
+      }}
+    >
+      {/* Bordure dorée intérieure */}
+      <div className="absolute inset-0 rounded-[2rem] border border-gold/30 pointer-events-none" />
 
       {/* Erreur */}
       <AnimatePresence>

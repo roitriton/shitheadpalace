@@ -9,6 +9,10 @@ module.exports = {
           light: '#2d8a4e',
         },
         gold: '#c9a84c',
+        casino: {
+          room: '#0a0a0f',
+          wood: '#3d2b1f',
+        },
       },
       fontFamily: {
         serif: ['"Playfair Display"', 'serif'],
