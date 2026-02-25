@@ -16,9 +16,11 @@ interface ChatPanelProps {
   onToggle: () => void;
   onSend: (message: string) => void;
   unreadCount: number;
+  /** When true, panel starts below the 2rem debug toolbar */
+  debugBarOffset?: boolean;
 }
 
-export function ChatPanel({ messages, isOpen, onToggle, onSend, unreadCount }: ChatPanelProps) {
+export function ChatPanel({ messages, isOpen, onToggle, onSend, unreadCount, debugBarOffset }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -39,10 +41,12 @@ export function ChatPanel({ messages, isOpen, onToggle, onSend, unreadCount }: C
 
   return (
     <>
-      {/* Toggle button */}
-      <button
+      {/* Toggle button — shifts right when panel is open */}
+      <motion.button
         type="button"
         onClick={onToggle}
+        animate={{ x: isOpen ? 320 : 0 }}
+        transition={{ type: 'tween', duration: 0.25 }}
         className="fixed bottom-4 left-4 z-50 w-12 h-12 rounded-full bg-gray-800/90 border border-[#c9a84c]/30 flex items-center justify-center hover:bg-gray-700/90 transition-colors"
       >
         <span className="text-xl" role="img" aria-label="Chat">💬</span>
@@ -51,7 +55,7 @@ export function ChatPanel({ messages, isOpen, onToggle, onSend, unreadCount }: C
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
-      </button>
+      </motion.button>
 
       {/* Panel */}
       <AnimatePresence>
@@ -61,7 +65,7 @@ export function ChatPanel({ messages, isOpen, onToggle, onSend, unreadCount }: C
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'tween', duration: 0.25 }}
-            className="fixed left-0 top-0 z-[45] w-80 h-screen bg-gray-900/95 backdrop-blur border-r border-[#c9a84c]/20 flex flex-col"
+            className={`fixed left-0 z-[45] w-80 bg-gray-900/95 backdrop-blur border-r border-[#c9a84c]/20 flex flex-col ${debugBarOffset ? 'top-8 h-[calc(100vh-2rem)]' : 'top-0 h-screen'}`}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#c9a84c]/20">

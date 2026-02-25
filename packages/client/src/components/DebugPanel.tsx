@@ -1,119 +1,17 @@
-import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { GameState, LogEntry, PileEntry, Card as CardType } from '@shit-head-palace/engine';
+import type { GameState, PileEntry, Card as CardType } from '@shit-head-palace/engine';
 import { Card } from './Card';
-
-// ─── Log formatting ─────────────────────────────────────────────────────────
-
-function formatRanks(ranks: string[]): string {
-  return ranks.join(', ');
-}
-
-function formatLogEntry(entry: LogEntry): string {
-  const name = entry.playerName ?? 'Systeme';
-  const d = entry.data;
-
-  switch (entry.type) {
-    case 'play': {
-      const ranks = (d.ranks as string[] | undefined) ?? [];
-      const zone = d.zone as string | undefined;
-      const zoneLabel = zone === 'faceUp' ? ' (flop)' : zone === 'faceDown' ? ' (dark)' : '';
-      return `${name} joue ${formatRanks(ranks)}${zoneLabel}`;
-    }
-    case 'darkPlay': {
-      const ranks = (d.ranks as string[] | undefined) ?? [];
-      return `${name} joue a l'aveugle ${formatRanks(ranks)}`;
-    }
-    case 'darkPlayFail':
-      return `${name} echoue (dark flop) et ramasse`;
-    case 'pickUp':
-      return `${name} ramasse la pile (${d.cardCount ?? '?'} cartes)`;
-    case 'burn':
-      return `${name} brule la pile`;
-    case 'reset':
-      return `${name} reset (pile a zero)`;
-    case 'skip':
-      return `${name} skip (${d.skipCount ?? 1}x)`;
-    case 'under':
-      return `${name} pose Under (max ${d.underValue ?? '?'})`;
-    case 'target':
-      return `${name} pose un As (Target)`;
-    case 'targetChoice': {
-      const targetName = d.targetPlayerName as string | undefined;
-      return `${name} cible ${targetName ?? '?'}`;
-    }
-    case 'mirror':
-      return `${name} Mirror → valeur ${d.effectiveRank ?? '?'}`;
-    case 'revolution':
-      return `${name} Revolution !`;
-    case 'superRevolution':
-      return `${name} Super Revolution !`;
-    case 'manouche':
-    case 'superManouche':
-      return `${name} ${entry.type === 'superManouche' ? 'Super ' : ''}Manouche`;
-    case 'manouchePick':
-      return `${name} echange (Manouche)`;
-    case 'superManouchePick':
-      return `${name} echange (Super Manouche)`;
-    case 'shifumiTarget':
-      return `${name} lance un Shifumi`;
-    case 'shifumiChoice':
-      return `${name} choisit (Shifumi)`;
-    case 'shifumiResolved':
-      return `${name} perd le Shifumi, ramasse la pile`;
-    case 'shifumiTie':
-      return `Shifumi : egalite !`;
-    case 'superShifumiResolved':
-      return `${name} perd le Super Shifumi — Shit Head !`;
-    case 'flopReverse':
-      return `${name} Flop Reverse`;
-    case 'flopReverseTarget':
-      return `${name} retourne le flop`;
-    case 'flopRemake':
-      return `${name} Flop Remake`;
-    case 'flopRemakeTarget':
-      return `${name} cible pour Flop Remake`;
-    case 'flopRemakeDone':
-      return `${name} redistribue son flop`;
-    case 'playerFinished': {
-      const place = d.place as number | undefined;
-      return `${name} termine ${place ?? '?'}${place === 1 ? 'er' : 'e'}`;
-    }
-    case 'gameStart':
-      return 'Partie lancee';
-    case 'gameOver':
-      return 'Partie terminee';
-    case 'swap':
-      return `${name} echange (swap)`;
-    case 'firstPlayerShifumiStart':
-      return 'Shifumi pour le premier joueur';
-    case 'firstPlayerShifumiChoice':
-      return `${name} a choisi (shifumi)`;
-    case 'firstPlayerShifumiDraw':
-      return 'Egalite — nouvelle manche';
-    case 'firstPlayerShifumiNextRound':
-      return 'Prochaine manche du shifumi';
-    case 'firstPlayerShifumiWin':
-      return 'Premier joueur determine';
-    default:
-      return `${name}: ${entry.type}`;
-  }
-}
 
 // ─── DebugToolbar ───────────────────────────────────────────────────────────
 
 interface DebugToolbarProps {
   revealHands: boolean;
   onToggleRevealHands: () => void;
-  panelOpen: boolean;
-  onTogglePanel: () => void;
 }
 
 export function DebugToolbar({
   revealHands,
   onToggleRevealHands,
-  panelOpen,
-  onTogglePanel,
 }: DebugToolbarProps) {
   return (
     <div className="fixed top-0 left-0 right-0 h-8 z-[60] bg-gray-800/90 backdrop-blur-sm border-b border-gold/20 flex items-center px-4 gap-4 text-xs select-none">
@@ -130,67 +28,7 @@ export function DebugToolbar({
           />
         </div>
       </label>
-
-      <button
-        className={`px-2 py-0.5 rounded text-xs transition-colors ${panelOpen ? 'bg-gold text-gray-900 font-bold' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-        onClick={onTogglePanel}
-      >
-        Log
-      </button>
     </div>
-  );
-}
-
-// ─── DebugLogPanel ──────────────────────────────────────────────────────────
-
-interface DebugLogPanelProps {
-  log: LogEntry[];
-  isOpen: boolean;
-}
-
-export function DebugLogPanel({ log, isOpen }: DebugLogPanelProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-      });
-    }
-  }, [log.length]);
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ x: '100%' }}
-          animate={{ x: 0 }}
-          exit={{ x: '100%' }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="fixed top-8 right-0 w-80 h-[calc(100vh-2rem)] z-[45] bg-gray-900/95 backdrop-blur-sm border-l border-gold/20 flex flex-col"
-        >
-          <div className="px-3 py-2 border-b border-gold/20 flex-none">
-            <h3 className="font-serif text-sm text-gold">Action Log</h3>
-          </div>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto">
-            {log.map((entry, i) => (
-              <div
-                key={entry.id}
-                className="py-1.5 px-3 text-xs border-b border-gray-800/50 text-gray-300"
-              >
-                <span className="text-gray-500 mr-1.5 font-mono">{i + 1}.</span>
-                {formatLogEntry(entry)}
-              </div>
-            ))}
-            {log.length === 0 && (
-              <div className="px-3 py-4 text-xs text-gray-500 italic">Aucune action</div>
-            )}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
   );
 }
 

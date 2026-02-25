@@ -6,8 +6,9 @@ import { getActiveZone, matchesPowerRank, isManoucheCard } from '@shit-head-pala
 import { SwapPhase } from './components/SwapPhase';
 import { DebugSwapPhase } from './components/DebugSwapPhase';
 import { GameBoard } from './components/GameBoard';
-import { DebugToolbar, DebugLogPanel, ZoneInspectorModal, type InspectZone } from './components/DebugPanel';
+import { DebugToolbar, ZoneInspectorModal, type InspectZone } from './components/DebugPanel';
 import { ChatPanel, type ChatMessage } from './components/ChatPanel';
+import { ActionLog } from './components/ActionLog';
 
 // ─── Socket (singleton module-level) ──────────────────────────────────────────
 
@@ -30,9 +31,15 @@ function App() {
   const chatOpenRef = useRef(chatOpen);
   chatOpenRef.current = chatOpen;
 
+  // Action log state
+  const [actionLogOpen, setActionLogOpen] = useState(false);
+  const [actionLogUnread, setActionLogUnread] = useState(0);
+  const actionLogOpenRef = useRef(actionLogOpen);
+  actionLogOpenRef.current = actionLogOpen;
+  const prevLogLengthRef = useRef(0);
+
   // Debug state (dev mode only)
   const [debugRevealHands, setDebugRevealHands] = useState(false);
-  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
   const [debugInspectZone, setDebugInspectZone] = useState<InspectZone | null>(null);
 
   // Ref for always-current state (avoid stale closures in socket handlers)
@@ -54,6 +61,13 @@ function App() {
         setHumanId(playerId);
         setSelectedCards([]);
         setTargetPickerCardIds(null);
+
+        // Track unread log entries
+        const newEntries = state.log.length - prevLogLengthRef.current;
+        if (newEntries > 0 && !actionLogOpenRef.current) {
+          setActionLogUnread((prev) => prev + newEntries);
+        }
+        prevLogLengthRef.current = state.log.length;
       },
     );
 
@@ -87,6 +101,12 @@ function App() {
   const handleChatToggle = () =>
     setChatOpen((prev) => {
       if (!prev) setChatUnread(0);
+      return !prev;
+    });
+
+  const handleActionLogToggle = () =>
+    setActionLogOpen((prev) => {
+      if (!prev) setActionLogUnread(0);
       return !prev;
     });
 
@@ -197,6 +217,9 @@ function App() {
     setChatMessages([]);
     setChatUnread(0);
     setChatOpen(false);
+    setActionLogOpen(false);
+    setActionLogUnread(0);
+    prevLogLengthRef.current = 0;
     emit('game:restart');
   };
 
@@ -324,8 +347,6 @@ function App() {
           <DebugToolbar
             revealHands={debugRevealHands}
             onToggleRevealHands={() => setDebugRevealHands((v) => !v)}
-            panelOpen={debugPanelOpen}
-            onTogglePanel={() => setDebugPanelOpen((v) => !v)}
           />
         )}
         <GameBoard
@@ -359,13 +380,15 @@ function App() {
           onToggle={handleChatToggle}
           onSend={handleChatSend}
           unreadCount={chatUnread}
+          debugBarOffset={isDev}
         />
-        {isDev && (
-          <DebugLogPanel
-            log={gameState.log}
-            isOpen={debugPanelOpen}
-          />
-        )}
+        <ActionLog
+          log={gameState.log}
+          isOpen={actionLogOpen}
+          onToggle={handleActionLogToggle}
+          unreadCount={actionLogUnread}
+          debugBarOffset={isDev}
+        />
         {isDev && debugInspectZone && (
           <ZoneInspectorModal
             zone={debugInspectZone}

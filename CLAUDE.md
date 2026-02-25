@@ -53,7 +53,7 @@ Outils de debug et améliorations UI :
 - [x] Étape 7 — Multijoueur en ligne (Socket.IO rooms, lobby, reconnexions) (821 tests au total, +55 server)
 
 Étape en cours :
-- [ ] Étape 8 — Chat et messagerie — EN COURS (836 tests au total, +8 server)
+- [ ] Étape 8 — Chat et messagerie — EN COURS (842 tests au total, +6 engine)
   - [x] Étape 8A — Chat en temps réel en partie (828 tests, +7 chat.test.ts)
     - ChatMessage type, addChatMessage(), addSystemMessage() dans GameRoom
     - chatSendSchema Zod validation
@@ -66,6 +66,16 @@ Outils de debug et améliorations UI :
     - Validation Zod (pmSendSchema, max 500 chars)
     - Notification temps réel Socket.IO (pm:receive)
     - createMessagesRouter(io) factory pattern
+  - [x] Étape 8C — Log des actions en jeu (842 tests, +6 log-integration.test.ts)
+    - ActionLog.tsx : panneau production slide-from-right, couleurs par type de pouvoir, badge unread
+    - Ordre inversé (newest first), numérotation chronologique conservée
+    - Extraction formatLogEntry/formatRanks depuis DebugPanel vers ActionLog
+    - getLogEntryColor() : mapping couleur par type (burn=red, skip=orange, reset=cyan, etc.)
+    - Suppression DebugLogPanel de DebugPanel.tsx, simplification DebugToolbar
+    - Boutons toggle animés (Framer Motion) : décalage chat→droite, log→gauche à l'ouverture
+    - debugBarOffset : panneaux sous la barre DEBUG en mode dev (top-8)
+    - Intégration App.tsx : state actionLogOpen/actionLogUnread, tracking nouvelles entrées
+    - 6 tests d'intégration engine : play, pickUp, burn, skip, swap, darkPlayFail
 
 Étapes à venir :
 - [ ] Étape 9-10 — Client : layout casino + espace de jeu
