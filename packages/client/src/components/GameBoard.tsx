@@ -4,6 +4,7 @@ import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi
 import { getActiveZone, getTopPileValue } from '@shit-head-palace/engine';
 import type { InspectZone } from './DebugPanel';
 import { Card } from './Card';
+import { PlayerAvatar } from './PlayerAvatar';
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ interface PlayerZoneProps {
   isActive: boolean;
   activeZone: ReturnType<typeof getActiveZone>;
   selectedCards: string[];
+  playerIndex: number;
   onCardClick?: (card: CardType) => void;
   onFaceDownClick?: (card: CardType) => void;
   debugRevealHands?: boolean;
@@ -30,6 +32,7 @@ function PlayerZone({
   isActive,
   activeZone,
   selectedCards,
+  playerIndex,
   onCardClick,
   onFaceDownClick,
   debugRevealHands,
@@ -38,24 +41,12 @@ function PlayerZone({
   const canClickFaceUp = isActive && activeZone === 'faceUp' && !isBot;
   const canClickFaceDown = isActive && activeZone === 'faceDown' && !isBot;
 
-  return (
-    <div className={`flex flex-col items-center gap-2 ${isBot ? '' : 'mt-1'}`}>
-      {/* Étiquette du joueur */}
-      <div className="flex items-center gap-2 mb-1">
-        <div
-          className={`text-xs font-semibold px-3 py-0.5 rounded-full ${
-            isActive
-              ? 'bg-gold text-gray-900 animate-pulse'
-              : 'bg-gray-700 text-gray-300'
-          }`}
-        >
-          {player.name}
-        </div>
-      </div>
-
-      {/* Main (en haut pour bot, en bas pour humain) */}
+  // ── Bloc de cartes (main + flop) ──
+  const cardBlock = (
+    <div className="flex flex-col items-center gap-1">
+      {/* Main (visible pour bot, en dessous du flop pour humain) */}
       {isBot ? (
-        <div className="flex gap-1 mb-1">
+        <div className="flex gap-1">
           {player.hand.map((card) => (
             <Card key={card.id} card={card} faceDown={!debugRevealHands} size="sm" />
           ))}
@@ -65,12 +56,7 @@ function PlayerZone({
         </div>
       ) : null}
 
-      {/* Flop empilé sur dark flop :
-          ┌─────────┐  ← dark flop (faceDown), z-0
-          │  ╔═════╗│  ← flop (faceUp), décalé de 12 px vers le bas, z-10
-          │  ║     ║│    → ~12 px du dark flop dépasse en haut
-          └──╚═════╝┘
-      */}
+      {/* Flop empilé sur dark flop */}
       <div className="flex gap-2">
         {(player.faceDown.length > 0 || player.faceUp.length > 0) ? (
           Array.from({ length: Math.max(player.faceDown.length, player.faceUp.length) }).map(
@@ -79,7 +65,6 @@ function PlayerZone({
               const fuCard = player.faceUp[i];
               return (
                 <div key={i} className="relative w-11 h-[76px]">
-                  {/* Dark flop — toujours derrière */}
                   {fdCard && (
                     <div className="absolute top-0 z-0">
                       <Card
@@ -90,7 +75,6 @@ function PlayerZone({
                       />
                     </div>
                   )}
-                  {/* Flop — décalé de 12 px quand dark flop présent */}
                   {fuCard && (
                     <div className={`absolute z-10 ${fdCard ? 'top-3' : 'top-0'}`}>
                       <Card
@@ -133,6 +117,20 @@ function PlayerZone({
           </AnimatePresence>
         </div>
       )}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-row items-center gap-3">
+      {/* Avatar + nom à gauche */}
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} />
+        <span className={`text-xs font-semibold max-w-[56px] truncate text-center ${isActive ? 'text-gold' : 'text-gray-400'}`}>
+          {player.name}
+        </span>
+      </div>
+      {/* Cartes à droite */}
+      {cardBlock}
     </div>
   );
 }
@@ -1034,6 +1032,40 @@ function GameOver({ state, humanId, onRestart, onClose }: GameOverProps) {
   );
 }
 
+// ─── Positionnement des adversaires autour de la table ──────────────────────
+
+type Seat = 'top' | 'top-left' | 'top-right' | 'left' | 'right';
+
+/**
+ * Returns the seat positions for each opponent based on the total number
+ * of opponents (i.e. playerCount - 1).
+ *
+ * - 1 opponent  → top
+ * - 2 opponents → top-left, top-right
+ * - 3 opponents → left, top, right
+ */
+function getOpponentSeats(opponentCount: number): Seat[] {
+  switch (opponentCount) {
+    case 1:
+      return ['top'];
+    case 2:
+      return ['top-left', 'top-right'];
+    case 3:
+      return ['left', 'top', 'right'];
+    default:
+      // Fallback: all top
+      return Array.from({ length: opponentCount }, () => 'top' as Seat);
+  }
+}
+
+const SEAT_CLASSES: Record<Seat, string> = {
+  'top': 'col-start-2 row-start-1 justify-self-center self-start',
+  'top-left': 'col-start-1 row-start-1 justify-self-center self-start',
+  'top-right': 'col-start-3 row-start-1 justify-self-center self-start',
+  'left': 'col-start-1 row-start-2 justify-self-start self-center',
+  'right': 'col-start-3 row-start-2 justify-self-end self-center',
+};
+
 // ─── GameBoard principal ───────────────────────────────────────────────────────
 
 interface GameBoardProps {
@@ -1226,34 +1258,45 @@ export function GameBoard({
         )}
       </AnimatePresence>
 
-      {/* ── Zone Bots (haut) ── */}
-      <div className="flex-none px-6 pt-4 flex justify-center gap-10">
-        {bots.map((bot) => (
-          <PlayerZone
-            key={bot.id}
-            player={bot}
-            isBot={true}
-            isActive={state.players.findIndex((p) => p.id === bot.id) === state.currentPlayerIndex}
-            activeZone={getActiveZone(bot)}
-            selectedCards={[]}
-            debugRevealHands={debugRevealHands}
-          />
-        ))}
-      </div>
+      {/* ── Grille : adversaires + centre ── */}
+      <div className="flex-1 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] grid-rows-[auto_1fr] gap-2 px-4 pt-3">
+        {/* Adversaires positionnés */}
+        {(() => {
+          const seats = getOpponentSeats(bots.length);
+          return bots.map((bot, i) => {
+            const seat = seats[i];
+            const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
+            return (
+              <div key={bot.id} className={`${SEAT_CLASSES[seat]} z-[2]`}>
+                <PlayerZone
+                  player={bot}
+                  isBot={true}
+                  isActive={botGlobalIdx === state.currentPlayerIndex}
+                  activeZone={getActiveZone(bot)}
+                  selectedCards={[]}
+                  playerIndex={botGlobalIdx}
+                  debugRevealHands={debugRevealHands}
+                />
+              </div>
+            );
+          });
+        })()}
 
-      {/* ── Zone Centrale ── */}
-      <div className="flex-none px-6 py-2">
-        <CenterArea state={state} onInspectZone={onInspectZone} />
+        {/* Zone Centrale */}
+        <div className="col-start-2 row-start-2 flex items-center justify-center">
+          <CenterArea state={state} onInspectZone={onInspectZone} />
+        </div>
       </div>
 
       {/* ── Zone Humain (bas) ── */}
-      <div className="flex-1 flex flex-col justify-end px-6 pb-2">
+      <div className="flex-none px-6 pb-2 flex justify-center">
         <PlayerZone
           player={human}
           isBot={false}
           isActive={isMyTurn}
           activeZone={humanActiveZone}
           selectedCards={selectedCards}
+          playerIndex={humanIdx}
           onCardClick={onCardClick}
           onFaceDownClick={onFaceDownPlay}
         />

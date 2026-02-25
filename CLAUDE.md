@@ -87,6 +87,13 @@ Outils de debug et améliorations UI :
     - Titre discret "SHIT HEAD PALACE" serif doré opacité 0.6 au-dessus de la table
     - Cohérence : SwapPhase, DebugSwapPhase, loading screen mis à jour
     - Couleurs Tailwind ajoutées : casino.room, casino.wood
+  - [x] Étape 9B — Disposition joueurs autour de la table (842 tests, pas de nouveaux tests)
+    - PlayerAvatar.tsx : cercle 48px, dégradé par index (bleu/rouge/vert/orange), initiale, bordure dorée, glow animé au tour actif
+    - getOpponentSeats() : positionnement dynamique (1 bot → top, 2 → top-left/top-right, 3 → left/top/right)
+    - Grille CSS grid-cols-[1fr_2fr_1fr] grid-rows-[auto_1fr] pour adversaires + zone centrale
+    - PlayerZone refactorisé : layout flex-row (avatar+nom à gauche, cartes à droite)
+    - Zone humain centrée horizontalement (flex justify-center)
+    - playerIndex prop ajouté à PlayerZone pour couleur avatar
 
 Étapes à venir :
 - [ ] Étape 10 — Client : espace de jeu (disposition des zones)
