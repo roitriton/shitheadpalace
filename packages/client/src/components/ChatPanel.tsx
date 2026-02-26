@@ -15,11 +15,11 @@ interface ChatPanelProps {
   isOpen: boolean;
   onToggle: () => void;
   onSend: (message: string) => void;
-  /** When true, panel starts below the 2rem debug toolbar */
-  debugBarOffset?: boolean;
+  /** When true, panel starts below the top bar (h-14) */
+  topBarOffset?: boolean;
 }
 
-export function ChatPanel({ messages, isOpen, onToggle, onSend, debugBarOffset }: ChatPanelProps) {
+export function ChatPanel({ messages, isOpen, onToggle, onSend, topBarOffset }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +46,7 @@ export function ChatPanel({ messages, isOpen, onToggle, onSend, debugBarOffset }
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'tween', duration: 0.25 }}
-            className={`fixed left-0 bottom-14 z-[45] w-72 sm:w-80 bg-gray-900/95 backdrop-blur border-r border-[#c9a84c]/20 flex flex-col ${debugBarOffset ? 'top-8' : 'top-0'}`}
+            className={`fixed left-0 bottom-14 z-[45] w-72 sm:w-80 bg-gray-900/95 backdrop-blur border-r border-[#c9a84c]/20 flex flex-col ${topBarOffset ? 'top-14' : 'top-0'}`}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#c9a84c]/20">

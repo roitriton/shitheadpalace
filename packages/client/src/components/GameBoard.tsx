@@ -1421,15 +1421,7 @@ export function GameBoard({
         )}
       </AnimatePresence>
 
-      {/* ── 1. Bandeau titre ── */}
-      <div className="flex-none text-center px-2 py-0.5">
-        <span className="font-serif text-gold/50 text-[10px] sm:text-xs tracking-widest uppercase">
-          Shit Head Palace
-        </span>
-        <span className="text-gray-500 text-[9px] ml-2">Solo</span>
-      </div>
-
-      {/* ── 2. Zone adversaires (25%) ── */}
+      {/* ── 1. Zone adversaires (25%) ── */}
       <div className="flex-[25] min-h-0 flex items-start justify-evenly px-2 sm:px-3 md:px-4">
         {bots.map((bot) => {
           const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
@@ -1449,15 +1441,21 @@ export function GameBoard({
         })}
       </div>
 
-      {/* ── 3. Zone principale (40%) — 3 colonnes ── */}
+      {/* ── 2. Zone principale (40%) — 3 colonnes ── */}
       <div className="flex-[40] min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2">
-        {/* Colonne gauche (25%) — Révolution + Pioche */}
-        <div className="w-1/4 flex flex-col h-full bg-black/20 rounded-lg">
-          {/* Haut (50%) — RevolutionBanner */}
-          <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
-            <RevolutionBanner phase={state.phase} />
+        {/* Colonne gauche (25%) — Cadre Révolution + Pioche */}
+        <div className="w-1/4 flex flex-col h-full bg-black/10 rounded-lg gap-1 p-1">
+          {/* Cadre noir permanent — Révolution */}
+          <div className="flex-1 min-h-0 bg-black rounded-lg flex items-center justify-center overflow-hidden p-2">
+            {(state.phase === 'revolution' || state.phase === 'superRevolution') ? (
+              <RevolutionBanner phase={state.phase} />
+            ) : (
+              <span className="text-[10px] sm:text-xs text-gray-400 text-center leading-tight px-1">
+                {'R\u00e8gles standards, les pouvoirs sont actifs'}
+              </span>
+            )}
           </div>
-          {/* Bas (50%) — Pioche */}
+          {/* Pioche */}
           <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
             <div
               className={`flex flex-col items-center gap-1.5 ${onInspectZone ? 'cursor-pointer' : ''}`}
@@ -1479,17 +1477,23 @@ export function GameBoard({
         </div>
 
         {/* Colonne centre (50%) — Pile + Cimetière */}
-        <div className="w-1/2 h-full bg-white/5 rounded-lg">
+        <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg">
           <CardsColumn state={state} />
         </div>
 
-        {/* Colonne droite (25%) — Power Overlay + MiniLog */}
-        <div className="w-1/4 flex flex-col h-full bg-black/20 rounded-lg">
-          {/* Haut (50%) — Power Overlay */}
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <PowerOverlay power={currentPower ?? null} players={state.players} />
+        {/* Colonne droite (25%) — Cadre Overlay + MiniLog */}
+        <div className="w-1/4 flex flex-col h-full bg-black/10 rounded-lg gap-1 p-1">
+          {/* Cadre noir permanent — Power Overlay */}
+          <div className="flex-1 min-h-0 bg-black rounded-lg overflow-hidden">
+            {currentPower ? (
+              <PowerOverlay power={currentPower} players={state.players} />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-[10px] text-gray-600 italic">Aucun pouvoir</span>
+              </div>
+            )}
           </div>
-          {/* Bas (50%) — MiniLog */}
+          {/* MiniLog */}
           <div className="flex-1 min-h-0 flex items-start justify-center overflow-hidden pt-1">
             <MiniLog log={state.log} />
           </div>

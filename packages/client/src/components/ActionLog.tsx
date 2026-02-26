@@ -153,11 +153,11 @@ interface ActionLogProps {
   log: LogEntry[];
   isOpen: boolean;
   onToggle: () => void;
-  /** When true, panel starts below the 2rem debug toolbar */
-  debugBarOffset?: boolean;
+  /** When true, panel starts below the top bar (h-14) */
+  topBarOffset?: boolean;
 }
 
-export function ActionLog({ log, isOpen, onToggle, debugBarOffset }: ActionLogProps) {
+export function ActionLog({ log, isOpen, onToggle, topBarOffset }: ActionLogProps) {
   const reversed = useMemo(
     () => [...log].reverse().map((entry, i) => ({ entry, num: log.length - i })),
     [log],
@@ -171,7 +171,7 @@ export function ActionLog({ log, isOpen, onToggle, debugBarOffset }: ActionLogPr
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.25 }}
-            className={`fixed right-0 bottom-14 z-[45] w-72 sm:w-80 bg-gray-900/95 backdrop-blur border-l border-[#c9a84c]/20 flex flex-col ${debugBarOffset ? 'top-8' : 'top-0'}`}
+            className={`fixed right-0 bottom-14 z-[45] w-72 sm:w-80 bg-gray-900/95 backdrop-blur border-l border-[#c9a84c]/20 flex flex-col ${topBarOffset ? 'top-14' : 'top-0'}`}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#c9a84c]/20">

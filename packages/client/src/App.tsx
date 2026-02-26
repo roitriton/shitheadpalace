@@ -6,10 +6,11 @@ import { getActiveZone, matchesPowerRank, isManoucheCard } from '@shit-head-pala
 import { SwapPhase } from './components/SwapPhase';
 import { DebugSwapPhase } from './components/DebugSwapPhase';
 import { GameBoard } from './components/GameBoard';
-import { DebugToolbar, ZoneInspectorModal, type InspectZone } from './components/DebugPanel';
+import { ZoneInspectorModal, type InspectZone } from './components/DebugPanel';
 import { ChatPanel, type ChatMessage } from './components/ChatPanel';
 import { ActionLog } from './components/ActionLog';
 import { BottomBar } from './components/BottomBar';
+import { TopBar } from './components/TopBar';
 
 // ─── Socket (singleton module-level) ──────────────────────────────────────────
 
@@ -377,7 +378,7 @@ function App() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`h-screen bg-casino-room relative flex flex-col overflow-hidden pb-14 ${isDev ? 'pt-8' : ''}`}
+        className="h-screen bg-casino-room relative flex flex-col overflow-hidden pt-14 pb-14"
       >
         {/* Vignette sombre sur les bords de la salle */}
         <div
@@ -386,13 +387,12 @@ function App() {
             background: 'radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%)',
           }}
         />
-        {/* Titre déplacé dans GameBoard */}
-        {isDev && (
-          <DebugToolbar
-            revealHands={debugRevealHands}
-            onToggleRevealHands={() => setDebugRevealHands((v) => !v)}
-          />
-        )}
+        <TopBar
+          gameType="Solo"
+          isDev={isDev}
+          revealHands={isDev ? debugRevealHands : undefined}
+          onToggleRevealHands={isDev ? () => setDebugRevealHands((v) => !v) : undefined}
+        />
         <GameBoard
           state={gameState}
           humanId={humanId}
@@ -421,13 +421,13 @@ function App() {
           isOpen={chatOpen}
           onToggle={handleChatToggle}
           onSend={handleChatSend}
-          debugBarOffset={isDev}
+          topBarOffset
         />
         <ActionLog
           log={gameState.log}
           isOpen={actionLogOpen}
           onToggle={handleActionLogToggle}
-          debugBarOffset={isDev}
+          topBarOffset
         />
         <BottomBar
           onChatToggle={handleChatToggle}
