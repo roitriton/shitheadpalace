@@ -1,5 +1,6 @@
 import type { Card, GameState } from '../types';
-import { isBurnTriggered, applyBurn } from '../powers/burn';
+import { isBurnTriggered } from '../powers/burn';
+import { appendLog } from '../utils/log';
 import { isResetTriggered, applyReset } from '../powers/reset';
 import { isUnderTriggered, getUnderValue, applyUnder } from '../powers/under';
 import { getSkipCount, logSkip } from '../powers/skip';
@@ -20,45 +21,6 @@ import {
 } from '../powers/flopReverse';
 import { isShifumiTriggered, isSuperShifumiTriggered } from '../powers/shifumi';
 import { matchesPowerRank } from '../powers/utils';
-
-// ─── Internal helper ──────────────────────────────────────────────────────────
-
-/**
- * Moves all Jack cards (and any accompanying Mirror cards) from the top pile
- * entry to the graveyard. If the entry becomes empty after removal, it is
- * removed from the pile entirely.
- *
- * During revolution or superRevolution phases, all powers are suppressed —
- * Jacks lose their special status and remain in the pile like normal cards.
- */
-function moveJacksToGraveyard(state: GameState, playedCards: Card[]): GameState {
-  const hasJack = playedCards.some((c) => c.rank === 'J');
-  if (!hasJack) return state;
-
-  // During revolution/superRevolution, Jacks stay in the pile (powers suppressed)
-  if (state.phase === 'revolution' || state.phase === 'superRevolution') return state;
-
-  const isMirrorCard = (c: Card) => matchesPowerRank(c.rank, state.variant, 'mirror');
-  const toGraveyard = playedCards.filter((c) => c.rank === 'J' || isMirrorCard(c));
-  const graveIds = new Set(toGraveyard.map((c) => c.id));
-
-  if (state.pile.length === 0) return state;
-
-  const topIdx = state.pile.length - 1;
-  const topEntry = state.pile[topIdx]!;
-  const remaining = topEntry.cards.filter((c) => !graveIds.has(c.id));
-
-  const newPile =
-    remaining.length === 0
-      ? state.pile.slice(0, topIdx)
-      : [...state.pile.slice(0, topIdx), { ...topEntry, cards: remaining }];
-
-  return {
-    ...state,
-    pile: newPile,
-    graveyard: [...state.graveyard, ...toGraveyard],
-  };
-}
 
 export interface PowerResult {
   /** Updated game state after all power effects are applied. */
@@ -135,7 +97,7 @@ export function resolvePowers(
   // disabled during revolution and superRevolution phases. Only Under/Reset
   // cleanup (step 1) still applies. Jacks still go to graveyard even here.
   if (newState.phase === 'revolution' || newState.phase === 'superRevolution') {
-    newState = moveJacksToGraveyard(newState, playedCards);
+    // During revolution, Jacks stay in the pile (powers suppressed) — no transit.
     newState = { ...newState, lastPowerTriggered: null };
     return { state: newState, playerReplays: false, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
   }
@@ -161,17 +123,25 @@ export function resolvePowers(
   const cardsInfo = playedCards.map((c) => ({ rank: c.rank, suit: c.suit }));
 
   if (isBurnTriggered(cardsForBurnCheck, newState.pile, newState.variant, newState.phase, playedCards.length)) {
-    newState = applyBurn(newState, playerId, timestamp);
-    newState = { ...newState, lastPowerTriggered: { type: 'burn', playerId, cardsPlayed: cardsInfo } };
+    const burnPlayer = newState.players.find((p) => p.id === playerId)!;
+    const burnedCount = newState.pile.flatMap((e) => e.cards).length;
+    newState = appendLog(newState, 'burn', timestamp, playerId, burnPlayer.name, { burnedCount });
+    newState = {
+      ...newState,
+      lastPowerTriggered: { type: 'burn', playerId, cardsPlayed: cardsInfo },
+      pendingCemeteryTransit: true,
+    };
     return { state: newState, playerReplays: true, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
   }
 
-  // ── 4.5. Jack cards → graveyard ───────────────────────────────────────────
+  // ── 4.5. Jack cards → graveyard (deferred to resolveCemeteryTransit) ─────
   // Jacks (and any accompanying Mirror cards) are never left in the pile.
-  // They trigger their suit-specific power and are immediately consumed to the
-  // graveyard. This step runs after Burn priority has been settled (4 identical
-  // Jacks still trigger Burn first via applyBurn above).
-  newState = moveJacksToGraveyard(newState, playedCards);
+  // They trigger their suit-specific power and are consumed to the graveyard.
+  // The actual move is deferred: we set pendingCemeteryTransit here, and
+  // resolveCemeteryTransit (called in applyPlay) performs the transfer.
+  if (hasJack) {
+    newState = { ...newState, pendingCemeteryTransit: true };
+  }
 
   // ── 5. Skip ───────────────────────────────────────────────────────────────
   const skipCount = getSkipCount(playedCards, newState.variant, newState.phase);

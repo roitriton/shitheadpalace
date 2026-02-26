@@ -134,6 +134,14 @@ Bugs connus :
   - Suppression des badges pouvoirs (RESET/UNDER/RÉV.)
   - Drag and drop pour réorganiser les cartes en main (Framer Motion Reorder)
 
+Étapes terminées (suite) :
+- [x] Phase 6 — Cemetery Transit (897 tests au total, +15 cemeteryTransit.test.ts)
+  - pendingCemeteryTransit flag sur GameState (état intermédiaire burn/jack → cimetière)
+  - resolveCemeteryTransit() : burn = pile entière → cimetière, jack = top entry → cimetière
+  - resolvePowers : applyBurn remplacé par log + flag, moveJacksToGraveyard remplacé par flag
+  - applyPlay : appel automatique resolveCemeteryTransit après chaque resolvePowers (3 chemins)
+  - Export depuis engine/index.ts, préservé par filterGameStateForPlayer
+
 Étapes à venir :
 - [ ] Étape 11B — Client : UI pouvoirs et interactions spéciales (suite)
 - [ ] Étape 12 — Lobby, profil, variantes (client)

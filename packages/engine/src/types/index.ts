@@ -261,6 +261,11 @@ export interface GameState {
    * Set by the J♦ + Mirror play.
    */
   superRevolution?: boolean;
+  /**
+   * When true, cards need to be moved to the graveyard (burn or jack transit).
+   * Set by resolvePowers, consumed by resolveCemeteryTransit in applyPlay.
+   */
+  pendingCemeteryTransit?: boolean;
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────

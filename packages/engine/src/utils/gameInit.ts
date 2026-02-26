@@ -77,5 +77,6 @@ export function createInitialGameState(
     log: [],
     lastPowerTriggered: null,
     pendingCardsPlayed: undefined,
+    pendingCemeteryTransit: false,
   };
 }

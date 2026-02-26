@@ -28,6 +28,7 @@ export {
 export { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiChoice';
 export { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
 export { filterGameStateForPlayer } from './filter';
+export { resolveCemeteryTransit } from './cemeteryTransit';
 export { resolvePowers } from './powers';
 export type { PowerResult } from './powers';
 export * from './validation';

@@ -9,6 +9,7 @@ import {
 import { autoDraw, isPlayerFinished, advanceTurn, isGameOver, resolveAutoSkip } from '../turn';
 import { appendLog } from '../../utils/log';
 import { resolvePowers } from '../powers';
+import { resolveCemeteryTransit } from '../cemeteryTransit';
 import { getMirrorEffectiveRank } from '../../powers/mirror';
 import { matchesPowerRank } from '../../powers/utils';
 
@@ -263,7 +264,7 @@ export function applyPlay(
         pendingFlopType: pfRevealed,
         pendingShifumiType: psRevealed,
       } = resolvePowers(newStateRevealed, cardsToPlay, playerId, timestamp);
-      newStateRevealed = poweredRevealed;
+      newStateRevealed = resolveCemeteryTransit(poweredRevealed);
 
       const finishedRevealed = isPlayerFinished(newStateRevealed.players[playerIndex]!);
       if (finishedRevealed) newStateRevealed = markPlayerFinished(newStateRevealed, playerIndex, timestamp);
@@ -339,7 +340,7 @@ export function applyPlay(
       pendingFlopType,
       pendingShifumiType,
     } = resolvePowers(newState, [revealedCard], playerId, timestamp);
-    newState = powered;
+    newState = resolveCemeteryTransit(powered);
 
     const finished = isPlayerFinished(newState.players[playerIndex]!);
     if (finished) newState = markPlayerFinished(newState, playerIndex, timestamp);
@@ -433,7 +434,7 @@ export function applyPlay(
     pendingFlopType,
     pendingShifumiType,
   } = resolvePowers(newState, cardsToPlay, playerId, timestamp);
-  newState = powered;
+  newState = resolveCemeteryTransit(powered);
 
   // ── Finish / game-over detection ───────────────────────────────────────────
   const finished = isPlayerFinished(newState.players[playerIndex]!);
