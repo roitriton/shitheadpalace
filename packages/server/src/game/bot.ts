@@ -252,3 +252,43 @@ export function runBotTurns(state: GameState, botIds: string[], humanIds: string
 
   return s;
 }
+
+/**
+ * Executes exactly ONE bot action (play, pending action resolution, etc.).
+ * Returns the updated state, or the same reference if no bot can act.
+ * Used by solo mode to insert a delay between each bot action.
+ */
+export function botActOnce(state: GameState, botIds: string[], humanIds: string[]): GameState {
+  if (state.phase === 'finished') return state;
+
+  // Auto-resolve firstPlayerShifumi immediately (no visual needed)
+  if (state.pendingAction?.type === 'firstPlayerShifumi') {
+    return resolveFirstPlayerShifumi(state);
+  }
+
+  // Auto-resolve one pending action if a bot can handle it
+  if (state.pendingAction) {
+    try {
+      return tryResolveBotPendingAction(state, botIds);
+    } catch (err) {
+      console.error('[bot] Error resolving pending action:', (err as Error).message);
+      return state;
+    }
+  }
+
+  const currentPlayer = state.players[state.currentPlayerIndex];
+  if (!currentPlayer) return state;
+  if (humanIds.includes(currentPlayer.id)) return state;
+  if (!botIds.includes(currentPlayer.id)) return state;
+
+  try {
+    return botAct(state, currentPlayer.id);
+  } catch (err) {
+    console.error('[bot] Error in botAct:', (err as Error).message);
+    try {
+      return applyPickUpPile(state, currentPlayer.id, Date.now());
+    } catch {
+      return state;
+    }
+  }
+}

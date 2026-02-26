@@ -31,6 +31,7 @@ function makeState(pileCards: Card[], currentHand: Card[] = []): GameState {
     variant: { name: 'S', powerAssignments: {}, playerCount: 2, deckCount: 1 },
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
   };
 }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { Card as CardType, GameState, ShifumiChoice } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, ShifumiChoice, LastPowerTriggered } from '@shit-head-palace/engine';
 import { getActiveZone, matchesPowerRank, isManoucheCard } from '@shit-head-palace/engine';
 import { SwapPhase } from './components/SwapPhase';
 import { DebugSwapPhase } from './components/DebugSwapPhase';
@@ -39,6 +39,11 @@ function App() {
   actionLogOpenRef.current = actionLogOpen;
   const prevLogLengthRef = useRef(0);
 
+  // Power overlay state
+  const [currentPower, setCurrentPower] = useState<LastPowerTriggered | null>(null);
+  const powerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevPowerTypeRef = useRef<string | null>(null);
+
   // Debug state (dev mode only)
   const [debugRevealHands, setDebugRevealHands] = useState(false);
   const [debugInspectZone, setDebugInspectZone] = useState<InspectZone | null>(null);
@@ -51,13 +56,6 @@ function App() {
     socket.on(
       'game:state',
       ({ state, playerId }: { state: GameState; playerId: string }) => {
-        console.log('[game:state] Received:', {
-          phase: state.phase,
-          currentPlayerIndex: state.currentPlayerIndex,
-          playerCount: state.players.length,
-          pendingAction: state.pendingAction?.type ?? null,
-          humanFound: state.players.some((p) => p.id === playerId),
-        });
         setGameState(state);
         setHumanId(playerId);
         setSelectedCards([]);
@@ -69,6 +67,20 @@ function App() {
           setActionLogUnread((prev) => prev + newEntries);
         }
         prevLogLengthRef.current = state.log.length;
+
+        // Track power overlay — show overlay when a new power is triggered
+        const lpt = state.lastPowerTriggered;
+        // Build a string fingerprint so we can detect new triggers reliably
+        const lptKey = lpt ? `${lpt.type}|${lpt.playerId}|${state.log.length}` : null;
+        if (lpt && lptKey !== prevPowerTypeRef.current) {
+          setCurrentPower(lpt);
+          if (powerTimerRef.current) clearTimeout(powerTimerRef.current);
+          powerTimerRef.current = setTimeout(() => {
+            setCurrentPower(null);
+            powerTimerRef.current = null;
+          }, 1500);
+        }
+        prevPowerTypeRef.current = lptKey;
       },
     );
 
@@ -91,6 +103,7 @@ function App() {
       socket.off('game:error');
       socket.off('chat:message');
       socket.off('chat:history');
+      if (powerTimerRef.current) clearTimeout(powerTimerRef.current);
     };
   }, []);
 
@@ -231,6 +244,9 @@ function App() {
     setActionLogOpen(false);
     setActionLogUnread(0);
     prevLogLengthRef.current = 0;
+    setCurrentPower(null);
+    prevPowerTypeRef.current = null;
+    if (powerTimerRef.current) { clearTimeout(powerTimerRef.current); powerTimerRef.current = null; }
     emit('game:restart');
   };
 
@@ -354,6 +370,7 @@ function App() {
   const canPickUp = isMyTurn && gameState.pile.length > 0;
 
   return (
+    <>
     <AnimatePresence mode="wait">
       <motion.div
         key="board"
@@ -369,12 +386,7 @@ function App() {
             background: 'radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%)',
           }}
         />
-        {/* Titre discret — masqué en mobile */}
-        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-10 pointer-events-none hidden sm:block">
-          <span className="font-serif text-gold/60 text-xs tracking-widest uppercase">
-            Shit Head Palace
-          </span>
-        </div>
+        {/* Titre déplacé dans GameBoard */}
         {isDev && (
           <DebugToolbar
             revealHands={debugRevealHands}
@@ -402,6 +414,7 @@ function App() {
           onFlopRemake={handleFlopRemake}
           debugRevealHands={isDev ? debugRevealHands : undefined}
           onInspectZone={isDev ? setDebugInspectZone : undefined}
+          currentPower={currentPower}
         />
         <ChatPanel
           messages={chatMessages}
@@ -427,6 +440,7 @@ function App() {
           onClearSelection={() => setSelectedCards([])}
           onActionLogToggle={handleActionLogToggle}
           actionLogUnread={actionLogUnread}
+          overlayActive={currentPower !== null}
         />
         {isDev && debugInspectZone && (
           <ZoneInspectorModal
@@ -437,6 +451,7 @@ function App() {
         )}
       </motion.div>
     </AnimatePresence>
+    </>
   );
 }
 

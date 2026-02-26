@@ -31,6 +31,9 @@ export function applyPickUpPile(state: GameState, playerId: string, timestamp = 
   const player = state.players[playerIndex]!;
   const pileCards = state.pile.flatMap((e) => e.cards);
 
+  // Reset lastPowerTriggered at the start of each new action
+  state = { ...state, lastPowerTriggered: null };
+
   const newPlayers = [...state.players];
   newPlayers[playerIndex] = { ...player, hand: [...player.hand, ...pileCards] };
 

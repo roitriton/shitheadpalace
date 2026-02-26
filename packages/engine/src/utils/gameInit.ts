@@ -75,5 +75,7 @@ export function createInitialGameState(
     variant,
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
+    pendingCardsPlayed: undefined,
   };
 }

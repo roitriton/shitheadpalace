@@ -38,6 +38,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     variant: { name: 'S', powerAssignments: {}, playerCount: 4, deckCount: 1 },
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
     ...overrides,
   };
 }

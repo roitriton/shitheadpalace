@@ -136,6 +136,7 @@ export function resolvePowers(
   // cleanup (step 1) still applies. Jacks still go to graveyard even here.
   if (newState.phase === 'revolution' || newState.phase === 'superRevolution') {
     newState = moveJacksToGraveyard(newState, playedCards);
+    newState = { ...newState, lastPowerTriggered: null };
     return { state: newState, playerReplays: false, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
   }
 
@@ -156,8 +157,12 @@ export function resolvePowers(
   const cardsForBurnCheck = mirrorRank !== null
     ? playedCards.filter((c) => !isMirrorCard(c))
     : playedCards;
+  // Helper: extract card info for overlay display
+  const cardsInfo = playedCards.map((c) => ({ rank: c.rank, suit: c.suit }));
+
   if (isBurnTriggered(cardsForBurnCheck, newState.pile, newState.variant, newState.phase)) {
     newState = applyBurn(newState, playerId, timestamp);
+    newState = { ...newState, lastPowerTriggered: { type: 'burn', playerId, cardsPlayed: cardsInfo } };
     return { state: newState, playerReplays: true, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
   }
 
@@ -186,8 +191,11 @@ export function resolvePowers(
   }
 
   // ── 8. Target — sets pendingAction; turn is not advanced until resolved ───
+  // lastPowerTriggered is forced to null — it will be set in applyTargetChoice
+  // after the player makes their choice, so the overlay shows only once.
   if (isTargetTriggered(playedCards, newState.variant, newState.phase)) {
     newState = applyTarget(newState, playerId, timestamp);
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: true, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
   }
 
@@ -196,17 +204,23 @@ export function resolvePowers(
   // presence of Mirror cards selects the super variant.
   if (isSuperRevolutionTriggered(playedCards, newState.variant, newState.phase)) {
     newState = applySuperRevolution(newState, playerId, timestamp);
+    newState = { ...newState, lastPowerTriggered: { type: 'superRevolution', playerId, cardsPlayed: cardsInfo } };
   } else if (isRevolutionTriggered(playedCards, newState.variant, newState.phase)) {
     newState = applyRevolution(newState, playerId, timestamp);
+    newState = { ...newState, lastPowerTriggered: { type: 'revolution', playerId, cardsPlayed: cardsInfo } };
   }
 
   // ── 10. Manouche / Super Manouche ─────────────────────────────────────────
   // Super Manouche (J♠ + Mirror) is checked before regular Manouche.
   // Note: after step 9, newState.phase may be 'revolution'/'superRevolution'
   // if J♦ was also played — in that case the Manouche checks will return false.
+  // lastPowerTriggered is forced to null — it will be set in applyManouchePick /
+  // applySuperManouchePick after the choice is resolved.
   if (isSuperManoucheTriggered(playedCards, newState.variant, newState.phase)) {
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'superManouche', pendingFlopType: null, pendingShifumiType: null };
   } else if (isManoucheTriggered(playedCards, newState.variant, newState.phase)) {
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'manouche', pendingFlopType: null, pendingShifumiType: null };
   }
 
@@ -216,9 +230,13 @@ export function resolvePowers(
   // if J♦ was also played — in that case the Flop checks will return false.
   // pendingAction is NOT set here; play.ts sets it conditionally (only when
   // the player has not finished), mirroring the Manouche pattern.
+  // lastPowerTriggered is forced to null — it will be set in
+  // applyFlopReverseTarget / applyFlopRemake after the choice is resolved.
   if (isFlopRemakeTriggered(playedCards, newState.variant, newState.phase)) {
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopRemake', pendingShifumiType: null };
   } else if (isFlopReverseTriggered(playedCards, newState.variant, newState.phase)) {
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopReverse', pendingShifumiType: null };
   }
 
@@ -226,10 +244,27 @@ export function resolvePowers(
   // Super Shifumi (J♣ + Mirror) is checked before regular Shifumi.
   // pendingAction is NOT set here; play.ts sets it conditionally (only when
   // the player has not finished), mirroring the Manouche / Flop pattern.
+  // lastPowerTriggered is forced to null — it will be set in
+  // applyShifumiChoice (resolveShifumi) after the confrontation is resolved.
   if (isSuperShifumiTriggered(playedCards, newState.variant, newState.phase)) {
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'superShifumi' };
   } else if (isShifumiTriggered(playedCards, newState.variant, newState.phase)) {
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'shifumi' };
+  }
+
+  // ── Determine lastPowerTriggered for simple powers (skip, reset, under) ──
+  // Priority: skip > reset > under (only one lastPowerTriggered per play).
+  // Revolution/superRevolution was already set in step 9 — don't override.
+  if (skipCount > 0) {
+    newState = { ...newState, lastPowerTriggered: { type: 'skip', playerId, skipCount, cardsPlayed: cardsInfo } };
+  } else if (isResetTriggered(playedCards, newState.variant, newState.phase)) {
+    newState = { ...newState, lastPowerTriggered: { type: 'reset', playerId, cardsPlayed: cardsInfo } };
+  } else if (isUnderTriggered(playedCards, newState.variant, newState.phase)) {
+    newState = { ...newState, lastPowerTriggered: { type: 'under', playerId, cardsPlayed: cardsInfo } };
+  } else if (!newState.lastPowerTriggered) {
+    newState = { ...newState, lastPowerTriggered: null };
   }
 
   return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };

@@ -31,6 +31,7 @@ function swappingState(players: Player[]): GameState {
     variant: { name: 'S', powerAssignments: {}, playerCount: players.length, deckCount: 1 },
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
   };
 }
 

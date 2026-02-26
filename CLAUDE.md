@@ -120,9 +120,21 @@ Outils de debug et améliorations UI :
 Bugs connus :
 - Le responsive mobile (portrait + paysage) nécessite un polish supplémentaire : cartes qui débordent, swap phase non scrollable, éléments trop grands. À résoudre à l'étape 15 avec tests sur appareil réel via Capacitor.
 
+Étapes terminées (suite) :
+- [x] Étape 10 — Fusionnée avec l'étape 9 (9A-9D couvrent layout casino + espace de jeu)
+- [x] Étape 11A — Feedback visuel des pouvoirs (852 tests)
+  - PowerOverlay inline (colonne droite) : icône + texte toast pour chaque pouvoir, 1.5s
+  - RevolutionBanner persistant (colonne gauche), fond noir
+  - MiniLog : 5 dernières actions avec opacité dégressive
+  - PileHorizontal : 5 derniers coups, opacité dégressive, contour vert fluo
+  - GraveyardDisplay : 10 dernières cartes brûlées, fond noir, opacité dégressive
+  - Layout 3 colonnes (25% pioche+révolution / 50% pile+cimetière / 25% overlay+minilog)
+  - Bots jouent un tour à la fois avec délai 1.5s
+  - lastPowerTriggered dans l'engine + pendingCardsPlayed pour les pouvoirs avec popup
+  - Suppression des badges pouvoirs (RESET/UNDER/RÉV.)
+
 Étapes à venir :
-- [ ] Étape 10 — Client : espace de jeu (disposition des zones)
-- [ ] Étape 11 — Client : UI pouvoirs et interactions spéciales
+- [ ] Étape 11B — Client : UI pouvoirs et interactions spéciales (suite)
 - [ ] Étape 12 — Lobby, profil, variantes (client)
 - [ ] Étape 13 — IA (bots intermédiaire et expert)
 - [ ] Étape 14 — Son et polish

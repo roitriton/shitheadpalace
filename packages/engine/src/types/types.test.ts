@@ -62,6 +62,7 @@ describe('Engine types', () => {
       },
       pendingAction: null,
       log: [],
+      lastPowerTriggered: null,
     };
 
     expect(state.id).toBe('game-1');

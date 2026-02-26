@@ -79,6 +79,8 @@ export function applyManouchePick(
     ...state,
     players: newPlayers,
     pendingAction: null,
+    lastPowerTriggered: { type: 'manouche', playerId: launcherId, targetId, cardsPlayed: state.pendingCardsPlayed },
+    pendingCardsPlayed: undefined,
   };
 
   newState = appendLog(newState, 'manouchePick', timestamp, launcherId, launcher.name, {
@@ -172,6 +174,8 @@ export function applySuperManouchePick(
     ...state,
     players: newPlayers,
     pendingAction: null,
+    lastPowerTriggered: { type: 'superManouche', playerId: launcherId, targetId, cardsPlayed: state.pendingCardsPlayed },
+    pendingCardsPlayed: undefined,
   };
 
   newState = appendLog(newState, 'superManouchePick', timestamp, launcherId, launcher.name, {

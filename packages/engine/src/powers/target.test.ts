@@ -68,6 +68,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     variant: targetVariant,
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
     ...overrides,
   };
 }
@@ -317,6 +318,7 @@ describe('Target + Burn interaction', () => {
       variant: burnVariant,
       pendingAction: null,
       log: [],
+    lastPowerTriggered: null,
     };
 
     // p0 plays Ace → pendingAction: target

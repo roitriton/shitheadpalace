@@ -81,6 +81,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     variant: mirrorVariant,
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
     ...overrides,
   };
 }

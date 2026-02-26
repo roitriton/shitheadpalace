@@ -1,16 +1,12 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi } from '@shit-head-palace/engine';
-import { getActiveZone, getTopPileValue } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
+import { getActiveZone } from '@shit-head-palace/engine';
 import type { InspectZone } from './DebugPanel';
 import { Card } from './Card';
 import { PlayerAvatar } from './PlayerAvatar';
-
-// ─── Constantes ────────────────────────────────────────────────────────────────
-
-const SUIT_SYMBOL: Record<string, string> = {
-  hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠',
-};
+import { RevolutionBanner } from './RevolutionBanner';
+import { PowerOverlay } from './PowerOverlay';
 
 // ─── Zone de joueur (bot ou humain) ───────────────────────────────────────────
 
@@ -155,7 +151,7 @@ function PlayerZone({
                   }}
                   exit={{ scale: 0.7, opacity: 0, y: -10 }}
                   whileHover={canClickHand && !isSelected ? { y: y - 10, rotate: 0, scale: 1.06 } : {}}
-                  transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                  transition={{ type: 'spring', stiffness: 180, damping: 22 }}
                 >
                   <Card
                     card={card}
@@ -189,155 +185,281 @@ function PlayerZone({
   );
 }
 
-// ─── Zone centrale ─────────────────────────────────────────────────────────────
+// ─── Pile stack (last 5 entries with depth) ─────────────────────────────────
 
-interface CenterAreaProps {
-  state: GameState;
-  onInspectZone?: (zone: InspectZone) => void;
-  compact?: boolean;
+// ─── Horizontal pile display ────────────────────────────────────────────────
+
+/** Card overlap within a single move group (px) */
+const CARD_OVERLAP = 18;
+
+/** Opacity values for the last N moves (index 0 = oldest visible). */
+const MOVE_OPACITY = [0.2, 0.4, 0.6, 0.8, 1.0];
+
+interface PileHorizontalProps {
+  pile: GameState['pile'];
 }
 
-function CenterArea({ state, onInspectZone, compact }: CenterAreaProps) {
-  const topEntry = state.pile[state.pile.length - 1];
-  const topCard = topEntry?.cards[topEntry.cards.length - 1];
-  const effectiveRank = topEntry?.effectiveRank;
-  const topValue = getTopPileValue(state);
+/**
+ * Renders the pile as a horizontal band of the last 5 moves, left (old, faded)
+ * to right (recent, full opacity). Cards within the same move overlap with a
+ * horizontal offset so every rank+suit stays visible.
+ */
+function PileHorizontal({ pile }: PileHorizontalProps) {
+  if (pile.length === 0) {
+    return (
+      <div className="h-20 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-600 px-4">
+        <span className="text-gray-600 text-[10px] sm:text-xs">pile vide</span>
+      </div>
+    );
+  }
 
-  // Responsive: sm on mobile, md on desktop
-  const centerCardSize = 'sm' as const;
-  const centerCardSizeLg = 'md' as const;
+  // md card dimensions: 56px wide, 80px tall
+  const MD_WIDTH = 56;
+  const MD_HEIGHT = 80;
+
+  const visibleMoves = pile.slice(-5);
+  const moveCount = visibleMoves.length;
 
   return (
-    <div className={`flex items-center justify-center ${compact ? 'gap-2 py-0.5' : 'gap-3 sm:gap-6 md:gap-8 py-1 sm:py-2'}`}>
-      {/* Pioche */}
-      <div
-        className={`flex flex-col items-center gap-0.5 sm:gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
-        onClick={onInspectZone ? () => onInspectZone('deck') : undefined}
-      >
-        <div className="relative">
-          {state.deck.length > 1 && (
-            <div className="absolute top-0.5 left-0.5 w-11 h-16 sm:w-14 sm:h-20 rounded-lg bg-blue-900 border-2 border-blue-800" />
-          )}
-          <div className="relative">
-            <div className="hidden sm:block">
-              <Card card={{ id: 'deck', suit: 'spades', rank: '2' }} faceDown size={centerCardSizeLg} />
-            </div>
-            <div className="sm:hidden">
-              <Card card={{ id: 'deck', suit: 'spades', rank: '2' }} faceDown size={centerCardSize} />
-            </div>
-          </div>
-        </div>
-        <span className="text-[10px] sm:text-xs text-gray-400">{state.deck.length}</span>
-        {onInspectZone && <span className="text-[10px] text-gold/50 hover:text-gold transition-colors">inspecter</span>}
-      </div>
+    <div className="flex items-center justify-center gap-2">
+      {visibleMoves.map((entry, moveIdx) => {
+        const opacityIdx = moveCount <= 5 ? moveIdx + (5 - moveCount) : moveIdx;
+        const opacity = MOVE_OPACITY[opacityIdx] ?? 0.2;
+        const isLatest = moveIdx === moveCount - 1;
+        const cards = entry.cards;
 
-      {/* Modifieurs actifs */}
-      <div className="flex flex-col items-center gap-0.5 sm:gap-1 min-w-[40px] sm:min-w-[80px]">
-        <AnimatePresence>
-          {state.pileResetActive && (
-            <motion.div
-              key="reset"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              className="px-1.5 sm:px-2 py-0.5 bg-blue-600 text-white text-[10px] sm:text-xs rounded-full font-bold"
-            >
-              RESET
-            </motion.div>
-          )}
-          {state.activeUnder != null && (
-            <motion.div
-              key="under"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              className="px-1.5 sm:px-2 py-0.5 bg-orange-600 text-white text-[10px] sm:text-xs rounded-full font-bold"
-            >
-              ≤ {state.activeUnder}
-            </motion.div>
-          )}
-          {state.phase === 'revolution' && (
-            <motion.div
-              key="rev"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              className="px-1.5 sm:px-2 py-0.5 bg-purple-600 text-white text-[10px] sm:text-xs rounded-full font-bold"
-            >
-              RÉV.
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+        const groupWidth = cards.length > 1
+          ? MD_WIDTH + (cards.length - 1) * CARD_OVERLAP
+          : undefined;
 
-      {/* Pile */}
-      <div
-        className={`flex flex-col items-center gap-0.5 sm:gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
-        onClick={onInspectZone ? () => onInspectZone('pile') : undefined}
-      >
-        <div className="relative w-11 h-16 sm:w-14 sm:h-20">
-          {/* Cartes "derrière" */}
-          {state.pile.length > 2 && (
-            <div className="absolute top-1 left-1 w-11 h-16 sm:w-14 sm:h-20 rounded-lg bg-gray-300 border-2 border-gray-400 opacity-40" />
-          )}
-          {state.pile.length > 1 && (
-            <div className="absolute top-0.5 left-0.5 w-11 h-16 sm:w-14 sm:h-20 rounded-lg bg-white border-2 border-gray-300 opacity-70" />
-          )}
-
-          {/* Carte du dessus */}
-          <AnimatePresence mode="wait">
-            {topCard ? (
-              <motion.div
-                key={topCard.id}
-                initial={{ scale: 0.7, y: -20, opacity: 0 }}
-                animate={{ scale: 1, y: 0, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 26 }}
-                className="absolute inset-0"
-              >
-                <div className="hidden sm:block"><Card card={topCard} size={centerCardSizeLg} /></div>
-                <div className="sm:hidden"><Card card={topCard} size={centerCardSize} /></div>
-              </motion.div>
+        return (
+          <div
+            key={`${entry.timestamp}-${moveIdx}`}
+            className={`relative flex-shrink-0 rounded-lg ${isLatest ? 'border-2 border-green-400' : ''}`}
+            style={{ opacity }}
+          >
+            {isLatest ? (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={cards.map((c) => c.id).join(',')}
+                  initial={{ scale: 0.7, y: -16, opacity: 0 }}
+                  animate={{ scale: 1, y: 0, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 180, damping: 22 }}
+                  className="relative flex-shrink-0"
+                  style={{
+                    width: groupWidth,
+                    height: cards.length > 1 ? MD_HEIGHT : undefined,
+                  }}
+                >
+                  {cards.map((card, cardIdx) => (
+                    <div
+                      key={card.id}
+                      className={cards.length > 1 ? 'absolute top-0' : undefined}
+                      style={cards.length > 1 ? { left: cardIdx * CARD_OVERLAP, zIndex: cardIdx } : undefined}
+                    >
+                      <Card card={card} size="md" />
+                    </div>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
             ) : (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="w-11 h-16 sm:w-14 sm:h-20 rounded-lg border-2 border-dashed border-gray-600 flex items-center justify-center"
+              <div
+                className="relative flex-shrink-0"
+                style={{
+                  width: groupWidth,
+                  height: cards.length > 1 ? MD_HEIGHT : undefined,
+                }}
               >
-                <span className="text-gray-600 text-[10px] sm:text-xs">vide</span>
-              </motion.div>
+                {cards.map((card, cardIdx) => (
+                  <div
+                    key={card.id}
+                    className={cards.length > 1 ? 'absolute top-0' : undefined}
+                    style={cards.length > 1 ? { left: cardIdx * CARD_OVERLAP, zIndex: cardIdx } : undefined}
+                  >
+                    <Card card={card} size="md" />
+                  </div>
+                ))}
+              </div>
             )}
-          </AnimatePresence>
-        </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
-        <div className="text-center">
-          <span className="text-[10px] sm:text-xs text-gray-400">
-            <span className="hidden sm:inline">Pile · </span>
-            {state.pile.length > 0
-              ? `${effectiveRank != null ? `${effectiveRank}` : topValue ?? '?'}`
-              : 'vide'}
-          </span>
-        </div>
-        {onInspectZone && <span className="text-[10px] text-gold/50 hover:text-gold transition-colors">inspecter</span>}
+// ─── Graveyard horizontal display ───────────────────────────────────────────
+
+/** Card overlap within the graveyard display (px) */
+const GRAVEYARD_OVERLAP = 16;
+
+/** Max number of burned cards to show */
+const GRAVEYARD_MAX = 10;
+
+interface GraveyardDisplayProps {
+  graveyard: CardType[];
+}
+
+/**
+ * Renders the graveyard as a horizontal band of the last 10 burned cards,
+ * with overlapping and fading opacity. Uses the "burned" card variant (black bg).
+ */
+function GraveyardDisplay({ graveyard }: GraveyardDisplayProps) {
+  if (graveyard.length === 0) {
+    return (
+      <div className="h-10 sm:h-12 flex items-center justify-center rounded-lg border-2 border-dashed border-red-900/50 px-3">
+        <span className="text-red-900/60 text-[10px] sm:text-xs">Cimetière : 0 cartes brûlées</span>
+      </div>
+    );
+  }
+
+  const visible = graveyard.slice(-GRAVEYARD_MAX);
+  const count = visible.length;
+
+  // Width: first card full width + overlap for each additional card
+  // xs card = 36px (w-9)
+  const cardWidth = 36;
+  const totalWidth = cardWidth + (count - 1) * GRAVEYARD_OVERLAP;
+
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <div
+        className="relative flex-shrink-0"
+        style={{ width: totalWidth, height: 52 }}
+      >
+        {visible.map((card, idx) => {
+          // Opacity: oldest (idx=0) gets lowest, newest (idx=count-1) gets 1.0
+          const opacity = count === 1 ? 1 : 0.1 + (0.9 * idx) / (count - 1);
+
+          return (
+            <div
+              key={card.id}
+              className="absolute top-0"
+              style={{
+                left: idx * GRAVEYARD_OVERLAP,
+                zIndex: idx,
+                opacity,
+              }}
+            >
+              <Card card={card} size="xs" variant="burned" noMotion noLayout />
+            </div>
+          );
+        })}
+      </div>
+      <span className="text-[10px] text-red-400/70">
+        Cimetière : {graveyard.length} cartes brûlées
+      </span>
+    </div>
+  );
+}
+
+// ─── MiniLog (last 5 actions) ──────────────────────────────────────────────
+
+const LOG_SUIT_SYMBOL: Record<string, string> = {
+  hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠',
+};
+
+const LOG_SUIT_COLOR: Record<string, string> = {
+  hearts: 'text-red-400', diamonds: 'text-red-400',
+  clubs: 'text-white', spades: 'text-white',
+};
+
+interface MiniLogProps {
+  log: LogEntry[];
+  visible?: boolean;
+}
+
+/** Compact log showing the last 5 game actions with fading opacity. */
+function MiniLog({ log, visible = true }: MiniLogProps) {
+  const actionEntries = log.filter(
+    (e) => e.type === 'play' || e.type === 'darkPlay' || e.type === 'darkPlayFail' || e.type === 'pickUp',
+  );
+  const last5 = actionEntries.slice(-5);
+  const display = [...last5].reverse();
+  const opacities = [1.0, 0.8, 0.6, 0.4, 0.2];
+
+  if (display.length === 0 || !visible) {
+    return (
+      <div className="w-full rounded-lg bg-black/30 p-1.5">
+        <span className="text-[10px] text-gray-500 italic">Aucune action</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full rounded-lg bg-black/40 backdrop-blur-sm p-1.5 overflow-hidden">
+      {display.map((entry, idx) => {
+        const opacity = opacities[idx] ?? 0.2;
+        const name = entry.playerName ?? '?';
+
+        if (entry.type === 'play' || entry.type === 'darkPlay') {
+          const ranks = (entry.data.ranks as string[] | undefined) ?? [];
+          const suits = (entry.data.suits as string[] | undefined) ?? [];
+          return (
+            <div key={entry.id} className="text-[10px] leading-snug text-gray-200 truncate" style={{ opacity }}>
+              <span className="font-semibold">{name}</span>{' '}joue{' '}
+              {ranks.map((rank, ri) => {
+                const suit = suits[ri] ?? '';
+                const symbol = LOG_SUIT_SYMBOL[suit] ?? '';
+                const color = LOG_SUIT_COLOR[suit] ?? 'text-white';
+                return (
+                  <span key={ri}>
+                    {ri > 0 && ' '}
+                    <span className={`font-bold ${color}`}>{rank}{symbol}</span>
+                  </span>
+                );
+              })}
+            </div>
+          );
+        }
+
+        if (entry.type === 'darkPlayFail') {
+          return (
+            <div key={entry.id} className="text-[10px] leading-snug text-gray-200 truncate" style={{ opacity }}>
+              <span className="font-semibold">{name}</span> échoue (dark)
+            </div>
+          );
+        }
+
+        if (entry.type === 'pickUp') {
+          const count = entry.data.cardCount as number | undefined;
+          return (
+            <div key={entry.id} className="text-[10px] leading-snug text-gray-200 truncate" style={{ opacity }}>
+              <span className="font-semibold">{name}</span> ramasse{count ? ` (${count})` : ''}
+            </div>
+          );
+        }
+
+        return null;
+      })}
+    </div>
+  );
+}
+
+// ─── Zone centrale ─────────────────────────────────────────────────────────────
+
+interface CardsColumnProps {
+  state: GameState;
+}
+
+/** Center column: Pile (top ~70%), Graveyard (bottom ~30%).
+ *  Both centred horizontally. No overlap — each has its own fixed vertical space. */
+function CardsColumn({ state }: CardsColumnProps) {
+  const totalPileCards = state.pile.reduce((sum, entry) => sum + entry.cards.length, 0);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* ── Pile zone (~70%) ── */}
+      <div className="flex-[70] min-h-0 flex flex-col items-center justify-center overflow-hidden">
+        <PileHorizontal pile={state.pile} />
+        <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
+          Pile : {totalPileCards} cartes
+        </span>
       </div>
 
-      {/* Cimetière */}
-      <div
-        className={`flex flex-col items-center gap-0.5 sm:gap-1 ${onInspectZone ? 'cursor-pointer' : ''}`}
-        onClick={onInspectZone ? () => onInspectZone('graveyard') : undefined}
-      >
-        <div
-          className="w-11 h-16 sm:w-14 sm:h-20 rounded-lg border-2 border-dashed border-red-900 bg-red-950/30 flex items-center justify-center"
-          title="Cimetière"
-        >
-          {state.graveyard.length > 0 ? (
-            <span className="text-red-400 font-bold text-xs sm:text-sm">{state.graveyard.length}</span>
-          ) : (
-            <span className="text-red-900 text-[10px] sm:text-xs">—</span>
-          )}
-        </div>
-        <span className="text-[10px] sm:text-xs text-gray-500">brûlées</span>
-        {onInspectZone && <span className="text-[10px] text-gold/50 hover:text-gold transition-colors">inspecter</span>}
+      {/* ── Graveyard zone (~30%) ── */}
+      <div className="flex-[30] min-h-0 flex items-start justify-center overflow-hidden pt-1">
+        <GraveyardDisplay graveyard={state.graveyard} />
       </div>
     </div>
   );
@@ -1023,40 +1145,6 @@ function GameOver({ state, humanId, onRestart, onClose }: GameOverProps) {
   );
 }
 
-// ─── Positionnement des adversaires autour de la table ──────────────────────
-
-type Seat = 'top' | 'top-left' | 'top-right' | 'left' | 'right';
-
-/**
- * Returns the seat positions for each opponent based on the total number
- * of opponents (i.e. playerCount - 1).
- *
- * - 1 opponent  → top
- * - 2 opponents → top-left, top-right
- * - 3 opponents → left, top, right
- */
-function getOpponentSeats(opponentCount: number): Seat[] {
-  switch (opponentCount) {
-    case 1:
-      return ['top'];
-    case 2:
-      return ['top-left', 'top-right'];
-    case 3:
-      return ['left', 'top', 'right'];
-    default:
-      // Fallback: all top
-      return Array.from({ length: opponentCount }, () => 'top' as Seat);
-  }
-}
-
-const SEAT_CLASSES: Record<Seat, string> = {
-  'top': 'col-start-2 row-start-1 justify-self-center self-start',
-  'top-left': 'col-start-1 row-start-1 justify-self-center self-start',
-  'top-right': 'col-start-3 row-start-1 justify-self-center self-start',
-  'left': 'col-start-1 row-start-2 justify-self-start self-center',
-  'right': 'col-start-3 row-start-2 justify-self-end self-center',
-};
-
 // ─── GameBoard principal ───────────────────────────────────────────────────────
 
 interface GameBoardProps {
@@ -1086,6 +1174,8 @@ interface GameBoardProps {
   // Debug (dev mode only)
   debugRevealHands?: boolean;
   onInspectZone?: (zone: InspectZone) => void;
+  /** Current power being displayed (inline in right column). */
+  currentPower?: LastPowerTriggered | null;
 }
 
 export function GameBoard({
@@ -1109,6 +1199,7 @@ export function GameBoard({
   onFlopRemake,
   debugRevealHands,
   onInspectZone,
+  currentPower,
 }: GameBoardProps) {
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
 
@@ -1256,43 +1347,88 @@ export function GameBoard({
         )}
       </AnimatePresence>
 
-      {/* ── Grille : adversaires + centre ── */}
-      <div className={`flex-1 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] grid-rows-[auto_1fr] ${isLandscape ? 'gap-0.5 px-1 pt-0.5' : 'gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 pt-1 sm:pt-2 md:pt-3'}`}>
-        {/* Adversaires positionnés */}
-        {(() => {
-          const seats = getOpponentSeats(bots.length);
-          return bots.map((bot, i) => {
-            const seat = seats[i];
-            const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
-            return (
-              <div key={bot.id} className={`${SEAT_CLASSES[seat]} z-[2] overflow-hidden`}>
-                <PlayerZone
-                  player={bot}
-                  isBot={true}
-                  isActive={botGlobalIdx === state.currentPlayerIndex}
-                  activeZone={getActiveZone(bot)}
-                  selectedCards={[]}
-                  playerIndex={botGlobalIdx}
-                  debugRevealHands={debugRevealHands}
-                />
-              </div>
-            );
-          });
-        })()}
+      {/* ── 1. Bandeau titre ── */}
+      <div className="flex-none text-center px-2 py-0.5">
+        <span className="font-serif text-gold/50 text-[10px] sm:text-xs tracking-widest uppercase">
+          Shit Head Palace
+        </span>
+        <span className="text-gray-500 text-[9px] ml-2">Solo</span>
+      </div>
 
-        {/* Zone Centrale */}
-        <div className="col-start-2 row-start-2 flex items-center justify-center">
-          <CenterArea state={state} onInspectZone={onInspectZone} compact={isLandscape} />
+      {/* ── 2. Zone adversaires (25%) ── */}
+      <div className="flex-[25] min-h-0 flex items-start justify-evenly px-2 sm:px-3 md:px-4">
+        {bots.map((bot) => {
+          const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
+          return (
+            <div key={bot.id} className="z-[2] overflow-hidden">
+              <PlayerZone
+                player={bot}
+                isBot={true}
+                isActive={botGlobalIdx === state.currentPlayerIndex}
+                activeZone={getActiveZone(bot)}
+                selectedCards={[]}
+                playerIndex={botGlobalIdx}
+                debugRevealHands={debugRevealHands}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── 3. Zone principale (40%) — 3 colonnes ── */}
+      <div className="flex-[40] min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2">
+        {/* Colonne gauche (25%) — Révolution + Pioche */}
+        <div className="w-1/4 flex flex-col h-full bg-black/20 rounded-lg">
+          {/* Haut (50%) — RevolutionBanner */}
+          <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+            <RevolutionBanner phase={state.phase} />
+          </div>
+          {/* Bas (50%) — Pioche */}
+          <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+            <div
+              className={`flex flex-col items-center gap-1.5 ${onInspectZone ? 'cursor-pointer' : ''}`}
+              onClick={onInspectZone ? () => onInspectZone('deck') : undefined}
+            >
+              <div className="relative flex-shrink-0">
+                {state.deck.length > 1 && (
+                  <div className="absolute top-0.5 left-0.5 w-11 h-16 rounded-lg bg-blue-900 border-2 border-blue-800" />
+                )}
+                <div className="relative">
+                  <Card card={{ id: 'deck', suit: 'spades', rank: '2' }} faceDown size="sm" />
+                </div>
+              </div>
+              <span className="text-[10px] sm:text-xs text-gray-300 font-semibold">Pioche</span>
+              <span className="text-[10px] sm:text-xs text-gray-400">{state.deck.length} cartes</span>
+              {onInspectZone && <span className="text-[10px] text-gold/50 hover:text-gold transition-colors">inspecter</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Colonne centre (50%) — Pile + Cimetière */}
+        <div className="w-1/2 h-full bg-white/5 rounded-lg">
+          <CardsColumn state={state} />
+        </div>
+
+        {/* Colonne droite (25%) — Power Overlay + MiniLog */}
+        <div className="w-1/4 flex flex-col h-full bg-black/20 rounded-lg">
+          {/* Haut (50%) — Power Overlay */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <PowerOverlay power={currentPower ?? null} players={state.players} />
+          </div>
+          {/* Bas (50%) — MiniLog */}
+          <div className="flex-1 min-h-0 flex items-start justify-center overflow-hidden pt-1">
+            <MiniLog log={state.log} visible={!currentPower} />
+          </div>
         </div>
       </div>
 
-      {/* ── Statut ── */}
-      <div className="flex-none text-center px-4 py-0.5">
-        <p className="text-[10px] sm:text-xs text-gray-300/80 truncate">{status}</p>
+      {/* ── Status ── */}
+      <div className="flex-none text-center px-2">
+        <p className="text-[10px] sm:text-xs text-gray-300/80 leading-tight truncate">{status}</p>
       </div>
 
-      {/* ── Zone Humain (bas) ── */}
-      <div className="flex-none px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 flex justify-center">
+      {/* ── 4. Zone joueur humain (35%) ── */}
+      <div className="flex-[35] min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 flex justify-center items-start">
         <PlayerZone
           player={human}
           isBot={false}

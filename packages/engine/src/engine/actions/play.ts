@@ -187,6 +187,9 @@ export function applyPlay(
   const zone = getActiveZone(player);
   if (zone === null) throw new Error(`Player '${playerId}' has no cards left to play`);
 
+  // Reset lastPowerTriggered at the start of each new action
+  state = { ...state, lastPowerTriggered: null };
+
   // ── Locate the cards in the active zone ────────────────────────────────────
   const zoneCards = getZoneCards(player, zone);
   const cardsToPlay: Card[] = cardIds.map((id) => {
@@ -248,7 +251,7 @@ export function applyPlay(
         timestamp,
         player.id,
         player.name,
-        { cardIds, ranks: cardsToPlay.map((c) => c.rank), zone },
+        { cardIds, ranks: cardsToPlay.map((c) => c.rank), suits: cardsToPlay.map((c) => c.suit), zone },
       );
 
       const {
@@ -322,6 +325,8 @@ export function applyPlay(
     newState = appendLog(newState, 'darkPlay', timestamp, player.id, player.name, {
       cardId: revealedCard.id,
       rank: revealedCard.rank,
+      ranks: [revealedCard.rank],
+      suits: [revealedCard.suit],
     });
 
     // Resolve power effects (Mirror is a no-op for a single dark-flop card)
@@ -406,6 +411,7 @@ export function applyPlay(
   newState = appendLog(newState, 'play', timestamp, player.id, player.name, {
     cardIds,
     ranks: cardsToPlay.map((c) => c.rank),
+    suits: cardsToPlay.map((c) => c.suit),
     zone,
   });
 

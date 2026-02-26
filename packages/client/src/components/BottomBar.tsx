@@ -12,6 +12,8 @@ interface BottomBarProps {
   onClearSelection: () => void;
   onActionLogToggle: () => void;
   actionLogUnread: number;
+  /** When true, an overlay animation is playing — disable action buttons */
+  overlayActive?: boolean;
 }
 
 export function BottomBar({
@@ -25,7 +27,10 @@ export function BottomBar({
   onClearSelection,
   onActionLogToggle,
   actionLogUnread,
+  overlayActive,
 }: BottomBarProps) {
+  const effectiveCanPlay = canPlay && !overlayActive;
+  const effectiveCanPickUp = canPickUp && !overlayActive;
   return (
     <div className="fixed bottom-0 left-0 right-0 h-14 z-50 bg-gray-900/95 backdrop-blur border-t border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
       {/* Gauche : Chat */}
@@ -47,12 +52,12 @@ export function BottomBar({
       {/* Centre : Actions */}
       <div className="flex-1 flex items-center justify-center gap-2">
         <motion.button
-          whileHover={canPlay ? { scale: 1.05 } : {}}
-          whileTap={canPlay ? { scale: 0.95 } : {}}
+          whileHover={effectiveCanPlay ? { scale: 1.05 } : {}}
+          whileTap={effectiveCanPlay ? { scale: 0.95 } : {}}
           onClick={onPlay}
-          disabled={!canPlay}
+          disabled={!effectiveCanPlay}
           className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
-            canPlay
+            effectiveCanPlay
               ? 'bg-[#c9a84c] text-gray-900 hover:bg-yellow-400'
               : 'bg-gray-700 text-gray-500 cursor-not-allowed'
           }`}
@@ -77,12 +82,12 @@ export function BottomBar({
         </AnimatePresence>
 
         <motion.button
-          whileHover={canPickUp ? { scale: 1.05 } : {}}
-          whileTap={canPickUp ? { scale: 0.95 } : {}}
+          whileHover={effectiveCanPickUp ? { scale: 1.05 } : {}}
+          whileTap={effectiveCanPickUp ? { scale: 0.95 } : {}}
           onClick={onPickUp}
-          disabled={!canPickUp}
+          disabled={!effectiveCanPickUp}
           className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
-            canPickUp
+            effectiveCanPickUp
               ? 'bg-red-800 text-white hover:bg-red-700'
               : 'bg-gray-700 text-gray-500 cursor-not-allowed'
           }`}

@@ -179,6 +179,36 @@ export interface LogEntry {
   data: Record<string, unknown>;
 }
 
+// ─── Last Power Triggered ────────────────────────────────────────────────────
+
+/** Describes the last power that was triggered, for client-side visual feedback. */
+export interface LastPowerTriggered {
+  type:
+    | 'burn'
+    | 'reset'
+    | 'under'
+    | 'skip'
+    | 'target'
+    | 'revolution'
+    | 'superRevolution'
+    | 'manouche'
+    | 'superManouche'
+    | 'flopReverse'
+    | 'flopRemake'
+    | 'shifumi'
+    | 'superShifumi';
+  /** ID of the player who triggered the power */
+  playerId: string;
+  /** ID of the target player, if applicable */
+  targetId?: string;
+  /** Number of players skipped (for cumulative skip) */
+  skipCount?: number;
+  /** IDs of the two shifumi participants */
+  players?: string[];
+  /** Cards that triggered the power (rank + suit), for display in overlay */
+  cardsPlayed?: { rank: string; suit: string }[];
+}
+
 // ─── Game State ───────────────────────────────────────────────────────────────
 
 export interface GameState {
@@ -201,6 +231,14 @@ export interface GameState {
   /** Non-null when an action requires player input before continuing */
   pendingAction: PendingAction | null;
   log: LogEntry[];
+  /** Last power that was triggered, for client-side visual feedback. Reset to null at the start of each new action. */
+  lastPowerTriggered: LastPowerTriggered | null;
+  /**
+   * Stores the cards played for a deferred power (target, manouche, etc.)
+   * so that the apply*Choice function can include them in lastPowerTriggered.
+   * Set in resolvePowers, consumed in apply*Choice.
+   */
+  pendingCardsPlayed?: { rank: string; suit: string }[];
   /**
    * When set, the current player must play a card with value ≤ this number
    * (Under / 8 power effect). Cleared at the start of the constrained player's action.

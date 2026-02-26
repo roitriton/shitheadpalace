@@ -18,7 +18,7 @@ import {
   applyReady,
 } from '@shit-head-palace/engine';
 import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
-import { runBotTurns, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './game/bot';
+import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './game/bot';
 
 // ─── Variant par défaut ────────────────────────────────────────────────────────
 
@@ -95,9 +95,15 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
   if (!currentIsBot && !hasBotPending) return;
 
   setTimeout(() => {
-    session.state = runBotTurns(session.state, session.botIds, [session.humanId]);
-    sendSoloState(socket, session);
-  }, 800);
+    const prev = session.state;
+    session.state = botActOnce(session.state, session.botIds, [session.humanId]);
+
+    if (session.state !== prev) {
+      sendSoloState(socket, session);
+      // Re-schedule if another bot action is needed
+      scheduleSoloBotIfNeeded(socket, session);
+    }
+  }, 1500);
 }
 
 /** Emit a system chat message to a solo socket. */
@@ -265,12 +271,6 @@ io.on('connection', (rawSocket) => {
       if (!s) return;
       if (s.state.phase !== 'swapping') return;
 
-      console.log('[debug-compose] Received:', {
-        hand: data.hand.length,
-        faceUp: data.faceUp.length,
-        faceDown: data.faceDown.length,
-      });
-
       const cloned: GameState = JSON.parse(JSON.stringify(s.state));
       const humanIdx = cloned.players.findIndex((p) => p.id === s.humanId);
       if (humanIdx === -1) return;
@@ -309,14 +309,6 @@ io.on('connection', (rawSocket) => {
         const card = findAndRemove(cardId);
         if (card) human.faceDown.push(card);
       }
-
-      console.log('[debug-compose] After assignment:', {
-        humanHand: human.hand.length,
-        humanFaceUp: human.faceUp.length,
-        humanFaceDown: human.faceDown.length,
-        deckSize: cloned.deck.length,
-        missingCards,
-      });
 
       try {
         s.state = applyReady(cloned, s.humanId, Date.now());

@@ -28,6 +28,8 @@ interface CardProps {
   noLayout?: boolean;
   /** Skip built-in y-shift and hover animations (parent handles them) */
   noMotion?: boolean;
+  /** Visual variant: 'burned' shows black background with colored text (graveyard) */
+  variant?: 'default' | 'burned';
 }
 
 // ─── Dos de carte ──────────────────────────────────────────────────────────────
@@ -48,17 +50,23 @@ function CardBack({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
 
 // ─── Face de carte ─────────────────────────────────────────────────────────────
 
-function CardFace({ card, size = 'md' }: { card: CardType; size?: 'xs' | 'sm' | 'md' }) {
+function CardFace({ card, size = 'md', burned }: { card: CardType; size?: 'xs' | 'sm' | 'md'; burned?: boolean }) {
   const isRed = RED_SUITS.has(card.suit);
-  const color = isRed ? 'text-red-600' : 'text-gray-900';
+  const color = burned
+    ? (isRed ? 'text-red-500' : 'text-gray-100')
+    : (isRed ? 'text-red-600' : 'text-gray-900');
   const symbol = SUIT_SYMBOL[card.suit] ?? '?';
   const dims = size === 'xs' ? 'w-9 h-[52px]' : size === 'sm' ? 'w-11 h-16' : 'w-14 h-20';
   const cornerText = size === 'xs' ? 'text-[8px]' : 'text-xs';
   const centerSize = size === 'xs' ? '0.9rem' : size === 'sm' ? '1.2rem' : '1.5rem';
 
+  const bgClass = burned
+    ? 'bg-gray-950 border-gray-700'
+    : 'bg-white border-gray-200';
+
   return (
     <div
-      className={`${dims} rounded-lg border-2 border-gray-200 bg-white shadow-md relative select-none`}
+      className={`${dims} rounded-lg border-2 ${bgClass} shadow-md relative select-none`}
     >
       {/* Coin haut-gauche */}
       <div className={`absolute top-0.5 left-0.5 leading-none font-bold ${color}`}>
@@ -87,7 +95,7 @@ function CardFace({ card, size = 'md' }: { card: CardType; size?: 'xs' | 'sm' | 
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-export function Card({ card, faceDown, selected, onClick, disabled, size = 'md', noLayout, noMotion }: CardProps) {
+export function Card({ card, faceDown, selected, onClick, disabled, size = 'md', noLayout, noMotion, variant = 'default' }: CardProps) {
   const isHidden = faceDown || card.hidden;
   const isClickable = !!onClick && !disabled;
 
@@ -108,7 +116,7 @@ export function Card({ card, faceDown, selected, onClick, disabled, size = 'md',
       transition={noMotion ? undefined : { type: 'spring', stiffness: 400, damping: 25 }}
       onClick={isClickable ? onClick : undefined}
     >
-      {isHidden ? <CardBack size={size} /> : <CardFace card={card} size={size} />}
+      {isHidden ? <CardBack size={size} /> : <CardFace card={card} size={size} burned={variant === 'burned'} />}
     </motion.div>
   );
 }

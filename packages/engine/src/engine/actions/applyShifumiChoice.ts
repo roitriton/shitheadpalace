@@ -103,7 +103,9 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
   const winnerId = result === 'player1' ? player1Id! : player2Id!;
 
   if (type === 'superShifumi') {
-    return finalizeGameWithShitHead(state, loserId, winnerId, timestamp);
+    let finalState = finalizeGameWithShitHead(state, loserId, winnerId, timestamp);
+    finalState = { ...finalState, lastPowerTriggered: { type: 'superShifumi', playerId: pending.initiatorId, players: [player1Id!, player2Id!], cardsPlayed: state.pendingCardsPlayed }, pendingCardsPlayed: undefined };
+    return finalState;
   }
 
   // Regular Shifumi: loser picks up the pile
@@ -121,6 +123,8 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
     pendingAction: null,
     activeUnder: null,
     pileResetActive: false,
+    lastPowerTriggered: { type: 'shifumi', playerId: pending.initiatorId, players: [player1Id!, player2Id!], cardsPlayed: state.pendingCardsPlayed },
+    pendingCardsPlayed: undefined,
   };
 
   newState = appendLog(newState, 'shifumiResolved', timestamp, loserId, loser.name, {

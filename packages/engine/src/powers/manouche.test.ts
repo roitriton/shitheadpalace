@@ -60,6 +60,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     variant: manoucheVariant,
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
     ...overrides,
   };
 }
@@ -690,6 +691,7 @@ describe('filterGameStateForPlayer — Manouche pending', () => {
       variant: manoucheVariant,
       pendingAction: { type: 'manouche' as const, launcherId: 'p0', targetId: 'p1' },
       log: [],
+    lastPowerTriggered: null,
     };
   }
 

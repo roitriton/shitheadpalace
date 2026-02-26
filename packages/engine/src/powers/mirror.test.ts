@@ -43,6 +43,7 @@ function baseState(pile: PileEntry[] = []): GameState {
     variant: defaultVariant,
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
   };
 }
 

@@ -58,6 +58,7 @@ function makeState(
     variant: allPowers,
     pendingAction: null,
     log: [],
+    lastPowerTriggered: null,
     ...overrides,
   };
 }
