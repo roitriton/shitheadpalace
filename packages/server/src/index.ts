@@ -103,7 +103,7 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
       // Re-schedule if another bot action is needed
       scheduleSoloBotIfNeeded(socket, session);
     }
-  }, 1500);
+  }, 2250);
 }
 
 /** Emit a system chat message to a solo socket. */

@@ -79,7 +79,7 @@ function App() {
           powerTimerRef.current = setTimeout(() => {
             setCurrentPower(null);
             powerTimerRef.current = null;
-          }, 1500);
+          }, 2250);
         }
         prevPowerTypeRef.current = lptKey;
       },

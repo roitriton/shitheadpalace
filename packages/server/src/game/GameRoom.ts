@@ -47,7 +47,7 @@ export interface ChatMessage {
 const RECONNECT_TIMEOUT_MS = 60_000;
 
 /** Bot turn delay in milliseconds. */
-const BOT_DELAY_MS = 800;
+const BOT_DELAY_MS = 1200;
 
 const MAX_CHAT_MESSAGE_LENGTH = 200;
 const MAX_CHAT_HISTORY = 100;

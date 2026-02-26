@@ -110,14 +110,18 @@ export function PowerOverlay({ power, players }: PowerOverlayProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="w-full h-full flex items-center justify-center rounded-lg bg-black/50 backdrop-blur-sm"
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="w-full h-full flex items-center justify-center"
         >
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.3, opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
+            exit={{ scale: 1.15, opacity: 0 }}
+            transition={{
+              duration: 0.4,
+              ease: 'easeOut',
+              exit: { duration: 0.5, ease: 'easeIn' },
+            }}
             className="flex flex-col items-center gap-1"
           >
             <span className="text-3xl drop-shadow-lg">

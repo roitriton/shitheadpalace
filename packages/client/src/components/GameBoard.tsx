@@ -42,8 +42,8 @@ function PlayerZone({
 
   // ── Chevauchement pour les cartes adversaires ──
   const botCardSize: 'xs' | 'sm' = 'xs';
-  const botCardW = 36; // w-9 = 36px
-  const botCardH = 52; // h-[52px]
+  const botCardW = 40; // w-9 (36px) + border-2 transparent (4px)
+  const botCardH = 56; // h-[52px] + border-2 transparent (4px)
 
   /** Compute the overlap margin (px) for a row of `count` bot cards. */
   const botOverlap = (count: number) => (count > 3 ? Math.min((count - 3) * 12, 24) : 0);
@@ -1426,7 +1426,7 @@ export function GameBoard({
         {bots.map((bot) => {
           const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
           return (
-            <div key={bot.id} className="z-[2] overflow-hidden">
+            <div key={bot.id} className="z-[2]">
               <PlayerZone
                 player={bot}
                 isBot={true}
