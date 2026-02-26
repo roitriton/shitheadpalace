@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, Reorder } from 'framer-motion';
 import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
 import { getActiveZone } from '@shit-head-palace/engine';
 import type { InspectZone } from './DebugPanel';
@@ -61,6 +61,39 @@ function PlayerZone({
   const humanCardSize: 'xs' | 'sm' | 'md' = compact ? 'sm' : 'md';
   const botFanAngle = 8;
   const botFanArc = 5;
+
+  // ── Drag and drop pour réorganiser la main ──
+  const [handOrder, setHandOrder] = React.useState<string[]>(() =>
+    player.hand.map((c) => c.id),
+  );
+  const [draggingCardId, setDraggingCardId] = React.useState<string | null>(null);
+  const didDragRef = React.useRef(false);
+  const dragTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    if (isBot) return;
+    const currentIds = new Set(player.hand.map((c) => c.id));
+    setHandOrder((prev) => {
+      const kept = prev.filter((id) => currentIds.has(id));
+      const keptSet = new Set(kept);
+      const added = player.hand.filter((c) => !keptSet.has(c.id)).map((c) => c.id);
+      return [...kept, ...added];
+    });
+  }, [isBot, player.hand]);
+
+  const orderedHand = isBot
+    ? player.hand
+    : handOrder
+        .map((id) => player.hand.find((c) => c.id === id))
+        .filter((c): c is CardType => c !== undefined);
+
+  const handleCardClickNoDrag = React.useCallback(
+    (card: CardType) => {
+      if (didDragRef.current) return;
+      onCardClick?.(card);
+    },
+    [onCardClick],
+  );
 
   // ── Bloc de cartes (main + flop) ──
   const cardBlock = (
@@ -130,42 +163,62 @@ function PlayerZone({
         )}
       </div>
 
-      {/* Main humain — éventail */}
+      {/* Main humain — éventail avec drag and drop */}
       {!isBot && (
-        <div className="flex justify-center mt-1" style={{ paddingBottom: humanFanArc }}>
-          <AnimatePresence mode="popLayout">
-            {player.hand.map((card, i) => {
-              const { rotate, y } = fanStyle(i, player.hand.length, humanFanAngle, humanFanArc);
-              const isSelected = selectedCards.includes(card.id);
-              return (
-                <motion.div
-                  key={card.id}
-                  className="relative"
-                  style={{ marginLeft: i === 0 ? 0 : -4, zIndex: isSelected ? 20 : i }}
-                  initial={{ scale: 0.7, opacity: 0, y: 20 }}
-                  animate={{
-                    scale: 1,
-                    opacity: 1,
-                    rotate: isSelected ? 0 : rotate,
-                    y: isSelected ? -18 : y,
-                  }}
-                  exit={{ scale: 0.7, opacity: 0, y: -10 }}
-                  whileHover={canClickHand && !isSelected ? { y: y - 10, rotate: 0, scale: 1.06 } : {}}
-                  transition={{ type: 'spring', stiffness: 180, damping: 22 }}
-                >
-                  <Card
-                    card={card}
-                    size={humanCardSize}
-                    selected={isSelected}
-                    onClick={canClickHand ? () => onCardClick?.(card) : undefined}
-                    disabled={!canClickHand}
-                    noMotion
-                  />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
+        <Reorder.Group
+          as="div"
+          axis="x"
+          values={handOrder}
+          onReorder={setHandOrder}
+          className="flex justify-center mt-1"
+          style={{ paddingBottom: humanFanArc }}
+        >
+          {orderedHand.map((card, i) => {
+            const { rotate, y } = fanStyle(i, orderedHand.length, humanFanAngle, humanFanArc);
+            const isSelected = selectedCards.includes(card.id);
+            const isDragging = draggingCardId === card.id;
+            return (
+              <Reorder.Item
+                as="div"
+                key={card.id}
+                value={card.id}
+                className="relative"
+                style={{
+                  marginLeft: i === 0 ? 0 : -4,
+                  zIndex: isDragging ? 50 : isSelected ? 20 : i,
+                }}
+                initial={{ scale: 0.7, opacity: 0, y: 20 }}
+                animate={{
+                  scale: 1,
+                  opacity: 1,
+                  rotate: isSelected ? 0 : rotate,
+                  y: isSelected ? -18 : y,
+                }}
+                whileHover={canClickHand && !isSelected && !isDragging ? { y: y - 10, rotate: 0, scale: 1.06 } : {}}
+                whileDrag={{ scale: 1.08, rotate: 0, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                transition={{ type: 'spring', stiffness: 180, damping: 22 }}
+                onDragStart={() => {
+                  setDraggingCardId(card.id);
+                  didDragRef.current = true;
+                  if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
+                }}
+                onDragEnd={() => {
+                  setDraggingCardId(null);
+                  dragTimerRef.current = setTimeout(() => { didDragRef.current = false; }, 300);
+                }}
+              >
+                <Card
+                  card={card}
+                  size={humanCardSize}
+                  selected={isSelected}
+                  onClick={canClickHand ? () => handleCardClickNoDrag(card) : undefined}
+                  disabled={!canClickHand}
+                  noMotion
+                />
+              </Reorder.Item>
+            );
+          })}
+        </Reorder.Group>
       )}
     </div>
   );
