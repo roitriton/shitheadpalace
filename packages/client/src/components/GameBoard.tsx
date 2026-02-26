@@ -1430,8 +1430,6 @@ export function GameBoard({
       status = 'Cliquez une carte à l\'aveugle pour jouer.';
     } else if (selectedCards.length > 0) {
       status = `${selectedCards.length} carte(s) sélectionnée(s) — Jouez ou ajoutez la même valeur.`;
-    } else {
-      status = 'À vous de jouer.';
     }
   }
 
@@ -1542,11 +1540,6 @@ export function GameBoard({
         </div>
       </div>
 
-      {/* ── Status ── */}
-      <div className="flex-none text-center px-2">
-        <p className="text-[10px] sm:text-xs text-gray-300/80 leading-tight truncate">{status}</p>
-      </div>
-
       {/* ── 4. Zone joueur humain (35%) ── */}
       <div className="flex-[35] min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 flex justify-center items-start">
         <PlayerZone
@@ -1561,6 +1554,13 @@ export function GameBoard({
           compact={isMobile}
         />
       </div>
+
+      {/* ── Status (sous la main du héros) ── */}
+      {status && (
+        <div className="flex-none text-center px-2 pb-1">
+          <p className="text-[10px] sm:text-xs text-gray-300/80 leading-tight truncate">{status}</p>
+        </div>
+      )}
 
       {/* ── Écran de fin ── */}
       <AnimatePresence>
