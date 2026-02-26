@@ -132,6 +132,7 @@ Bugs connus :
   - Bots jouent un tour à la fois avec délai 1.5s
   - lastPowerTriggered dans l'engine + pendingCardsPlayed pour les pouvoirs avec popup
   - Suppression des badges pouvoirs (RESET/UNDER/RÉV.)
+  - Drag and drop pour réorganiser les cartes en main (Framer Motion Reorder)
 
 Étapes à venir :
 - [ ] Étape 11B — Client : UI pouvoirs et interactions spéciales (suite)

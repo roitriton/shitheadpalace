@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
-import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
 import { getActiveZone } from '@shit-head-palace/engine';
 import type { InspectZone } from './DebugPanel';
 import { Card } from './Card';
@@ -97,7 +97,7 @@ function PlayerZone({
 
   // ── Bloc de cartes (main + flop) ──
   const cardBlock = (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-3">
       {/* Main (visible pour bot) — chevauchement + éventail */}
       {isBot ? (
         <div className="flex items-end" style={{ paddingBottom: botFanArc }}>
@@ -141,6 +141,7 @@ function PlayerZone({
                         faceDown={isBot ? !debugRevealHands : true}
                         size={cardSize}
                         onClick={canClickFaceDown ? () => onFaceDownClick?.(fdCard) : undefined}
+                        noLayout
                       />
                     </div>
                   )}
@@ -151,6 +152,7 @@ function PlayerZone({
                         size={cardSize}
                         selected={!isBot && selectedCards.includes(fuCard.id)}
                         onClick={canClickFaceUp ? () => onCardClick?.(fuCard) : undefined}
+                        noLayout
                       />
                     </div>
                   )}
@@ -170,7 +172,7 @@ function PlayerZone({
           axis="x"
           values={handOrder}
           onReorder={setHandOrder}
-          className="flex justify-center mt-1"
+          className="flex justify-center mt-2"
           style={{ paddingBottom: humanFanArc }}
         >
           {orderedHand.map((card, i) => {
@@ -1322,6 +1324,23 @@ export function GameBoard({
     !pendingShifumiChoiceForHuman &&
     !pendingShifumiTargetForHuman;
 
+  // FirstPlayerShifumi / AllBlockedShifumi: human needs to choose rock/paper/scissors
+  const firstPlayerShifumiPending =
+    pending?.type === 'firstPlayerShifumi'
+      ? (pending as PendingFirstPlayerShifumi)
+      : null;
+  const allBlockedShifumiPending =
+    pending?.type === 'allBlockedShifumi'
+      ? (pending as PendingAllBlockedShifumi)
+      : null;
+  const pendingGenericShifumiForHuman =
+    (firstPlayerShifumiPending !== null &&
+      firstPlayerShifumiPending.playerIds.includes(humanId) &&
+      !firstPlayerShifumiPending.choices[humanId]) ||
+    (allBlockedShifumiPending !== null &&
+      allBlockedShifumiPending.playerIds.includes(humanId) &&
+      !allBlockedShifumiPending.choices[humanId]);
+
   // Flop Reverse: human is launcher and needs to pick target
   const pendingFlopReverseForHuman =
     pending?.type === 'flopReverse' && pending.launcherId === humanId;
@@ -1348,6 +1367,8 @@ export function GameBoard({
     status = 'Pierre-papier-ciseaux !';
   } else if (pendingShifumiWaiting) {
     status = 'En attente du choix de l\'adversaire…';
+  } else if (pendingGenericShifumiForHuman) {
+    status = 'Pierre-papier-ciseaux !';
   } else if (pendingFlopReverseForHuman) {
     status = 'Choisissez la cible du Flop Reverse.';
   } else if (pendingFlopRemakeTargetForHuman) {
@@ -1470,7 +1491,7 @@ export function GameBoard({
           </div>
           {/* Bas (50%) — MiniLog */}
           <div className="flex-1 min-h-0 flex items-start justify-center overflow-hidden pt-1">
-            <MiniLog log={state.log} visible={!currentPower} />
+            <MiniLog log={state.log} />
           </div>
         </div>
       </div>
@@ -1573,6 +1594,16 @@ export function GameBoard({
         {pendingShifumiChoiceForHuman && onShifumiChoice && (
           <ShifumiChoiceModal
             isSuper={pending?.type === 'superShifumi'}
+            onChoice={onShifumiChoice}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── FirstPlayerShifumi / AllBlockedShifumi choice ── */}
+      <AnimatePresence>
+        {pendingGenericShifumiForHuman && onShifumiChoice && (
+          <ShifumiChoiceModal
+            isSuper={false}
             onChoice={onShifumiChoice}
           />
         )}
