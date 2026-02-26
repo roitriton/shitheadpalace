@@ -218,7 +218,7 @@ export function applyPlay(
         if (!allSameRank(nonMirrors)) {
           throw new Error('Non-Mirror cards in a Mirror play must all share the same rank');
         }
-        if (!canPlayCards(nonMirrors, state)) {
+        if (!canPlayCards(nonMirrors, state, cardsToPlay.length)) {
           throw new Error('These cards cannot be played on the current pile (value too low)');
         }
       } else {
@@ -379,7 +379,7 @@ export function applyPlay(
       throw new Error('Non-Mirror cards in a Mirror play must all share the same rank');
     }
     // Validate using the effective rank (the non-Mirror card's rank)
-    if (!canPlayCards(nonMirrors, state)) {
+    if (!canPlayCards(nonMirrors, state, cardsToPlay.length)) {
       throw new Error('These cards cannot be played on the current pile (value too low)');
     }
   } else {

@@ -84,22 +84,28 @@ export function allSameRank(cards: Card[]): boolean {
  * Rules (checked in priority order):
  * 1. Empty pile: any card is playable.
  * 2. Revolution / superRevolution phase: card value ≤ top pile value.
- *    All special power rank bypasses (Reset, Skip, Burn) are disabled.
+ *    All special power rank bypasses (Reset, Skip, Burn, quad burn) are disabled.
  * 3. Reset-rank card: always playable regardless of pile value or Under constraint.
  * 4. Skip-rank card: always playable regardless of pile value or Under constraint.
  * 5. pileResetActive flag: any card is playable (state effect from a previous Reset play).
  * 6. Under active (activeUnder): card value ≤ activeUnder.
- *    Burn-rank is subject to this constraint if its value exceeds activeUnder.
+ *    Burn-rank and quad burn combos are subject to this constraint.
  * 7. Burn-rank card: always playable in normal play (bypasses pile value ordering).
+ * 7b. Quad burn (4+ same-value cards in one play): bypasses pile value ordering.
  * 8. Normal play: card value ≥ top pile value.
  *
  * Does NOT validate whose turn it is, which zone the cards come from, or
  * whether all cards share the same rank (handled by the caller).
+ *
+ * @param effectiveCount - Total number of same-value cards in the play, counting
+ *   Mirrors as the accompanied rank. Defaults to `cards.length`. Used by the
+ *   caller to signal a quad burn combo when Mirror cards are part of the play.
  */
-export function canPlayCards(cards: Card[], state: GameState): boolean {
+export function canPlayCards(cards: Card[], state: GameState, effectiveCount?: number): boolean {
   if (cards.length === 0) return false;
   if (!allSameRank(cards)) return false;
 
+  const count = effectiveCount ?? cards.length;
   const isRevolution = state.phase === 'revolution' || state.phase === 'superRevolution';
   const topValue = getTopPileValue(state);
 
@@ -116,10 +122,7 @@ export function canPlayCards(cards: Card[], state: GameState): boolean {
   const isSkip   = matchesPowerRank(card.rank, state.variant, 'skip');
   const isBurn   = matchesPowerRank(card.rank, state.variant, 'burn');
 
-  if (isRevolution) {
-    // All powers disabled during revolution — play ≤ top value
-    return cardValue <= topValue;
-  }
+  if (isRevolution) return cardValue <= topValue;
 
   // Reset-rank cards are always playable regardless of pile value
   if (isReset) return true;
@@ -130,11 +133,18 @@ export function canPlayCards(cards: Card[], state: GameState): boolean {
   // Reset active: any card is playable
   if (state.pileResetActive === true) return true;
 
+  // Quad burn: 4+ same-value cards in one play bypass pile value ordering.
+  // Checked before Under and normal value comparison — only blocked by Revolution
+  // (already handled above) and Under (below).
+  if (count >= 4) {
+    // Under active: quad burn is still blocked by Under constraint
+    if (state.activeUnder != null) return cardValue <= state.activeUnder;
+    return true;
+  }
+
   // Under active: must play ≤ Under value
   // (Burn is intentionally checked after this: if Burn value > Under, it cannot be played)
-  if (state.activeUnder != null) {
-    return cardValue <= state.activeUnder;
-  }
+  if (state.activeUnder != null) return cardValue <= state.activeUnder;
 
   // Burn-rank cards bypass normal value ordering; Under restriction already handled above
   if (isBurn) return true;
@@ -176,6 +186,26 @@ export function canPlayerPlayAnything(state: GameState, playerIndex: number): bo
 
   for (const c of zoneCards) {
     if (!isMirrorCard(c) && canPlayCards([c], state)) return true;
+  }
+
+  // Check for quad burn combos: 4+ effective same-rank cards bypass pile value.
+  // Mirrors count as the accompanied rank. Disabled during revolution.
+  const isRevolution = state.phase === 'revolution' || state.phase === 'superRevolution';
+  if (!isRevolution) {
+    const mirrorCount = zoneCards.filter(isMirrorCard).length;
+    const rankCounts = new Map<string, number>();
+    for (const c of zoneCards) {
+      if (!isMirrorCard(c)) {
+        rankCounts.set(c.rank, (rankCounts.get(c.rank) ?? 0) + 1);
+      }
+    }
+    for (const [rank, count] of rankCounts) {
+      const totalEffective = count + mirrorCount;
+      if (totalEffective >= 4) {
+        const sample = zoneCards.find((c) => c.rank === rank)!;
+        if (canPlayCards([sample], state, totalEffective)) return true;
+      }
+    }
   }
 
   return false;

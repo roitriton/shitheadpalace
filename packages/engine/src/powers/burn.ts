@@ -5,17 +5,20 @@ import { matchesPowerRank } from './utils';
 // ─── 4-identical detection ────────────────────────────────────────────────────
 
 /**
- * Counts how many consecutive cards of `rank` sit on top of the pile,
+ * Counts how many consecutive cards of effective `rank` sit on top of the pile,
  * scanning backwards through PileEntry records.
  *
- * An entry is part of the streak only when ALL its cards share `rank`.
- * An entry with mixed ranks (e.g. a Mirror play) breaks the streak.
+ * Uses the entry's `effectiveRank` (set by Mirror resolution) when available,
+ * otherwise falls back to the first card's physical rank. This correctly
+ * counts Mirror plays as their accompanied value (e.g. a 6+6+9+9 entry with
+ * effectiveRank '6' contributes 4 cards to a '6' streak).
  */
-function countConsecutiveTopRank(pile: PileEntry[], rank: Rank): number {
+function countConsecutiveTopEffectiveRank(pile: PileEntry[], rank: Rank): number {
   let count = 0;
   for (let i = pile.length - 1; i >= 0; i--) {
     const entry = pile[i]!;
-    if (entry.cards.every((c) => c.rank === rank)) {
+    const entryRank = entry.effectiveRank ?? entry.cards[0]!.rank;
+    if (entryRank === rank) {
       count += entry.cards.length;
     } else {
       break;
@@ -31,19 +34,24 @@ function countConsecutiveTopRank(pile: PileEntry[], rank: Rank): number {
  *
  * Burn triggers when (and only when NOT in revolution / superRevolution):
  *   (a) The played rank matches the Burn power assignment in the variant, OR
- *   (b) 4 or more cards of the same rank now sit consecutively on top of the pile
- *       (the "4-identical" rule — active regardless of Burn rank assignment).
+ *   (b) 4 or more same-value cards are played in a single move (quad burn).
+ *       `effectiveCount` includes Mirror cards counted as the accompanied rank.
+ *   (c) 4 or more cards of the same rank now sit consecutively on top of the pile
+ *       (the "4-identical" rule — accumulated across multiple moves).
  *
- * @param playedCards - Cards just placed on the pile (single-rank set).
- * @param pile        - The full pile AFTER the current play has been appended.
- * @param variant     - Game variant (for power-rank lookups).
- * @param phase       - Current game phase.
+ * @param playedCards    - Cards just placed on the pile (single-rank set, mirrors filtered out).
+ * @param pile           - The full pile AFTER the current play has been appended.
+ * @param variant        - Game variant (for power-rank lookups).
+ * @param phase          - Current game phase.
+ * @param effectiveCount - Total same-value cards in this play (mirrors counted).
+ *                         Defaults to `playedCards.length`.
  */
 export function isBurnTriggered(
   playedCards: Card[],
   pile: PileEntry[],
   variant: GameVariant,
   phase: GamePhase,
+  effectiveCount?: number,
 ): boolean {
   if (phase === 'revolution' || phase === 'superRevolution') return false;
   if (playedCards.length === 0) return false;
@@ -53,8 +61,12 @@ export function isBurnTriggered(
   // (a) Burn by rank
   if (matchesPowerRank(rank, variant, 'burn')) return true;
 
-  // (b) Burn by 4 identical (universal rule)
-  return countConsecutiveTopRank(pile, rank) >= 4;
+  // (b) Burn by 4+ same-value cards played in one move (quad burn)
+  const count = effectiveCount ?? playedCards.length;
+  if (count >= 4) return true;
+
+  // (c) Burn by 4+ identical accumulated on pile (universal rule, mirrors resolved)
+  return countConsecutiveTopEffectiveRank(pile, rank) >= 4;
 }
 
 // ─── Effect ───────────────────────────────────────────────────────────────────

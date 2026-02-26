@@ -160,7 +160,7 @@ export function resolvePowers(
   // Helper: extract card info for overlay display
   const cardsInfo = playedCards.map((c) => ({ rank: c.rank, suit: c.suit }));
 
-  if (isBurnTriggered(cardsForBurnCheck, newState.pile, newState.variant, newState.phase)) {
+  if (isBurnTriggered(cardsForBurnCheck, newState.pile, newState.variant, newState.phase, playedCards.length)) {
     newState = applyBurn(newState, playerId, timestamp);
     newState = { ...newState, lastPowerTriggered: { type: 'burn', playerId, cardsPlayed: cardsInfo } };
     return { state: newState, playerReplays: true, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
