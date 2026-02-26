@@ -495,17 +495,59 @@ function MiniLog({ log, visible = true }: MiniLogProps) {
 
 interface CardsColumnProps {
   state: GameState;
+  humanId: string;
+}
+
+/** Maps card rank codes to readable French labels. */
+function rankLabel(rank: string): string {
+  switch (rank) {
+    case 'J': return 'Valet';
+    case 'Q': return 'Dame';
+    case 'K': return 'Roi';
+    case 'A': return 'As';
+    default: return rank;
+  }
 }
 
 /** Center column: Pile (top ~70%), Graveyard (bottom ~30%).
  *  Both centred horizontally. No overlap — each has its own fixed vertical space. */
-function CardsColumn({ state }: CardsColumnProps) {
+function CardsColumn({ state, humanId }: CardsColumnProps) {
   const totalPileCards = state.pile.reduce((sum, entry) => sum + entry.cards.length, 0);
+
+  // Build the dynamic turn message
+  let turnMessage: string | null = null;
+  const phase = state.phase;
+  if (phase === 'playing' || phase === 'revolution' || phase === 'superRevolution') {
+    const currentPlayer = state.players[state.currentPlayerIndex];
+    if (currentPlayer) {
+      const name = currentPlayer.id === humanId ? 'vous' : currentPlayer.name;
+      const isRevolution = phase === 'revolution' || phase === 'superRevolution';
+      const isUnder = typeof state.activeUnder === 'number';
+
+      if (state.pile.length === 0 || state.pileResetActive) {
+        turnMessage = `À ${name} de jouer (pile vide)`;
+      } else {
+        const lastEntry = state.pile[state.pile.length - 1]!;
+        const topRank = lastEntry.effectiveRank ?? lastEntry.cards[0]!.rank;
+        const label = rankLabel(topRank);
+        if (isRevolution || isUnder) {
+          turnMessage = `À ${name} de jouer sous un ${label}`;
+        } else {
+          turnMessage = `À ${name} de jouer sur un ${label}`;
+        }
+      }
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
       {/* ── Pile zone (~70%) ── */}
       <div className="flex-[70] min-h-0 flex flex-col items-center justify-center overflow-hidden">
+        {turnMessage && (
+          <p className="text-[10px] sm:text-xs text-gray-300/70 leading-tight mb-1 truncate max-w-full px-2">
+            {turnMessage}
+          </p>
+        )}
         <PileHorizontal pile={state.pile} />
         <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
           Pile : {totalPileCards} cartes
@@ -1478,7 +1520,7 @@ export function GameBoard({
 
         {/* Colonne centre (50%) — Pile + Cimetière */}
         <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg">
-          <CardsColumn state={state} />
+          <CardsColumn state={state} humanId={humanId} />
         </div>
 
         {/* Colonne droite (25%) — Cadre Overlay + MiniLog */}
