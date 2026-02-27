@@ -463,15 +463,17 @@ describe('Shifumi — full flow via applyPlay', () => {
     expect(next.pendingAction).toMatchObject({ type: 'superShifumi', initiatorId: 'p0' });
   });
 
-  it('J♣ is moved to graveyard after play (not kept in pile)', () => {
+  it('J♣ sets pendingCemeteryTransit after play (jack still in pile)', () => {
     const state = makeState({
       pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'x', playerName: 'X', timestamp: 0 }],
       players: [makePlayer('p0', { hand: [jClub] }), makePlayer('p1'), makePlayer('p2'), makePlayer('p3')],
     });
     const next = applyPlay(state, 'p0', [jClub.id]);
-    expect(next.graveyard.some((c) => c.id === jClub.id)).toBe(true);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    // Jack is still in the pile (not yet resolved)
     const pileCardIds = next.pile.flatMap((e) => e.cards.map((c) => c.id));
-    expect(pileCardIds).not.toContain(jClub.id);
+    expect(pileCardIds).toContain(jClub.id);
+    expect(next.graveyard).toHaveLength(0);
   });
 
   it('J♣ during revolution does not trigger Shifumi and turn advances', () => {

@@ -9,9 +9,9 @@ import type { GameState } from '../types';
  * - **Jack transit** (any other trigger or null): only the top pile entry
  *   is moved to the graveyard; the rest of the pile stays.
  *
- * Called automatically in `applyPlay` after `resolvePowers`. This function is
- * a no-op when `pendingCemeteryTransit` is falsy, so it's safe to call
- * unconditionally.
+ * Called by the server after emitting the intermediate state (cards still in
+ * pile) and waiting for the overlay delay. This function is a no-op when
+ * `pendingCemeteryTransit` is falsy, so it's safe to call unconditionally.
  *
  * @param state - Game state potentially flagged for cemetery transit.
  * @returns Updated game state with transit resolved (or unchanged if no transit pending).

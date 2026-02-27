@@ -159,10 +159,10 @@ describe('applyPlay — quad burn (4+ identical in one play)', () => {
     ];
     const state = makeState(hand, pileOf('3'));
     const next = applyPlay(state, 'p0', hand.slice(0, 4).map((c) => c.id));
-    // Pile burned → empty
-    expect(next.pile).toHaveLength(0);
-    // Cards went to graveyard (pile had 1 card + 4 played = 5)
-    expect(next.graveyard.length).toBeGreaterThanOrEqual(5);
+    // Burn sets pendingCemeteryTransit, cards still in pile
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
     // Player replays → currentPlayerIndex still 0
     expect(next.currentPlayerIndex).toBe(0);
   });
@@ -174,8 +174,9 @@ describe('applyPlay — quad burn (4+ identical in one play)', () => {
     ];
     const state = makeState(hand, pileOf('3'), { variant: emptyVariant });
     const next = applyPlay(state, 'p0', hand.map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard.length).toBeGreaterThanOrEqual(6);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
   });
 
   it('4 identical with mirrors (6+6+9+9) → burn', () => {
@@ -186,8 +187,9 @@ describe('applyPlay — quad burn (4+ identical in one play)', () => {
     ];
     const state = makeState(hand, pileOf('3'));
     const next = applyPlay(state, 'p0', hand.slice(0, 4).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard.length).toBeGreaterThanOrEqual(5);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 
@@ -199,8 +201,9 @@ describe('applyPlay — quad burn (4+ identical in one play)', () => {
     ];
     const state = makeState(hand, pileOf('3'));
     const next = applyPlay(state, 'p0', hand.slice(0, 4).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard.length).toBeGreaterThanOrEqual(5);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 
@@ -211,8 +214,9 @@ describe('applyPlay — quad burn (4+ identical in one play)', () => {
     // Pile top is Ace — normally can't play 3 on Ace, but quad burn bypasses
     const state = makeState(hand, pileOf('A'), { variant: emptyVariant });
     const next = applyPlay(state, 'p0', hand.map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard.length).toBeGreaterThanOrEqual(5);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
   });
 
   it('4 identical on empty pile → burn', () => {
@@ -221,8 +225,9 @@ describe('applyPlay — quad burn (4+ identical in one play)', () => {
     ];
     const state = makeState(hand, [], { variant: emptyVariant });
     const next = applyPlay(state, 'p0', hand.map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard).toHaveLength(4);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
   });
 
   it('3 identical → NOT a burn (normal play)', () => {
@@ -275,7 +280,8 @@ describe('applyPlay — quad burn low cards on high pile (Fix A)', () => {
     ];
     const state = makeState(hand, pileOf('Q'));
     const next = applyPlay(state, 'p0', hand.slice(0, 4).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 
@@ -286,7 +292,8 @@ describe('applyPlay — quad burn low cards on high pile (Fix A)', () => {
     ];
     const state = makeState(hand, pileOf('K'));
     const next = applyPlay(state, 'p0', hand.slice(0, 4).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 
@@ -297,7 +304,8 @@ describe('applyPlay — quad burn low cards on high pile (Fix A)', () => {
     ];
     const state = makeState(hand, pileOf('A'));
     const next = applyPlay(state, 'p0', hand.slice(0, 4).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 });
@@ -333,8 +341,9 @@ describe('applyPlay — exact user bug scenario', () => {
     };
     // This is the exact scenario: 4 fours on a 7, Standard variant, 3 players
     const next = applyPlay(state, 'p0', hand.slice(0, 4).map((c) => c.id));
-    expect(next.pile).toHaveLength(0); // Burn happened
-    expect(next.graveyard.length).toBeGreaterThanOrEqual(5); // 1 (pile) + 4 (played)
+    expect(next.pendingCemeteryTransit).toBe(true); // Burn sets transit flag
+    expect(next.pile.length).toBeGreaterThan(0); // Cards still in pile
+    expect(next.graveyard).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(0); // Player replays
   });
 });
@@ -350,7 +359,9 @@ describe('applyPlay — burn by cross-turn accumulation', () => {
     // Pile already has a 2 (1 card). Playing 3 more → 4 total on pile → burn.
     const state = makeState(hand, pileOf('2'), { variant: emptyVariant });
     const next = applyPlay(state, 'p0', hand.slice(0, 3).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 
@@ -362,7 +373,9 @@ describe('applyPlay — burn by cross-turn accumulation', () => {
     // Pile: [6] [6] — two separate entries. Playing 2 more → 4 accumulated → burn.
     const state = makeState(hand, pileOf('6', '6'), { variant: emptyVariant });
     const next = applyPlay(state, 'p0', hand.slice(0, 2).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 
@@ -378,7 +391,9 @@ describe('applyPlay — burn by cross-turn accumulation', () => {
     ];
     const state = makeState(hand, mirrorPile);
     const next = applyPlay(state, 'p0', hand.slice(0, 3).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 
@@ -414,7 +429,9 @@ describe('applyPlay — burn by cross-turn accumulation', () => {
     // Playing 3 more → 1 + 3 = 4 fives on top → burn.
     const state = makeState(hand, pileOf('7', '7', '5'), { variant: emptyVariant });
     const next = applyPlay(state, 'p0', hand.slice(0, 3).map((c) => c.id));
-    expect(next.pile).toHaveLength(0);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(0);
   });
 

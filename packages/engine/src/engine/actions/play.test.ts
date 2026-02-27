@@ -315,9 +315,9 @@ describe('applyPlay — finish and game-over', () => {
   });
 });
 
-// ─── Jack cards go to graveyard ───────────────────────────────────────────────
+// ─── Jack cards: pendingCemeteryTransit set (transit deferred to server) ─────
 
-describe('applyPlay — Jack cards go to graveyard', () => {
+describe('applyPlay — Jack cards set pendingCemeteryTransit', () => {
   function card2(rank: Card['rank'], suit: Card['suit'] = 'hearts', idx = 0): Card {
     return { id: `${rank}-${suit}-${idx}`, suit, rank };
   }
@@ -329,42 +329,42 @@ describe('applyPlay — Jack cards go to graveyard', () => {
     deckCount: 1,
   };
 
-  it('J♦ goes to graveyard after play, pile entry removed', () => {
+  it('J♦ sets pendingCemeteryTransit, jack still in pile', () => {
     const jDiamond = card2('J', 'diamonds');
     const state = makeState({ hand: [jDiamond, c9] }, pile('3'), [], { hand: [c5] });
     const next = applyPlay(state, 'p0', [jDiamond.id]);
-    expect(next.graveyard.map((c) => c.id)).toContain(jDiamond.id);
-    // Pre-existing pile entry stays, Jack entry removed
-    expect(next.pile).toHaveLength(1);
-    expect(next.pile[0]!.cards[0]!.rank).toBe('3');
+    expect(next.pendingCemeteryTransit).toBe(true);
+    // Jack is still in the pile (top entry), not yet in graveyard
+    const allPileCards = next.pile.flatMap((e) => e.cards);
+    expect(allPileCards.some((c) => c.id === jDiamond.id)).toBe(true);
+    expect(next.graveyard).toHaveLength(0);
   });
 
-  it('J♠ (Manouche) goes to graveyard after play', () => {
+  it('J♠ (Manouche) sets pendingCemeteryTransit', () => {
     const jSpade = card2('J', 'spades');
     const state = makeState({ hand: [jSpade, cK] }, pile('3'), [], { hand: [c5] });
-    // targetPlayerId required because Manouche triggers (player does not finish)
     const next = applyPlay(state, 'p0', [jSpade.id], 0, 'p1');
-    expect(next.graveyard.map((c) => c.id)).toContain(jSpade.id);
-    expect(next.pile).toHaveLength(1);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.graveyard).toHaveLength(0);
   });
 
-  it('J♥ goes to graveyard after play, pile entry removed', () => {
+  it('J♥ sets pendingCemeteryTransit', () => {
     const jHeart = card2('J', 'hearts');
     const state = makeState({ hand: [jHeart, cK] }, pile('3'), [], { hand: [c5] });
     const next = applyPlay(state, 'p0', [jHeart.id]);
-    expect(next.graveyard.map((c) => c.id)).toContain(jHeart.id);
-    expect(next.pile).toHaveLength(1);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.graveyard).toHaveLength(0);
   });
 
-  it('J♣ goes to graveyard after play, pile entry removed', () => {
+  it('J♣ sets pendingCemeteryTransit', () => {
     const jClub = card2('J', 'clubs');
     const state = makeState({ hand: [jClub, cK] }, pile('3'), [], { hand: [c5] });
     const next = applyPlay(state, 'p0', [jClub.id]);
-    expect(next.graveyard.map((c) => c.id)).toContain(jClub.id);
-    expect(next.pile).toHaveLength(1);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.graveyard).toHaveLength(0);
   });
 
-  it('J♦ + Mirror: both Jack and Mirror go to graveyard', () => {
+  it('J♦ + Mirror: pendingCemeteryTransit set, both still in pile', () => {
     const jd = card2('J', 'diamonds', 1);
     const mirror9 = card2('9', 'clubs', 1);
     const state = {
@@ -372,41 +372,38 @@ describe('applyPlay — Jack cards go to graveyard', () => {
       variant: mirrorVariant,
     };
     const next = applyPlay(state, 'p0', [jd.id, mirror9.id]);
-    const graveyardIds = next.graveyard.map((c) => c.id);
-    expect(graveyardIds).toContain(jd.id);
-    expect(graveyardIds).toContain(mirror9.id);
-    expect(next.pile).toHaveLength(1);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    const allPileCards = next.pile.flatMap((e) => e.cards);
+    expect(allPileCards.some((c) => c.id === jd.id)).toBe(true);
+    expect(allPileCards.some((c) => c.id === mirror9.id)).toBe(true);
+    expect(next.graveyard).toHaveLength(0);
   });
 
-  it('J♠ + Mirror: both go to graveyard (Super Manouche)', () => {
+  it('J♠ + Mirror: pendingCemeteryTransit set (Super Manouche)', () => {
     const js = card2('J', 'spades', 1);
     const mirror9 = card2('9', 'clubs', 1);
     const state = {
       ...makeState({ hand: [js, mirror9, cK] }, pile('3'), [], { hand: [c5] }),
       variant: mirrorVariant,
     };
-    // targetPlayerId required because Super Manouche triggers
     const next = applyPlay(state, 'p0', [js.id, mirror9.id], 0, 'p1');
-    const graveyardIds = next.graveyard.map((c) => c.id);
-    expect(graveyardIds).toContain(js.id);
-    expect(graveyardIds).toContain(mirror9.id);
-    expect(next.pile).toHaveLength(1);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.graveyard).toHaveLength(0);
   });
 
-  it('previous pile entry is preserved as top after Jack is played on it', () => {
+  it('previous pile entry preserved, jack in pile as top entry', () => {
     const jd2 = card2('J', 'diamonds', 2);
-    // Pre-existing pile entry with a '5'
     const preEntry = pile('5');
     const state = makeState({ hand: [jd2, cK] }, preEntry, [], { hand: [c5] });
     const next = applyPlay(state, 'p0', [jd2.id]);
-    // J♦ goes to graveyard
-    expect(next.graveyard.map((c) => c.id)).toContain(jd2.id);
-    // Original '5' entry is still the top of the pile
-    expect(next.pile).toHaveLength(1);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    // Jack entry is on top, original '5' entry below
+    expect(next.pile).toHaveLength(2);
     expect(next.pile[0]!.cards[0]!.rank).toBe('5');
+    expect(next.pile[1]!.cards[0]!.rank).toBe('J');
   });
 
-  it('Jack during revolution (powers suppressed) stays in pile', () => {
+  it('Jack during revolution (powers suppressed) stays in pile, no transit', () => {
     const jdRev = card2('J', 'diamonds', 3);
     const state = {
       ...makeState({ hand: [jdRev, cK] }, pile('A'), [], { hand: [c5] }),
@@ -415,17 +412,18 @@ describe('applyPlay — Jack cards go to graveyard', () => {
     };
     const next = applyPlay(state, 'p0', [jdRev.id]);
     // During revolution, Jacks lose their power and stay in the pile
+    expect(next.pendingCemeteryTransit).toBeFalsy();
     expect(next.graveyard).toHaveLength(0);
     expect(next.pile).toHaveLength(2);
     expect(next.pile[1]!.cards[0]!.rank).toBe('J');
-    // Phase stays revolution (J♦ power is suppressed)
     expect(next.phase).toBe('revolution');
   });
 
-  it('non-Jack card stays in pile, not graveyard', () => {
+  it('non-Jack card stays in pile, not graveyard, no transit', () => {
     const state = makeState({ hand: [cK] }, [], [], { hand: [c5] });
     const next = applyPlay(state, 'p0', [cK.id]);
     expect(next.pile).toHaveLength(1);
     expect(next.graveyard).toHaveLength(0);
+    expect(next.pendingCemeteryTransit).toBeFalsy();
   });
 });

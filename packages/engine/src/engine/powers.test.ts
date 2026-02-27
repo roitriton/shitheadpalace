@@ -69,10 +69,9 @@ describe('Burn integration (via applyPlay)', () => {
   it('burns the pile when the Burn card (10) is played', () => {
     const state = makeState({ hand: [card('10'), card('K')] }, pileOf('7'));
     const next = applyPlay(state, 'p0', [card('10').id]);
-    expect(next.pile).toHaveLength(0);
-    // graveyard should contain the 7 and the 10
-    expect(next.graveyard.map((c) => c.rank)).toContain('7');
-    expect(next.graveyard.map((c) => c.rank)).toContain('10');
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
   });
 
   it('player replays after Burn (turn does not advance)', () => {
@@ -104,8 +103,9 @@ describe('Burn integration (via applyPlay)', () => {
       variant: noRankBurnVariant,
     };
     const next = applyPlay(state, 'p0', [card('7', 'clubs').id]);
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard).toHaveLength(4);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
   });
 
   it('turn does NOT advance after Burn when player still has cards', () => {
@@ -367,9 +367,10 @@ describe('Mirror integration (via applyPlay)', () => {
     // 9 (Mirror) + 10 (Burn). Mirror makes effective rank = 10. Burn triggers.
     const state = makeState({ hand: [card('9'), card('10'), card('K')] }, pileOf('5'));
     const next = applyPlay(state, 'p0', [card('9').id, card('10').id]);
-    // Burn should have fired (pile cleared)
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard.length).toBeGreaterThan(0);
+    // Burn should have fired (pendingCemeteryTransit set)
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.length).toBeGreaterThan(0);
+    expect(next.graveyard).toHaveLength(0);
   });
 
   it('Mirror + Skip: Mirror counts as an additional skip (2 total → p3 plays in 4-player)', () => {
@@ -555,7 +556,9 @@ describe('Jacks during revolution/superRevolution (powers suppressed → stay in
       [{}, {}, {}],
     );
     const next = applyPlay(state, 'p0', [jd.id]);
-    expect(next.graveyard.map((c) => c.id)).toContain(jd.id);
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.pile.at(-1)!.cards.some((c) => c.id === jd.id)).toBe(true);
+    expect(next.graveyard).toHaveLength(0);
   });
 
   it('Jack + Mirror stay in pile during revolution', () => {

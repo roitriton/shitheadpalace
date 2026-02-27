@@ -335,7 +335,7 @@ describe('Target + Burn interaction', () => {
     const afterBurnCard = applyPlay(afterChoice, 'p1', [c10a.id]);
     // 10 is a Burn card — triggers burn → player replays
     expect(afterBurnCard.currentPlayerIndex).toBe(1); // p1 replays
-    expect(afterBurnCard.pile).toHaveLength(0); // pile cleared
+    expect(afterBurnCard.pendingCemeteryTransit).toBe(true); // burn sets transit flag
   });
 });
 

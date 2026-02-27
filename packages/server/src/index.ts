@@ -16,6 +16,7 @@ import {
   filterGameStateForPlayer,
   applyAction,
   applyReady,
+  resolveCemeteryTransit,
 } from '@shit-head-palace/engine';
 import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './game/bot';
@@ -70,6 +71,9 @@ function createSoloSession(socketId: string): SoloSession {
 
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
+/** Delay before resolving cemetery transit (burn/jack animation). */
+const CEMETERY_TRANSIT_DELAY_MS = 2250;
+
 function sendSoloState(socket: Socket, session: SoloSession): void {
   socket.emit('game:state', {
     state: IS_DEV
@@ -95,13 +99,27 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
   if (!currentIsBot && !hasBotPending) return;
 
   setTimeout(() => {
+    const current = soloSessions.get(socket.id);
+    if (!current || current !== session) return;
+
     const prev = session.state;
     session.state = botActOnce(session.state, session.botIds, [session.humanId]);
 
     if (session.state !== prev) {
       sendSoloState(socket, session);
-      // Re-schedule if another bot action is needed
-      scheduleSoloBotIfNeeded(socket, session);
+
+      // Two-step cemetery transit for bot actions
+      if (session.state.pendingCemeteryTransit) {
+        setTimeout(() => {
+          const stillCurrent = soloSessions.get(socket.id);
+          if (!stillCurrent || stillCurrent !== session) return;
+          session.state = resolveCemeteryTransit(session.state);
+          sendSoloState(socket, session);
+          scheduleSoloBotIfNeeded(socket, session);
+        }, CEMETERY_TRANSIT_DELAY_MS);
+      } else {
+        scheduleSoloBotIfNeeded(socket, session);
+      }
     }
   }, 2250);
 }
@@ -206,7 +224,19 @@ io.on('connection', (rawSocket) => {
       }
 
       sendSoloState(socket, s);
-      scheduleSoloBotIfNeeded(socket, s);
+
+      // Two-step cemetery transit: intermediate state already sent, resolve after delay
+      if (s.state.pendingCemeteryTransit) {
+        setTimeout(() => {
+          const current = soloSessions.get(socket.id);
+          if (!current || current !== s) return;
+          s.state = resolveCemeteryTransit(s.state);
+          sendSoloState(socket, s);
+          scheduleSoloBotIfNeeded(socket, s);
+        }, CEMETERY_TRANSIT_DELAY_MS);
+      } else {
+        scheduleSoloBotIfNeeded(socket, s);
+      }
     } catch (err) {
       socket.emit('game:error', { message: (err as Error).message });
     }
@@ -248,7 +278,19 @@ io.on('connection', (rawSocket) => {
       }
 
       sendSoloState(socket, s);
-      scheduleSoloBotIfNeeded(socket, s);
+
+      // Two-step cemetery transit
+      if (s.state.pendingCemeteryTransit) {
+        setTimeout(() => {
+          const current = soloSessions.get(socket.id);
+          if (!current || current !== s) return;
+          s.state = resolveCemeteryTransit(s.state);
+          sendSoloState(socket, s);
+          scheduleSoloBotIfNeeded(socket, s);
+        }, CEMETERY_TRANSIT_DELAY_MS);
+      } else {
+        scheduleSoloBotIfNeeded(socket, s);
+      }
     } catch (err) {
       socket.emit('game:error', { message: (err as Error).message });
     }

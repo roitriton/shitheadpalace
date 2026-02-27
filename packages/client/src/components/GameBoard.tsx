@@ -544,8 +544,6 @@ function MiniLog({ log, visible = true }: MiniLogProps) {
 interface CardsColumnProps {
   state: GameState;
   humanId: string;
-  /** Active power overlay — used for cemetery transit animation */
-  currentPower?: LastPowerTriggered | null;
 }
 
 /** Maps card rank codes to readable French labels. */
@@ -561,29 +559,8 @@ function rankLabel(rank: string): string {
 
 /** Center column: Pile (top ~70%), Graveyard (bottom ~30%).
  *  Both centred horizontally. No overlap — each has its own fixed vertical space. */
-function CardsColumn({ state, humanId, currentPower }: CardsColumnProps) {
-  // ── Cemetery transit: snapshot pile during burn overlay ──────────────────
-  // When a burn resolves, the server sends the final state (pile empty, cards
-  // in graveyard). We keep showing the previous pile during the overlay so
-  // the player sees the cards before they "move" to the graveyard.
-  const prevPileRef = React.useRef(state.pile);
-  const transitPileRef = React.useRef<GameState['pile'] | null>(null);
-
-  if (currentPower?.type === 'burn' && state.pile.length === 0
-      && prevPileRef.current.length > 0 && transitPileRef.current === null) {
-    transitPileRef.current = prevPileRef.current;
-  }
-  if (!currentPower && transitPileRef.current !== null) {
-    transitPileRef.current = null;
-  }
-
-  const displayPile = transitPileRef.current ?? state.pile;
-
-  React.useEffect(() => {
-    prevPileRef.current = state.pile;
-  });
-
-  const totalPileCards = displayPile.reduce((sum, entry) => sum + entry.cards.length, 0);
+function CardsColumn({ state, humanId }: CardsColumnProps) {
+  const totalPileCards = state.pile.reduce((sum, entry) => sum + entry.cards.length, 0);
 
   // Build the dynamic turn message
   let turnMessage: string | null = null;
@@ -595,10 +572,10 @@ function CardsColumn({ state, humanId, currentPower }: CardsColumnProps) {
       const isRevolution = phase === 'revolution' || phase === 'superRevolution';
       const isUnder = typeof state.activeUnder === 'number';
 
-      if (displayPile.length === 0 || state.pileResetActive) {
+      if (state.pile.length === 0 || state.pileResetActive) {
         turnMessage = `À ${name} de jouer (pile vide)`;
       } else {
-        const lastEntry = displayPile[displayPile.length - 1]!;
+        const lastEntry = state.pile[state.pile.length - 1]!;
         const topRank = lastEntry.effectiveRank ?? lastEntry.cards[0]!.rank;
         const label = rankLabel(topRank);
         if (isRevolution || isUnder) {
@@ -619,7 +596,7 @@ function CardsColumn({ state, humanId, currentPower }: CardsColumnProps) {
             {turnMessage}
           </p>
         )}
-        <PileHorizontal pile={displayPile} />
+        <PileHorizontal pile={state.pile} />
         <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
           Pile : {totalPileCards} cartes
         </span>
@@ -1598,7 +1575,7 @@ export function GameBoard({
 
         {/* Colonne centre (50%) — Pile + Cimetière */}
         <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg">
-          <CardsColumn state={state} humanId={humanId} currentPower={currentPower} />
+          <CardsColumn state={state} humanId={humanId} />
         </div>
 
         {/* Colonne droite (25%) — Cadre Overlay + MiniLog */}

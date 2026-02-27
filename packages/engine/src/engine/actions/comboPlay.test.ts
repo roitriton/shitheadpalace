@@ -145,9 +145,9 @@ describe('applyPlay — combo hand + flop', () => {
 
     const next = applyPlay(state, 'p0', [h10a.id, h10b.id, f10a.id, f10b.id]);
 
-    // Burn should have triggered — pile should be cleared (sent to graveyard)
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard.length).toBeGreaterThan(0);
+    // Burn should have triggered — pendingCemeteryTransit set, cards still in pile
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.lastPowerTriggered?.type).toBe('burn');
   });
 
   it('plays single hand card + single matching flop card as valid combo', () => {
@@ -302,9 +302,9 @@ describe('applyPlay — combo flop + dark flop', () => {
 
     const next = applyPlay(state, 'p0', [f10a.id, f10b.id, d10a.id, d10b.id]);
 
-    // Burn → pile cleared
-    expect(next.pile).toHaveLength(0);
-    expect(next.graveyard.length).toBeGreaterThan(0);
+    // Burn → pendingCemeteryTransit set, cards still in pile
+    expect(next.pendingCemeteryTransit).toBe(true);
+    expect(next.lastPowerTriggered?.type).toBe('burn');
   });
 
   it('valid combo: single flop card + single matching dark flop card', () => {

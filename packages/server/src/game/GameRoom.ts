@@ -4,9 +4,10 @@ import {
   filterGameStateForPlayer,
   applyAction,
   applyReady,
+  resolveCemeteryTransit,
 } from '@shit-head-palace/engine';
 import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
-import { runBotTurns, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './bot';
+import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './bot';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,9 @@ const RECONNECT_TIMEOUT_MS = 60_000;
 
 /** Bot turn delay in milliseconds. */
 const BOT_DELAY_MS = 1200;
+
+/** Delay before resolving cemetery transit (burn/jack animation). */
+const CEMETERY_TRANSIT_DELAY_MS = 2250;
 
 const MAX_CHAT_MESSAGE_LENGTH = 200;
 const MAX_CHAT_HISTORY = 100;
@@ -199,7 +203,21 @@ export class GameRoom {
     }
 
     this.broadcast();
-    this.scheduleBotIfNeeded();
+
+    // Two-step cemetery transit: intermediate state already broadcast, resolve after delay
+    if (this.state.pendingCemeteryTransit) {
+      setTimeout(() => {
+        if (!this.state) return;
+        this.state = resolveCemeteryTransit(this.state);
+        if (this.state.phase === 'finished') {
+          this.status = 'finished';
+        }
+        this.broadcast();
+        this.scheduleBotIfNeeded();
+      }, CEMETERY_TRANSIT_DELAY_MS);
+    } else {
+      this.scheduleBotIfNeeded();
+    }
   }
 
   // ─── State filtering ────────────────────────────────────────────────────────
@@ -245,11 +263,30 @@ export class GameRoom {
 
     setTimeout(() => {
       if (!this.state) return;
-      this.state = runBotTurns(this.state, this.botIds, this.humanPlayerIds);
-      if (this.state.phase === 'finished') {
-        this.status = 'finished';
+      const prev = this.state;
+      this.state = botActOnce(this.state, this.botIds, this.humanPlayerIds);
+
+      if (this.state !== prev) {
+        if (this.state.phase === 'finished') {
+          this.status = 'finished';
+        }
+        this.broadcast();
+
+        // Two-step cemetery transit for bot actions
+        if (this.state.pendingCemeteryTransit) {
+          setTimeout(() => {
+            if (!this.state) return;
+            this.state = resolveCemeteryTransit(this.state);
+            if (this.state.phase === 'finished') {
+              this.status = 'finished';
+            }
+            this.broadcast();
+            this.scheduleBotIfNeeded();
+          }, CEMETERY_TRANSIT_DELAY_MS);
+        } else {
+          this.scheduleBotIfNeeded();
+        }
       }
-      this.broadcast();
     }, BOT_DELAY_MS);
   }
 

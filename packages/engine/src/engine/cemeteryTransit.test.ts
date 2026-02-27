@@ -221,24 +221,31 @@ describe('resolveCemeteryTransit — no-op', () => {
   });
 });
 
-// ─── Integration through applyPlay ──────────────────────────────────────────
+// ─── Integration: applyPlay sets flag, resolveCemeteryTransit resolves ──────
 
-describe('integration through applyPlay', () => {
-  it('burn by 10: pile empty, graveyard correct, flag false', () => {
+describe('integration: applyPlay + resolveCemeteryTransit (two-step)', () => {
+  it('burn by 10: applyPlay sets flag, cards still in pile', () => {
     const pile = pileOf('5');
     const state = makeState(
       { hand: [card('10', 'hearts', 0), card('K', 'spades', 1), card('Q', 'diamonds', 2)] },
       pile,
     );
 
-    const result = applyPlay(state, 'p0', [card('10', 'hearts', 0).id]);
+    const intermediate = applyPlay(state, 'p0', [card('10', 'hearts', 0).id]);
 
-    expect(result.pile).toEqual([]);
-    expect(result.graveyard.length).toBeGreaterThanOrEqual(2); // at least the original pile + burn card
-    expect(result.pendingCemeteryTransit).toBe(false);
+    // Intermediate: cards still in pile, flag set
+    expect(intermediate.pendingCemeteryTransit).toBe(true);
+    expect(intermediate.pile.length).toBeGreaterThan(0);
+    expect(intermediate.graveyard).toHaveLength(0);
+
+    // Resolve transit
+    const resolved = resolveCemeteryTransit(intermediate);
+    expect(resolved.pile).toEqual([]);
+    expect(resolved.graveyard.length).toBeGreaterThanOrEqual(2);
+    expect(resolved.pendingCemeteryTransit).toBe(false);
   });
 
-  it('burn by 4+ identical: pile empty, graveyard correct', () => {
+  it('burn by 4+ identical: applyPlay sets flag, resolve clears pile', () => {
     const pile: PileEntry[] = [
       { cards: [card('6', 'hearts', 100)], playerId: 'p1', playerName: 'p1', timestamp: 0 },
       { cards: [card('6', 'diamonds', 101)], playerId: 'p2', playerName: 'p2', timestamp: 0 },
@@ -249,14 +256,18 @@ describe('integration through applyPlay', () => {
       pile,
     );
 
-    const result = applyPlay(state, 'p0', [card('6', 'spades', 0).id]);
+    const intermediate = applyPlay(state, 'p0', [card('6', 'spades', 0).id]);
 
-    expect(result.pile).toEqual([]);
-    expect(result.graveyard).toHaveLength(4);
-    expect(result.pendingCemeteryTransit).toBe(false);
+    expect(intermediate.pendingCemeteryTransit).toBe(true);
+    expect(intermediate.pile.length).toBeGreaterThan(0);
+
+    const resolved = resolveCemeteryTransit(intermediate);
+    expect(resolved.pile).toEqual([]);
+    expect(resolved.graveyard).toHaveLength(4);
+    expect(resolved.pendingCemeteryTransit).toBe(false);
   });
 
-  it('jack played: flag false, jack in graveyard, rest of pile intact', () => {
+  it('jack played: applyPlay sets flag, jack still in pile', () => {
     const pile = pileOf('5');
     const state = makeState(
       { hand: [card('J', 'spades', 0), card('K', 'spades', 1), card('Q', 'diamonds', 2)] },
@@ -264,16 +275,22 @@ describe('integration through applyPlay', () => {
       [{ hand: [card('3', 'hearts', 10)] }, {}, {}],
     );
 
-    const result = applyPlay(state, 'p0', [card('J', 'spades', 0).id], 0, 'p1');
+    const intermediate = applyPlay(state, 'p0', [card('J', 'spades', 0).id], 0, 'p1');
 
-    expect(result.pendingCemeteryTransit).toBe(false);
-    // Jack should be in the graveyard
-    expect(result.graveyard.some((c) => c.rank === 'J')).toBe(true);
-    // The original pile entry (5) should still be in the pile
-    expect(result.pile.some((e) => e.cards.some((c) => c.rank === '5'))).toBe(true);
+    expect(intermediate.pendingCemeteryTransit).toBe(true);
+    // Jack is still in the pile (top entry)
+    const allPileCards = intermediate.pile.flatMap((e) => e.cards);
+    expect(allPileCards.some((c) => c.rank === 'J')).toBe(true);
+    expect(intermediate.graveyard).toHaveLength(0);
+
+    // Resolve transit
+    const resolved = resolveCemeteryTransit(intermediate);
+    expect(resolved.pendingCemeteryTransit).toBe(false);
+    expect(resolved.graveyard.some((c) => c.rank === 'J')).toBe(true);
+    expect(resolved.pile.some((e) => e.cards.some((c) => c.rank === '5'))).toBe(true);
   });
 
-  it('super jack (J + mirror): flag false, both in graveyard', () => {
+  it('super jack (J + mirror): applyPlay sets flag, resolve moves both to graveyard', () => {
     const pile = pileOf('5');
     const state = makeState(
       {
@@ -287,14 +304,15 @@ describe('integration through applyPlay', () => {
       [{ hand: [card('3', 'hearts', 10)] }, {}, {}],
     );
 
-    const result = applyPlay(state, 'p0', [card('J', 'spades', 0).id, card('9', 'hearts', 1).id], 0, 'p1');
+    const intermediate = applyPlay(state, 'p0', [card('J', 'spades', 0).id, card('9', 'hearts', 1).id], 0, 'p1');
 
-    expect(result.pendingCemeteryTransit).toBe(false);
-    // J and 9 should be in the graveyard
-    expect(result.graveyard.some((c) => c.rank === 'J')).toBe(true);
-    expect(result.graveyard.some((c) => c.rank === '9')).toBe(true);
-    // Original pile entry should still be there
-    expect(result.pile.some((e) => e.cards.some((c) => c.rank === '5'))).toBe(true);
+    expect(intermediate.pendingCemeteryTransit).toBe(true);
+
+    const resolved = resolveCemeteryTransit(intermediate);
+    expect(resolved.pendingCemeteryTransit).toBe(false);
+    expect(resolved.graveyard.some((c) => c.rank === 'J')).toBe(true);
+    expect(resolved.graveyard.some((c) => c.rank === '9')).toBe(true);
+    expect(resolved.pile.some((e) => e.cards.some((c) => c.rank === '5'))).toBe(true);
   });
 });
 
