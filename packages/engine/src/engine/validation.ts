@@ -175,7 +175,7 @@ export function canPlayerPlayAnything(state: GameState, playerIndex: number): bo
 
   // For unrevealed dark flop, the player plays one card blind. The engine
   // knows the cards, so we can check each one individually.
-  if (zone === 'faceDown' && !player.faceDownRevealed) {
+  if (zone === 'faceDown' && !player.hasSeenDarkFlop) {
     return zoneCards.some((c) => canPlayCards([c], state));
   }
 

@@ -732,10 +732,10 @@ describe('Flop Reverse — full flow via applyPlay', () => {
 // ─── After Flop Reverse: revealed dark flop play ──────────────────────────────
 
 describe('After Flop Reverse: revealed dark flop', () => {
-  /** State where p0 has faceDownRevealed = true with two 5s in dark flop */
+  /** State where p0 has hasSeenDarkFlop = true with two 5s in dark flop */
   function makeRevealedState(faceDownCards: Card[] = [c5a, c5b]): GameState {
     const players = makeState().players.map((p, i) => {
-      if (i === 0) return { ...p, faceDown: faceDownCards, faceDownRevealed: true };
+      if (i === 0) return { ...p, faceDown: faceDownCards, hasSeenDarkFlop: true };
       return { ...p, hand: [cK] };
     });
     return makeState({ players });
@@ -754,17 +754,26 @@ describe('After Flop Reverse: revealed dark flop', () => {
     expect(next.players[0]!.faceDown).toHaveLength(0);
   });
 
-  it('throws when playing cards of different ranks from revealed dark flop', () => {
+  it('different ranks from known dark flop → pickup pile + all attempted cards', () => {
     const state = makeRevealedState([c5a, c6a]);
-    expect(() => applyPlay(state, 'p0', [c5a.id, c6a.id])).toThrow(/same rank/);
+    const next = applyPlay(state, 'p0', [c5a.id, c6a.id]);
+    // Player picks up pile (empty) + both attempted cards
+    expect(next.players[0]!.hand).toHaveLength(2);
+    expect(next.players[0]!.hand.map((c) => c.rank).sort()).toEqual(['5', '6']);
+    expect(next.players[0]!.faceDown).toHaveLength(0);
+    expect(next.pile).toHaveLength(0);
   });
 
-  it('throws when played cards cannot beat the pile from revealed dark flop', () => {
-    // Pile top = K; playing 5 (value < K) → invalid
+  it('cards cannot beat pile from known dark flop → pickup pile + attempted cards', () => {
+    // Pile top = K; playing 5 (value < K) → invalid → pickup
     const pile = [{ cards: [cK], playerId: 'p1', playerName: 'p1', timestamp: 0 }];
     const state = makeRevealedState([c5a, c5b]);
     const withPile = { ...state, pile };
-    expect(() => applyPlay(withPile, 'p0', [c5a.id])).toThrow(/value too low/);
+    const next = applyPlay(withPile, 'p0', [c5a.id]);
+    // Player picks up pile (K) + attempted card (5) = 2 cards
+    expect(next.players[0]!.hand).toHaveLength(2);
+    expect(next.players[0]!.faceDown).toHaveLength(1); // c5b remains
+    expect(next.pile).toHaveLength(0);
   });
 
   it('advances turn normally after a revealed dark-flop play', () => {

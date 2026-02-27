@@ -246,31 +246,52 @@ export function applyPlay(
   // Dark flop path
   // ═══════════════════════════════════════════════════════════════════════════
   if (zone === 'faceDown') {
-    // ── After Flop Reverse: revealed dark flop ──────────────────────────────
-    // The player knows their cards; validate and play like a normal hand/faceUp
-    // play (multi-card allowed, Mirror rules apply, no blind logic).
-    if (player.faceDownRevealed) {
-      if (cardsToPlay.some(isMirrorCard) && cardsToPlay.every(isMirrorCard)) {
-        throw new Error('Mirror cannot be played alone — it must accompany another card');
-      }
+    // ── Known dark flop (after Flop Reverse / Flop Remake) ──────────────────
+    // The player knows their cards; multi-card play is allowed.
+    // Invalid combinations result in pickup (pile + all attempted cards),
+    // matching the "attempt and fail" dark-flop mechanic.
+    if (player.hasSeenDarkFlop) {
+      // Validate the combination; any failure → pickup
+      let isInvalid = false;
       const mirrorRankRevealed = getMirrorEffectiveRank(cardsToPlay, state.variant);
-      if (mirrorRankRevealed !== null) {
+
+      if (cardsToPlay.some(isMirrorCard) && cardsToPlay.every(isMirrorCard)) {
+        // Mirror alone is never valid
+        isInvalid = true;
+      } else if (mirrorRankRevealed !== null) {
         const nonMirrors = cardsToPlay.filter((c) => !isMirrorCard(c));
-        if (!allSameRank(nonMirrors)) {
-          throw new Error('Non-Mirror cards in a Mirror play must all share the same rank');
-        }
-        if (!canPlayCards(nonMirrors, state, cardsToPlay.length)) {
-          throw new Error('These cards cannot be played on the current pile (value too low)');
+        if (!allSameRank(nonMirrors) || !canPlayCards(nonMirrors, state, cardsToPlay.length)) {
+          isInvalid = true;
         }
       } else {
-        if (!allSameRank(cardsToPlay)) {
-          throw new Error('All played cards must share the same rank');
-        }
-        if (!canPlayCards(cardsToPlay, state)) {
-          throw new Error('These cards cannot be played on the current pile (value too low)');
+        if (!allSameRank(cardsToPlay) || !canPlayCards(cardsToPlay, state)) {
+          isInvalid = true;
         }
       }
 
+      if (isInvalid) {
+        // Invalid known dark-flop play: player picks up pile + all attempted cards
+        const pileCards = state.pile.flatMap((e) => e.cards);
+        const newHand = [...player.hand, ...pileCards, ...cardsToPlay];
+        const remaining = player.faceDown.filter((c) => !cardIds.includes(c.id));
+        const newPlayers = [...state.players];
+        newPlayers[playerIndex] = { ...player, hand: newHand, faceDown: remaining };
+        let newState: GameState = {
+          ...state,
+          players: newPlayers,
+          pile: [],
+          activeUnder: null,
+          pileResetActive: false,
+        };
+        newState = appendLog(newState, 'darkPlayFail', timestamp, player.id, player.name, {
+          cardIds,
+          ranks: cardsToPlay.map((c) => c.rank),
+          pileCardCount: pileCards.length,
+        });
+        return resolveAutoSkip(advanceTurn(newState, false));
+      }
+
+      // Valid known dark-flop play
       const remaining = player.faceDown.filter((c) => !cardIds.includes(c.id));
       const updatedPlayerRevealed = { ...player, faceDown: remaining };
       const entryRevealed: PileEntry = {
