@@ -7,6 +7,8 @@ import { Card } from './Card';
 import { PlayerAvatar } from './PlayerAvatar';
 import { RevolutionBanner } from './RevolutionBanner';
 import { PowerOverlay } from './PowerOverlay';
+import { LastPlayDisplay } from './LastPlayDisplay';
+import { PowerSummary } from './PowerSummary';
 import { FlopPickUpModal } from './FlopPickUpModal';
 
 // ─── Zone de joueur (bot ou humain) ───────────────────────────────────────────
@@ -201,7 +203,7 @@ function PlayerZone({
         </div>
       )}
 
-      {/* Main humain — éventail avec drag and drop */}
+      {/* Main humain — éventail avec drag and drop (Reorder, opacity locked) */}
       {!isBot && (
         <Reorder.Group
           as="div"
@@ -224,17 +226,16 @@ function PlayerZone({
                 style={{
                   marginLeft: i === 0 ? 0 : -4,
                   zIndex: isDragging ? 50 : isSelected ? 20 : i,
-                }}
-                initial={{ scale: 0.7, opacity: 0, y: 20 }}
-                animate={{
-                  scale: 1,
                   opacity: 1,
+                }}
+                initial={false}
+                animate={{
                   rotate: isSelected ? 0 : rotate,
                   y: isSelected ? -18 : y,
                 }}
                 whileHover={canClickHand && !isSelected && !isDragging ? { y: y - 10, rotate: 0, scale: 1.06 } : {}}
                 whileDrag={{ scale: 1.08, rotate: 0, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
-                transition={{ type: 'spring', stiffness: 180, damping: 22 }}
+                transition={{ layout: { duration: 0.15 }, opacity: { duration: 0 } }}
                 onDragStart={() => {
                   setDraggingCardId(card.id);
                   didDragRef.current = true;
@@ -251,8 +252,9 @@ function PlayerZone({
                   selected={isSelected}
                   burnHighlight={isBurnSelection}
                   onClick={canClickHand ? () => handleCardClickNoDrag(card) : undefined}
-                  disabled={!canClickHand}
+                  disabled={false}
                   noMotion
+                  noLayout
                 />
               </Reorder.Item>
             );
@@ -361,7 +363,7 @@ function PileHorizontal({ pile }: PileHorizontalProps) {
                       className={cards.length > 1 ? 'absolute top-0' : undefined}
                       style={cards.length > 1 ? { left: cardIdx * CARD_OVERLAP, zIndex: cardIdx } : undefined}
                     >
-                      <Card card={card} size="md" />
+                      <Card card={card} size="md" noLayout />
                     </div>
                   ))}
                 </motion.div>
@@ -380,7 +382,7 @@ function PileHorizontal({ pile }: PileHorizontalProps) {
                     className={cards.length > 1 ? 'absolute top-0' : undefined}
                     style={cards.length > 1 ? { left: cardIdx * CARD_OVERLAP, zIndex: cardIdx } : undefined}
                   >
-                    <Card card={card} size="md" />
+                    <Card card={card} size="md" noLayout />
                   </div>
                 ))}
               </div>
@@ -395,7 +397,7 @@ function PileHorizontal({ pile }: PileHorizontalProps) {
 // ─── Graveyard horizontal display ───────────────────────────────────────────
 
 /** Card overlap within the graveyard display (px) */
-const GRAVEYARD_OVERLAP = 16;
+const GRAVEYARD_OVERLAP = 14;
 
 /** Max number of burned cards to show */
 const GRAVEYARD_MAX = 10;
@@ -405,31 +407,23 @@ interface GraveyardDisplayProps {
 }
 
 /**
- * Renders the graveyard as a horizontal band of the last 10 burned cards,
- * with overlapping and fading opacity. Uses the "burned" card variant (black bg).
+ * Renders the graveyard as a right-anchored horizontal band of the last 10
+ * burned cards, with overlapping and fading opacity. The newest card is always
+ * at the right edge; older cards extend to the left.
  */
 function GraveyardDisplay({ graveyard }: GraveyardDisplayProps) {
-  if (graveyard.length === 0) {
-    return (
-      <div className="h-10 sm:h-12 flex items-center justify-center rounded-lg border-2 border-dashed border-red-900/50 px-3">
-        <span className="text-red-900/60 text-[10px] sm:text-xs">Cimetière : 0 cartes brûlées</span>
-      </div>
-    );
-  }
-
   const visible = graveyard.slice(-GRAVEYARD_MAX);
   const count = visible.length;
 
-  // Width: first card full width + overlap for each additional card
-  // xs card = 36px (w-9)
+  // Fixed container width: always sized for max capacity to avoid layout shift
   const cardWidth = 36;
-  const totalWidth = cardWidth + (count - 1) * GRAVEYARD_OVERLAP;
+  const maxWidth = cardWidth + (GRAVEYARD_MAX - 1) * GRAVEYARD_OVERLAP;
 
   return (
-    <div className="flex flex-col items-center gap-0.5">
+    <div className="flex flex-col items-end gap-0.5">
       <div
         className="relative flex-shrink-0"
-        style={{ width: totalWidth, height: 52 }}
+        style={{ width: maxWidth, height: 52 }}
       >
         {visible.map((card, idx) => {
           // Opacity: oldest (idx=0) gets lowest, newest (idx=count-1) gets 1.0
@@ -440,7 +434,7 @@ function GraveyardDisplay({ graveyard }: GraveyardDisplayProps) {
               key={card.id}
               className="absolute top-0"
               style={{
-                left: idx * GRAVEYARD_OVERLAP,
+                right: (count - 1 - idx) * GRAVEYARD_OVERLAP,
                 zIndex: idx,
                 opacity,
               }}
@@ -450,8 +444,8 @@ function GraveyardDisplay({ graveyard }: GraveyardDisplayProps) {
           );
         })}
       </div>
-      <span className="text-[10px] text-red-400/70">
-        Cimetière : {graveyard.length} cartes brûlées
+      <span className="text-[8px] text-red-400/60">
+        {graveyard.length > 0 ? `${graveyard.length} brûlées` : '\u00A0'}
       </span>
     </div>
   );
@@ -471,27 +465,32 @@ const LOG_SUIT_COLOR: Record<string, string> = {
 interface MiniLogProps {
   log: LogEntry[];
   visible?: boolean;
+  maxEntries?: number;
 }
 
-/** Compact log showing the last 5 game actions with fading opacity. */
-function MiniLog({ log, visible = true }: MiniLogProps) {
+/** Compact log showing the last N game actions with fading opacity. */
+function MiniLog({ log, visible = true, maxEntries = 5 }: MiniLogProps) {
   const actionEntries = log.filter(
     (e) => e.type === 'play' || e.type === 'darkPlay' || e.type === 'darkPlayFail' || e.type === 'pickUp',
   );
-  const last5 = actionEntries.slice(-5);
-  const display = [...last5].reverse();
-  const opacities = [1.0, 0.8, 0.6, 0.4, 0.2];
+  const lastN = actionEntries.slice(-maxEntries);
+  const display = [...lastN].reverse();
+  // Generate fading opacities dynamically based on entry count
+  const opacities = display.map((_, i) => {
+    const t = i / Math.max(display.length - 1, 1);
+    return 1 - t * 0.85; // from 1.0 down to ~0.15
+  });
 
   if (display.length === 0 || !visible) {
     return (
-      <div className="w-full rounded-lg bg-black/30 p-1.5">
+      <div className="w-full h-full rounded-lg bg-black/30 p-1.5">
         <span className="text-[10px] text-gray-500 italic">Aucune action</span>
       </div>
     );
   }
 
   return (
-    <div className="w-full rounded-lg bg-black/40 backdrop-blur-sm p-1.5 overflow-hidden">
+    <div className="w-full h-full rounded-lg bg-black/40 backdrop-blur-sm p-1.5 overflow-hidden">
       {display.map((entry, idx) => {
         const opacity = opacities[idx] ?? 0.2;
         const name = entry.playerName ?? '?';
@@ -558,25 +557,36 @@ function rankLabel(rank: string): string {
   }
 }
 
-/** Center column: Pile (top ~70%), Graveyard (bottom ~30%).
- *  Both centred horizontally. No overlap — each has its own fixed vertical space. */
-function CardsColumn({ state, humanId }: CardsColumnProps) {
-  const totalPileCards = state.pile.reduce((sum, entry) => sum + entry.cards.length, 0);
+/** Pending action types that require hiding the last pile entry (card shown after choice). */
+const POPUP_PENDING_TYPES = new Set([
+  'target', 'manouche', 'superManouche',
+  'flopReverse', 'flopRemake',
+  'shifumi', 'superShifumi',
+]);
 
-  // Build the dynamic turn message
+/** Center column: Pile centred vertically. Overlay space handled externally. */
+function CardsColumn({ state, humanId }: CardsColumnProps) {
+  // Hide last pile entry during popup pending actions (card appears after choice)
+  const hasPendingPopup = !!(state.pendingAction && POPUP_PENDING_TYPES.has(state.pendingAction.type));
+  const displayPile = hasPendingPopup && state.pile.length > 0
+    ? state.pile.slice(0, -1)
+    : state.pile;
+  const totalPileCards = displayPile.reduce((sum, entry) => sum + entry.cards.length, 0);
+
+  // Build the dynamic turn message (hidden during pending popup actions)
   let turnMessage: string | null = null;
   const phase = state.phase;
-  if (phase === 'playing' || phase === 'revolution' || phase === 'superRevolution') {
+  if ((phase === 'playing' || phase === 'revolution' || phase === 'superRevolution') && !state.pendingAction) {
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (currentPlayer) {
       const name = currentPlayer.id === humanId ? 'vous' : currentPlayer.name;
       const isRevolution = phase === 'revolution' || phase === 'superRevolution';
       const isUnder = typeof state.activeUnder === 'number';
 
-      if (state.pile.length === 0 || state.pileResetActive) {
+      if (displayPile.length === 0 || state.pileResetActive) {
         turnMessage = `À ${name} de jouer (pile vide)`;
       } else {
-        const lastEntry = state.pile[state.pile.length - 1]!;
+        const lastEntry = displayPile[displayPile.length - 1]!;
         const topRank = lastEntry.effectiveRank ?? lastEntry.cards[0]!.rank;
         const label = rankLabel(topRank);
         if (isRevolution || isUnder) {
@@ -589,24 +599,16 @@ function CardsColumn({ state, humanId }: CardsColumnProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* ── Pile zone (~70%) ── */}
-      <div className="flex-[70] min-h-0 flex flex-col items-center justify-center overflow-hidden">
-        {turnMessage && (
-          <p className="text-[10px] sm:text-xs text-gray-300/70 leading-tight mb-1 truncate max-w-full px-2">
-            {turnMessage}
-          </p>
-        )}
-        <PileHorizontal pile={state.pile} />
-        <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
-          Pile : {totalPileCards} cartes
-        </span>
-      </div>
-
-      {/* ── Graveyard zone (~30%) ── */}
-      <div className="flex-[30] min-h-0 flex items-start justify-center overflow-hidden pt-1">
-        <GraveyardDisplay graveyard={state.graveyard} />
-      </div>
+    <div className="flex flex-col h-full items-center justify-center">
+      {turnMessage && (
+        <p className="text-[10px] sm:text-xs text-gray-300/70 leading-tight mb-1 truncate max-w-full px-2">
+          {turnMessage}
+        </p>
+      )}
+      <PileHorizontal pile={displayPile} />
+      <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
+        Pile : {totalPileCards} cartes
+      </span>
     </div>
   );
 }
@@ -1332,6 +1334,10 @@ interface GameBoardProps {
   showFlopPickUp?: boolean;
   onFlopPickUpOnly?: () => void;
   onFlopPickUpWithFlop?: (flopCardIds: string[]) => void;
+  /** When true, player has no legal move available — show pickup prompt */
+  noLegalMove?: boolean;
+  /** Pick up the pile (used by no-legal-move banner) */
+  onPickUp?: () => void;
 }
 
 export function GameBoard({
@@ -1362,6 +1368,8 @@ export function GameBoard({
   showFlopPickUp,
   onFlopPickUpOnly,
   onFlopPickUpWithFlop,
+  noLegalMove,
+  onPickUp,
 }: GameBoardProps) {
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
 
@@ -1490,6 +1498,8 @@ export function GameBoard({
       (b) => state.players.findIndex((p) => p.id === b.id) === state.currentPlayerIndex,
     );
     status = `${activeBot?.name ?? 'Le bot'} réfléchit…`;
+  } else if (noLegalMove) {
+    status = 'Pas de coup légal — ramassez la pile.';
   } else if (isMyTurn) {
     if (humanActiveZone === 'faceDown') {
       status = 'Cliquez une carte à l\'aveugle pour jouer.';
@@ -1526,6 +1536,29 @@ export function GameBoard({
         )}
       </AnimatePresence>
 
+      {/* No legal move banner */}
+      <AnimatePresence>
+        {noLegalMove && (
+          <motion.div
+            key="no-legal"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-12 left-1/2 -translate-x-1/2 z-40 bg-orange-800/90 backdrop-blur-sm text-white px-5 py-3 rounded-xl text-center shadow-lg"
+          >
+            <p className="text-sm font-bold">{"Pas de coup légal"}</p>
+            {onPickUp && (
+              <button
+                onClick={onPickUp}
+                className="mt-2 px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-full transition-colors"
+              >
+                {"Ramasser la pile"}
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── 1. Zone adversaires (25%) ── */}
       <div className="flex-[25] min-h-0 flex items-start justify-evenly px-2 sm:px-3 md:px-4">
         {bots.map((bot) => {
@@ -1548,65 +1581,70 @@ export function GameBoard({
 
       {/* ── 2. Zone principale (40%) — 3 colonnes ── */}
       <div className="flex-[40] min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2">
-        {/* Colonne gauche (25%) — Cadre Révolution + Pioche */}
+        {/* Colonne gauche (25%) — Résumé pouvoirs / Révolution + Cimetière / Pioche */}
         <div className="w-1/4 flex flex-col h-full bg-black/10 rounded-lg gap-1 p-1">
-          {/* Cadre noir permanent — Révolution */}
-          <div className="flex-1 min-h-0 bg-black rounded-lg flex items-center justify-center overflow-hidden p-2">
+          {/* Cadre haut — Résumé des pouvoirs ou Révolution */}
+          <div className="flex-1 min-h-0 bg-black/20 rounded-lg flex items-center justify-center overflow-hidden p-2">
             {(state.phase === 'revolution' || state.phase === 'superRevolution') ? (
               <RevolutionBanner phase={state.phase} />
             ) : (
-              <span className="text-[10px] sm:text-xs text-gray-400 text-center leading-tight px-1">
-                {'R\u00e8gles standards, les pouvoirs sont actifs'}
-              </span>
+              <PowerSummary variant={state.variant} />
             )}
           </div>
-          {/* Pioche */}
-          <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+          {/* Zone basse — Cimetière + Pioche (espacement harmonieux) */}
+          <div className="flex-1 min-h-0 flex items-center justify-evenly overflow-hidden">
+            <GraveyardDisplay graveyard={state.graveyard} />
             <div
-              className={`flex flex-col items-center gap-1.5 ${onInspectZone ? 'cursor-pointer' : ''}`}
+              className={`flex-shrink-0 flex flex-col items-center gap-0.5 ${onInspectZone ? 'cursor-pointer' : ''}`}
               onClick={onInspectZone ? () => onInspectZone('deck') : undefined}
             >
               <div className="relative flex-shrink-0">
-                {state.deck.length > 1 && (
-                  <div className="absolute top-0.5 left-0.5 w-11 h-16 rounded-lg bg-blue-900 border-2 border-blue-800" />
+                {state.deck.length > 0 ? (
+                  <>
+                    {state.deck.length > 1 && (
+                      <div className="absolute top-0.5 left-0.5 w-11 h-16 rounded-lg bg-blue-900 border-2 border-blue-800" />
+                    )}
+                    <div className="relative">
+                      <Card card={{ id: 'deck', suit: 'spades', rank: '2' }} faceDown size="sm" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-11 h-16 rounded-lg border-2 border-dashed border-gray-600 flex items-center justify-center">
+                    <span className="text-gray-600 text-[8px]">vide</span>
+                  </div>
                 )}
-                <div className="relative">
-                  <Card card={{ id: 'deck', suit: 'spades', rank: '2' }} faceDown size="sm" />
-                </div>
               </div>
               <span className="text-[10px] sm:text-xs text-gray-300 font-semibold">Pioche</span>
-              <span className="text-[10px] sm:text-xs text-gray-400">{state.deck.length} cartes</span>
+              <span className="text-[10px] sm:text-xs text-gray-400">{state.deck.length}</span>
               {onInspectZone && <span className="text-[10px] text-gold/50 hover:text-gold transition-colors">inspecter</span>}
             </div>
           </div>
         </div>
 
-        {/* Colonne centre (50%) — Pile + Cimetière */}
-        <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg">
+        {/* Colonne centre (50%) — Pile + Overlay absolu */}
+        <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg relative">
           <CardsColumn state={state} humanId={humanId} />
+          {/* Power Overlay — floats below pile, absolute positioned, no layout shift */}
+          <div className="absolute bottom-2 inset-x-0 flex justify-center pointer-events-none z-10">
+            <PowerOverlay power={currentPower ?? null} players={state.players} />
+          </div>
         </div>
 
-        {/* Colonne droite (25%) — Cadre Overlay + MiniLog */}
+        {/* Colonne droite (25%) — Dernier coup + MiniLog (50/50) */}
         <div className="w-1/4 flex flex-col h-full bg-black/10 rounded-lg gap-1 p-1">
-          {/* Cadre noir permanent — Power Overlay */}
-          <div className="flex-1 min-h-0 bg-black rounded-lg overflow-hidden">
-            {currentPower ? (
-              <PowerOverlay power={currentPower} players={state.players} />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="text-[10px] text-gray-600 italic">Aucun pouvoir</span>
-              </div>
-            )}
+          {/* Cadre — Dernier coup (50%) */}
+          <div className="flex-1 min-h-0 bg-black/20 rounded-lg overflow-hidden p-1.5 flex flex-col items-center justify-center">
+            <LastPlayDisplay log={state.log} />
           </div>
-          {/* MiniLog */}
-          <div className="flex-1 min-h-0 flex items-start justify-center overflow-hidden pt-1">
-            <MiniLog log={state.log} />
+          {/* MiniLog étendu (50%) */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <MiniLog log={state.log} maxEntries={12} />
           </div>
         </div>
       </div>
 
-      {/* ── 4. Zone joueur humain (35%) ── */}
-      <div className="flex-[35] min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 flex justify-center items-start">
+      {/* ── 4. Zone joueur humain (35%) — décalé vers le bas ── */}
+      <div className="flex-[35] min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 pt-2 sm:pt-3 flex justify-center items-start">
         <PlayerZone
           player={human}
           isBot={false}
@@ -1623,12 +1661,12 @@ export function GameBoard({
         />
       </div>
 
-      {/* ── Status (sous la main du héros) ── */}
-      {status && (
-        <div className="flex-none text-center px-2 pb-1">
+      {/* ── Status (sous la main du héros) — fixed height to avoid layout shift ── */}
+      <div className="flex-none h-5 text-center px-2 pb-1">
+        {status && (
           <p className="text-[10px] sm:text-xs text-gray-300/80 leading-tight truncate">{status}</p>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Écran de fin ── */}
       <AnimatePresence>

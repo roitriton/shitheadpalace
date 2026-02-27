@@ -48,10 +48,10 @@ export interface ChatMessage {
 const RECONNECT_TIMEOUT_MS = 60_000;
 
 /** Bot turn delay in milliseconds. */
-const BOT_DELAY_MS = 1200;
+const BOT_DELAY_MS = 1500;
 
 /** Delay before resolving cemetery transit (burn/jack animation). */
-const CEMETERY_TRANSIT_DELAY_MS = 2250;
+const CEMETERY_TRANSIT_DELAY_MS = 1500;
 
 const MAX_CHAT_MESSAGE_LENGTH = 200;
 const MAX_CHAT_HISTORY = 100;

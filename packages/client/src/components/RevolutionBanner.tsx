@@ -18,7 +18,7 @@ export function RevolutionBanner({ phase }: RevolutionBannerProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.3 }}
-          className="px-3 py-1.5 rounded-lg bg-black/80 border border-gray-600/50 backdrop-blur-sm text-center"
+          className="px-3 py-1.5 rounded-lg text-center"
         >
           <div className="flex items-center justify-center gap-1.5">
             <span className="text-sm">

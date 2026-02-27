@@ -119,6 +119,20 @@ describe('applyPlay — combo hand + flop', () => {
     expect(() => applyPlay(state, 'p0', [h5.id, f5.id])).toThrow(/Combo hand\+flop requires playing ALL/);
   });
 
+  it('rejects hand+flop combo when deck is not empty', () => {
+    const h5 = card('5', 'hearts', 0);
+    const f5 = card('5', 'diamonds', 0);
+    const deckCard = card('3', 'clubs', 99);
+    const state = makeState(
+      { hand: [h5], faceUp: [f5] },
+      pile('3'),
+      [deckCard],
+    );
+
+    // All hand cards played, but deck has cards → combo not allowed
+    expect(() => applyPlay(state, 'p0', [h5.id, f5.id])).toThrow(/deck is empty/);
+  });
+
   it('throws for combo hand + flop with different non-mirror values', () => {
     const h6 = card('6', 'hearts', 0);
     const f8 = card('8', 'diamonds', 0);

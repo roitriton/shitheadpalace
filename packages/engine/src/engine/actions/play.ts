@@ -227,6 +227,9 @@ export function applyPlay(
 
   // Validate combo conditions: must play ALL cards from the active zone
   if (isHandFlopCombo) {
+    if (state.deck.length > 0) {
+      throw new Error('Combo hand+flop is only allowed when the deck is empty');
+    }
     const remainingHand = player.hand.filter((c) => !cardIds.includes(c.id));
     if (remainingHand.length > 0) {
       throw new Error('Combo hand+flop requires playing ALL remaining hand cards');

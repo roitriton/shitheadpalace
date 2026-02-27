@@ -79,7 +79,7 @@ function App() {
           powerTimerRef.current = setTimeout(() => {
             setCurrentPower(null);
             powerTimerRef.current = null;
-          }, 2250);
+          }, 1500);
         }
         prevPowerTypeRef.current = lptKey;
       },
@@ -193,7 +193,9 @@ function App() {
       }
 
       // Combo hand+flop: card from faceUp while activeZone is 'hand'
+      // Only allowed when deck is empty (last hand cards + flop same value)
       if (zone === 'hand' && isInFaceUp) {
+        if (gameState.deck.length > 0) return prev;
         if (!human.hand.every((c) => prev.includes(c.id))) return prev;
         // Fall through to same-rank/mirror validation below
       }
@@ -424,13 +426,25 @@ function App() {
   const showFlopPickUp = !!(
     human && isMyTurn && humanActiveZone === 'faceUp' &&
     human.hand.length === 0 && gameState.deck.length === 0 &&
+    human.faceUp.length > 0 &&
     !canPlayerPlayAnything(gameState, humanIdx) &&
     gameState.pendingAction === null
   );
 
+  // No legal move detection: player has cards in hand but can't play anything
+  const noLegalMove = !!(
+    human && isMyTurn &&
+    humanActiveZone === 'hand' &&
+    !canPlayerPlayAnything(gameState, humanIdx) &&
+    gameState.pendingAction === null &&
+    gameState.pile.length > 0
+  );
+
   // Combo flags: enable selecting cards from the next zone
+  // Hand+flop combo only allowed when deck is empty (last hand cards + flop same value)
   const comboHandFlopEnabled = !!(human && isMyTurn && humanActiveZone === 'hand' &&
-    human.hand.length > 0 && human.hand.every((c) => selectedCards.includes(c.id)));
+    human.hand.length > 0 && human.hand.every((c) => selectedCards.includes(c.id)) &&
+    gameState.deck.length === 0);
   const comboFlopDarkEnabled = !!(human && isMyTurn && humanActiveZone === 'faceUp' &&
     human.faceUp.length > 0 && human.faceUp.every((c) => selectedCards.includes(c.id)) &&
     human.hasSeenDarkFlop === true);
@@ -528,6 +542,8 @@ function App() {
           showFlopPickUp={showFlopPickUp}
           onFlopPickUpOnly={handleFlopPickUpOnly}
           onFlopPickUpWithFlop={handleFlopPickUpWithFlop}
+          noLegalMove={noLegalMove}
+          onPickUp={handlePickUp}
         />
         <ChatPanel
           messages={chatMessages}

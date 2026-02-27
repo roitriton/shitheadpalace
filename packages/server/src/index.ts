@@ -72,7 +72,10 @@ function createSoloSession(socketId: string): SoloSession {
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
 /** Delay before resolving cemetery transit (burn/jack animation). */
-const CEMETERY_TRANSIT_DELAY_MS = 2250;
+const CEMETERY_TRANSIT_DELAY_MS = 1500;
+
+/** Bot turn delay in milliseconds (solo mode). */
+const BOT_DELAY_MS = 1500;
 
 function sendSoloState(socket: Socket, session: SoloSession): void {
   socket.emit('game:state', {
@@ -121,7 +124,7 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
         scheduleSoloBotIfNeeded(socket, session);
       }
     }
-  }, 2250);
+  }, BOT_DELAY_MS);
 }
 
 /** Emit a system chat message to a solo socket. */
