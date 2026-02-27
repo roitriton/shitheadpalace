@@ -7,6 +7,7 @@ import { Card } from './Card';
 import { PlayerAvatar } from './PlayerAvatar';
 import { RevolutionBanner } from './RevolutionBanner';
 import { PowerOverlay } from './PowerOverlay';
+import { FlopPickUpModal } from './FlopPickUpModal';
 
 // ─── Zone de joueur (bot ou humain) ───────────────────────────────────────────
 
@@ -1327,6 +1328,10 @@ interface GameBoardProps {
   comboFlopDarkEnabled?: boolean;
   /** When true, selected cards will trigger a burn — show red highlight */
   isBurnSelection?: boolean;
+  /** When true, show FlopPickUpModal instead of normal pick-up button */
+  showFlopPickUp?: boolean;
+  onFlopPickUpOnly?: () => void;
+  onFlopPickUpWithFlop?: (flopCardIds: string[]) => void;
 }
 
 export function GameBoard({
@@ -1354,6 +1359,9 @@ export function GameBoard({
   comboHandFlopEnabled,
   comboFlopDarkEnabled,
   isBurnSelection,
+  showFlopPickUp,
+  onFlopPickUpOnly,
+  onFlopPickUpWithFlop,
 }: GameBoardProps) {
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
 
@@ -1750,6 +1758,18 @@ export function GameBoard({
             state={state}
             humanId={humanId}
             onSubmit={onFlopRemake}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Flop Pick-Up modal ── */}
+      <AnimatePresence>
+        {showFlopPickUp && onFlopPickUpOnly && onFlopPickUpWithFlop && (
+          <FlopPickUpModal
+            state={state}
+            humanId={humanId}
+            onPickUpOnly={onFlopPickUpOnly}
+            onPickUpWithFlop={onFlopPickUpWithFlop}
           />
         )}
       </AnimatePresence>

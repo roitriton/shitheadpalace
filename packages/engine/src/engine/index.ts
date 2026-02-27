@@ -12,6 +12,7 @@ import {
 } from './actions/applyFlopReverseChoice';
 import { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiChoice';
 import { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
+import { applyPickUpWithFlopCards } from './actions/pickUpFlop';
 
 // Re-export everything so consumers can import from '@shit-head-palace/engine'
 export { applyPlay } from './actions/play';
@@ -27,6 +28,7 @@ export {
 } from './actions/applyFlopReverseChoice';
 export { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiChoice';
 export { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
+export { applyPickUpWithFlopCards, getAvailableFlopPickUpGroups } from './actions/pickUpFlop';
 export { filterGameStateForPlayer } from './filter';
 export { resolveCemeteryTransit } from './cemeteryTransit';
 export { resolvePowers } from './powers';
@@ -103,5 +105,8 @@ export function applyAction(
 
     case 'flopRemake':
       return applyFlopRemake(state, playerId, action.faceUp, action.faceDown, timestamp);
+
+    case 'pickUpWithFlop':
+      return applyPickUpWithFlopCards(state, playerId, action.flopCardIds, timestamp);
   }
 }

@@ -288,7 +288,8 @@ export type GameAction =
   | { type: 'flopReverseTarget'; targetPlayerId: string }
   | { type: 'flopRemakeTarget'; targetPlayerId: string }
   | { type: 'flopRemake'; faceUp: string[]; faceDown: string[] }
-  | { type: 'targetChoice'; targetPlayerId: string };
+  | { type: 'targetChoice'; targetPlayerId: string }
+  | { type: 'pickUpWithFlop'; flopCardIds: string[] };
 
 // ─── Bot Strategy Interface ───────────────────────────────────────────────────
 

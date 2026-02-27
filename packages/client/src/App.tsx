@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Card as CardType, GameState, ShifumiChoice, LastPowerTriggered } from '@shit-head-palace/engine';
-import { getActiveZone, matchesPowerRank, isManoucheCard } from '@shit-head-palace/engine';
+import { getActiveZone, matchesPowerRank, isManoucheCard, canPlayerPlayAnything } from '@shit-head-palace/engine';
 import { SwapPhase } from './components/SwapPhase';
 import { DebugSwapPhase } from './components/DebugSwapPhase';
 import { GameBoard } from './components/GameBoard';
@@ -263,6 +263,16 @@ function App() {
     setSelectedCards([]);
   };
 
+  const handleFlopPickUpOnly = () => {
+    emit('game:action', { type: 'pickUpWithFlop', flopCardIds: [] });
+    setSelectedCards([]);
+  };
+
+  const handleFlopPickUpWithFlop = (flopCardIds: string[]) => {
+    emit('game:action', { type: 'pickUpWithFlop', flopCardIds });
+    setSelectedCards([]);
+  };
+
   const handleSwap = (handCardId: string, flopCardId: string) => {
     emit('game:action', { type: 'swap', handCardId, flopCardId });
   };
@@ -410,6 +420,14 @@ function App() {
   const canPlay = isMyTurn && selectedCards.length > 0 && humanActiveZone !== 'faceDown';
   const canPickUp = isMyTurn && gameState.pile.length > 0;
 
+  // Flop pick-up: player is in flop phase and can't play anything
+  const showFlopPickUp = !!(
+    human && isMyTurn && humanActiveZone === 'faceUp' &&
+    human.hand.length === 0 && gameState.deck.length === 0 &&
+    !canPlayerPlayAnything(gameState, humanIdx) &&
+    gameState.pendingAction === null
+  );
+
   // Combo flags: enable selecting cards from the next zone
   const comboHandFlopEnabled = !!(human && isMyTurn && humanActiveZone === 'hand' &&
     human.hand.length > 0 && human.hand.every((c) => selectedCards.includes(c.id)));
@@ -507,6 +525,9 @@ function App() {
           comboHandFlopEnabled={comboHandFlopEnabled}
           comboFlopDarkEnabled={comboFlopDarkEnabled}
           isBurnSelection={isBurnSelection}
+          showFlopPickUp={showFlopPickUp}
+          onFlopPickUpOnly={handleFlopPickUpOnly}
+          onFlopPickUpWithFlop={handleFlopPickUpWithFlop}
         />
         <ChatPanel
           messages={chatMessages}
