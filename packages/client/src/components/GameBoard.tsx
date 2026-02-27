@@ -26,6 +26,8 @@ interface PlayerZoneProps {
   comboHandFlopEnabled?: boolean;
   /** All faceUp cards selected + hasSeenDarkFlop — faceDown cards become selectable */
   comboFlopDarkEnabled?: boolean;
+  /** When true, selected cards will trigger a burn — show red highlight */
+  isBurnSelection?: boolean;
 }
 
 function PlayerZone({
@@ -41,6 +43,7 @@ function PlayerZone({
   compact,
   comboHandFlopEnabled,
   comboFlopDarkEnabled,
+  isBurnSelection,
 }: PlayerZoneProps) {
   const canClickHand = isActive && activeZone === 'hand' && !isBot;
   const canClickFaceUp = isActive && activeZone === 'faceUp' && !isBot;
@@ -165,6 +168,7 @@ function PlayerZone({
                         card={fuCard}
                         size={cardSize}
                         selected={!isBot && selectedCards.includes(fuCard.id)}
+                        burnHighlight={isBurnSelection}
                         onClick={(canClickFaceUp || canClickFlopCombo) ? () => onCardClick?.(fuCard) : undefined}
                         noLayout
                       />
@@ -189,6 +193,7 @@ function PlayerZone({
               faceDown={true}
               size="sm"
               selected={selectedCards.includes(fdCard.id)}
+              burnHighlight={isBurnSelection}
               onClick={() => onCardClick?.(fdCard)}
             />
           ))}
@@ -243,6 +248,7 @@ function PlayerZone({
                   card={card}
                   size={humanCardSize}
                   selected={isSelected}
+                  burnHighlight={isBurnSelection}
                   onClick={canClickHand ? () => handleCardClickNoDrag(card) : undefined}
                   disabled={!canClickHand}
                   noMotion
@@ -538,6 +544,8 @@ function MiniLog({ log, visible = true }: MiniLogProps) {
 interface CardsColumnProps {
   state: GameState;
   humanId: string;
+  /** Active power overlay — used for cemetery transit animation */
+  currentPower?: LastPowerTriggered | null;
 }
 
 /** Maps card rank codes to readable French labels. */
@@ -553,8 +561,29 @@ function rankLabel(rank: string): string {
 
 /** Center column: Pile (top ~70%), Graveyard (bottom ~30%).
  *  Both centred horizontally. No overlap — each has its own fixed vertical space. */
-function CardsColumn({ state, humanId }: CardsColumnProps) {
-  const totalPileCards = state.pile.reduce((sum, entry) => sum + entry.cards.length, 0);
+function CardsColumn({ state, humanId, currentPower }: CardsColumnProps) {
+  // ── Cemetery transit: snapshot pile during burn overlay ──────────────────
+  // When a burn resolves, the server sends the final state (pile empty, cards
+  // in graveyard). We keep showing the previous pile during the overlay so
+  // the player sees the cards before they "move" to the graveyard.
+  const prevPileRef = React.useRef(state.pile);
+  const transitPileRef = React.useRef<GameState['pile'] | null>(null);
+
+  if (currentPower?.type === 'burn' && state.pile.length === 0
+      && prevPileRef.current.length > 0 && transitPileRef.current === null) {
+    transitPileRef.current = prevPileRef.current;
+  }
+  if (!currentPower && transitPileRef.current !== null) {
+    transitPileRef.current = null;
+  }
+
+  const displayPile = transitPileRef.current ?? state.pile;
+
+  React.useEffect(() => {
+    prevPileRef.current = state.pile;
+  });
+
+  const totalPileCards = displayPile.reduce((sum, entry) => sum + entry.cards.length, 0);
 
   // Build the dynamic turn message
   let turnMessage: string | null = null;
@@ -566,10 +595,10 @@ function CardsColumn({ state, humanId }: CardsColumnProps) {
       const isRevolution = phase === 'revolution' || phase === 'superRevolution';
       const isUnder = typeof state.activeUnder === 'number';
 
-      if (state.pile.length === 0 || state.pileResetActive) {
+      if (displayPile.length === 0 || state.pileResetActive) {
         turnMessage = `À ${name} de jouer (pile vide)`;
       } else {
-        const lastEntry = state.pile[state.pile.length - 1]!;
+        const lastEntry = displayPile[displayPile.length - 1]!;
         const topRank = lastEntry.effectiveRank ?? lastEntry.cards[0]!.rank;
         const label = rankLabel(topRank);
         if (isRevolution || isUnder) {
@@ -590,7 +619,7 @@ function CardsColumn({ state, humanId }: CardsColumnProps) {
             {turnMessage}
           </p>
         )}
-        <PileHorizontal pile={state.pile} />
+        <PileHorizontal pile={displayPile} />
         <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
           Pile : {totalPileCards} cartes
         </span>
@@ -1319,6 +1348,8 @@ interface GameBoardProps {
   comboHandFlopEnabled?: boolean;
   /** All faceUp cards selected + hasSeenDarkFlop — faceDown cards become selectable */
   comboFlopDarkEnabled?: boolean;
+  /** When true, selected cards will trigger a burn — show red highlight */
+  isBurnSelection?: boolean;
 }
 
 export function GameBoard({
@@ -1345,6 +1376,7 @@ export function GameBoard({
   currentPower,
   comboHandFlopEnabled,
   comboFlopDarkEnabled,
+  isBurnSelection,
 }: GameBoardProps) {
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
 
@@ -1566,7 +1598,7 @@ export function GameBoard({
 
         {/* Colonne centre (50%) — Pile + Cimetière */}
         <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg">
-          <CardsColumn state={state} humanId={humanId} />
+          <CardsColumn state={state} humanId={humanId} currentPower={currentPower} />
         </div>
 
         {/* Colonne droite (25%) — Cadre Overlay + MiniLog */}
@@ -1602,6 +1634,7 @@ export function GameBoard({
           compact={isMobile}
           comboHandFlopEnabled={comboHandFlopEnabled}
           comboFlopDarkEnabled={comboFlopDarkEnabled}
+          isBurnSelection={isBurnSelection}
         />
       </div>
 

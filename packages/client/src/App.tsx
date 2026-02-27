@@ -417,6 +417,48 @@ function App() {
     human.faceUp.length > 0 && human.faceUp.every((c) => selectedCards.includes(c.id)) &&
     human.hasSeenDarkFlop === true);
 
+  // Burn highlight: detect if current selection will trigger a burn
+  const isBurnSelection = (() => {
+    if (!gameState || selectedCards.length === 0 || !human) return false;
+    if (gameState.phase === 'revolution' || gameState.phase === 'superRevolution') return false;
+
+    const variant = gameState.variant;
+    const allCards = [...human.hand, ...human.faceUp, ...human.faceDown];
+    const cards = selectedCards
+      .map((id) => allCards.find((c) => c.id === id))
+      .filter((c): c is CardType => c !== undefined);
+    if (cards.length === 0) return false;
+
+    // Resolve mirrors
+    const isMirror = (c: CardType) => matchesPowerRank(c.rank, variant, 'mirror');
+    const nonMirrors = cards.filter((c) => !isMirror(c));
+    if (nonMirrors.length === 0) return false;
+
+    const effectiveRank = nonMirrors[0]!.rank;
+    if (!nonMirrors.every((c) => c.rank === effectiveRank)) return false;
+
+    // (a) Burn by rank assignment (e.g. 10)
+    if (matchesPowerRank(effectiveRank, variant, 'burn')) return true;
+
+    // (b) Quad burn: 4+ same-rank cards in one play
+    if (cards.length >= 4) return true;
+
+    // (c) Accumulation: pile top consecutive same rank + selection ≥ 4
+    let pileTopCount = 0;
+    for (let i = gameState.pile.length - 1; i >= 0; i--) {
+      const entry = gameState.pile[i]!;
+      const entryRank = entry.effectiveRank ?? entry.cards[0]!.rank;
+      if (entryRank === effectiveRank) {
+        pileTopCount += entry.cards.length;
+      } else {
+        break;
+      }
+    }
+    if (pileTopCount + cards.length >= 4) return true;
+
+    return false;
+  })();
+
   return (
     <>
     <AnimatePresence mode="wait">
@@ -464,6 +506,7 @@ function App() {
           currentPower={currentPower}
           comboHandFlopEnabled={comboHandFlopEnabled}
           comboFlopDarkEnabled={comboFlopDarkEnabled}
+          isBurnSelection={isBurnSelection}
         />
         <ChatPanel
           messages={chatMessages}

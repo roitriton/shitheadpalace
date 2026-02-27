@@ -30,6 +30,8 @@ interface CardProps {
   noMotion?: boolean;
   /** Visual variant: 'burned' shows black background with colored text (graveyard) */
   variant?: 'default' | 'burned';
+  /** When true and selected, show red highlight instead of gold (burn indicator) */
+  burnHighlight?: boolean;
 }
 
 // ─── Dos de carte ──────────────────────────────────────────────────────────────
@@ -95,12 +97,12 @@ function CardFace({ card, size = 'md', burned }: { card: CardType; size?: 'xs' |
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-export function Card({ card, faceDown, selected, onClick, disabled, size = 'md', noLayout, noMotion, variant = 'default' }: CardProps) {
+export function Card({ card, faceDown, selected, onClick, disabled, size = 'md', noLayout, noMotion, variant = 'default', burnHighlight }: CardProps) {
   const isHidden = faceDown || card.hidden;
   const isClickable = !!onClick && !disabled;
 
   const borderClass = selected
-    ? 'border-2 border-gold'
+    ? (burnHighlight ? 'border-2 border-red-500' : 'border-2 border-gold')
     : 'border-2 border-transparent';
 
   return (
@@ -109,7 +111,9 @@ export function Card({ card, faceDown, selected, onClick, disabled, size = 'md',
       className={`relative rounded-lg ${borderClass} ${isClickable ? 'cursor-pointer' : 'cursor-default'} ${disabled ? 'opacity-60' : ''}`}
       style={{
         zIndex: noMotion ? undefined : (selected ? 10 : 'auto'),
-        boxShadow: selected ? '0 0 12px rgba(201, 168, 76, 0.6)' : 'none',
+        boxShadow: selected
+          ? (burnHighlight ? '0 0 12px rgba(239, 68, 68, 0.6)' : '0 0 12px rgba(201, 168, 76, 0.6)')
+          : 'none',
       }}
       animate={noMotion ? undefined : { y: selected ? -18 : 0 }}
       whileHover={noMotion ? undefined : (isClickable && !selected ? { y: -10, scale: 1.04 } : {})}
