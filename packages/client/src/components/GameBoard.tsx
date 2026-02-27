@@ -2,6 +2,7 @@ import React from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
 import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
 import { getActiveZone } from '@shit-head-palace/engine';
+import { getIllegalPlayReason } from '../utils/illegalPlayReason';
 import type { InspectZone } from './DebugPanel';
 import { Card } from './Card';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -1470,6 +1471,7 @@ export function GameBoard({
 
   // Message de statut
   let status = '';
+  let statusIsIllegal = false;
   if (state.phase === 'finished') {
     status = 'Partie terminée';
   } else if (pendingTargetForHuman) {
@@ -1504,7 +1506,18 @@ export function GameBoard({
     if (humanActiveZone === 'faceDown') {
       status = 'Cliquez une carte à l\'aveugle pour jouer.';
     } else if (selectedCards.length > 0) {
-      status = `${selectedCards.length} carte(s) sélectionnée(s) — Jouez ou ajoutez la même valeur.`;
+      // Resolve selected card IDs to Card objects for illegal play detection
+      const allPlayerCards = [...human.hand, ...human.faceUp, ...human.faceDown];
+      const selectedCardObjects = selectedCards
+        .map((id) => allPlayerCards.find((c) => c.id === id))
+        .filter((c): c is NonNullable<typeof c> => c != null);
+      const illegalReason = getIllegalPlayReason(selectedCardObjects, state, humanId);
+      if (illegalReason) {
+        status = illegalReason;
+        statusIsIllegal = true;
+      } else {
+        status = `${selectedCards.length} carte(s) sélectionnée(s) — Jouez ou ajoutez la même valeur.`;
+      }
     }
   }
 
@@ -1664,7 +1677,7 @@ export function GameBoard({
       {/* ── Status (sous la main du héros) — fixed height to avoid layout shift ── */}
       <div className="flex-none h-5 text-center px-2 pb-1">
         {status && (
-          <p className="text-[10px] sm:text-xs text-gray-300/80 leading-tight truncate">{status}</p>
+          <p className={`text-[10px] sm:text-xs leading-tight truncate ${statusIsIllegal ? 'text-orange-400' : 'text-gray-300/80'}`}>{status}</p>
         )}
       </div>
 
