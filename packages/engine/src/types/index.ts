@@ -84,6 +84,12 @@ export interface Player {
    */
   faceDownRevealed?: boolean;
   /**
+   * When true, the player has been targeted by Flop Reverse or Flop Remake
+   * and knows the contents of their dark flop. Enables combo flop+dark flop
+   * plays when emptying the faceUp zone.
+   */
+  hasSeenDarkFlop?: boolean;
+  /**
    * When true, this player lost a Super Shifumi and is the designated Shit Head.
    * Only set by the Super Shifumi resolution; ends the game immediately.
    */

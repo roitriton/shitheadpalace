@@ -22,6 +22,10 @@ interface PlayerZoneProps {
   debugRevealHands?: boolean;
   /** Mobile compact mode: smaller cards, reduced fan */
   compact?: boolean;
+  /** All hand cards selected — faceUp cards become selectable for combo */
+  comboHandFlopEnabled?: boolean;
+  /** All faceUp cards selected + hasSeenDarkFlop — faceDown cards become selectable */
+  comboFlopDarkEnabled?: boolean;
 }
 
 function PlayerZone({
@@ -35,10 +39,15 @@ function PlayerZone({
   onFaceDownClick,
   debugRevealHands,
   compact,
+  comboHandFlopEnabled,
+  comboFlopDarkEnabled,
 }: PlayerZoneProps) {
   const canClickHand = isActive && activeZone === 'hand' && !isBot;
   const canClickFaceUp = isActive && activeZone === 'faceUp' && !isBot;
   const canClickFaceDown = isActive && activeZone === 'faceDown' && !isBot;
+  // Combo flags: allow clicking next zone when all current zone cards are selected
+  const canClickFlopCombo = !isBot && !!comboHandFlopEnabled;
+  const canClickDarkCombo = !isBot && !!comboFlopDarkEnabled;
 
   // ── Chevauchement pour les cartes adversaires ──
   const botCardSize: 'xs' | 'sm' = 'xs';
@@ -131,27 +140,32 @@ function PlayerZone({
               const fuCard = player.faceUp[i];
               const cardSize = isBot ? botCardSize : 'sm';
               const w = isBot ? botCardW : 44; // w-11 = 44px
-              const h = isBot ? botCardH + 12 : 76;
+              // When combo flop+dark is active for human, dark flop cards move to separate row below
+              const showDarkInStack = !!fdCard && !(!isBot && comboFlopDarkEnabled);
+              const h = isBot ? botCardH + 12 : (showDarkInStack ? 76 : 64);
               return (
                 <div key={i} className="relative" style={{ width: w, height: h }}>
-                  {fdCard && (
+                  {showDarkInStack && (
                     <div className="absolute top-0 z-0">
                       <Card
-                        card={fdCard}
+                        card={fdCard!}
                         faceDown={isBot ? !debugRevealHands : true}
                         size={cardSize}
-                        onClick={canClickFaceDown ? () => onFaceDownClick?.(fdCard) : undefined}
+                        onClick={
+                          canClickFaceDown ? () => onFaceDownClick?.(fdCard!) :
+                          undefined
+                        }
                         noLayout
                       />
                     </div>
                   )}
                   {fuCard && (
-                    <div className={`absolute z-10 ${fdCard ? 'top-3' : 'top-0'}`}>
+                    <div className={`absolute z-10 ${showDarkInStack ? 'top-3' : 'top-0'}`}>
                       <Card
                         card={fuCard}
                         size={cardSize}
                         selected={!isBot && selectedCards.includes(fuCard.id)}
-                        onClick={canClickFaceUp ? () => onCardClick?.(fuCard) : undefined}
+                        onClick={(canClickFaceUp || canClickFlopCombo) ? () => onCardClick?.(fuCard) : undefined}
                         noLayout
                       />
                     </div>
@@ -164,6 +178,22 @@ function PlayerZone({
           <div style={{ width: isBot ? botCardW : 44, height: isBot ? botCardH + 12 : 76 }} className="opacity-0" />
         )}
       </div>
+
+      {/* Dark flop — separate row when combo flop+dark enabled */}
+      {!isBot && comboFlopDarkEnabled && player.faceDown.length > 0 && (
+        <div className="flex justify-center mt-1" style={{ gap: compact ? 4 : 8 }}>
+          {player.faceDown.map((fdCard) => (
+            <Card
+              key={fdCard.id}
+              card={fdCard}
+              faceDown={true}
+              size="sm"
+              selected={selectedCards.includes(fdCard.id)}
+              onClick={() => onCardClick?.(fdCard)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Main humain — éventail avec drag and drop */}
       {!isBot && (
@@ -221,6 +251,18 @@ function PlayerZone({
             );
           })}
         </Reorder.Group>
+      )}
+
+      {/* Combo hint text */}
+      {!isBot && comboHandFlopEnabled && (
+        <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
+          Vous pouvez aussi sélectionner des cartes du flop de même valeur
+        </p>
+      )}
+      {!isBot && comboFlopDarkEnabled && (
+        <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
+          Vous pouvez aussi sélectionner des cartes du dark flop (attention : combo invalide = ramasser)
+        </p>
       )}
     </div>
   );
@@ -1273,6 +1315,10 @@ interface GameBoardProps {
   onInspectZone?: (zone: InspectZone) => void;
   /** Current power being displayed (inline in right column). */
   currentPower?: LastPowerTriggered | null;
+  /** All hand cards selected — faceUp cards become selectable for combo */
+  comboHandFlopEnabled?: boolean;
+  /** All faceUp cards selected + hasSeenDarkFlop — faceDown cards become selectable */
+  comboFlopDarkEnabled?: boolean;
 }
 
 export function GameBoard({
@@ -1297,6 +1343,8 @@ export function GameBoard({
   debugRevealHands,
   onInspectZone,
   currentPower,
+  comboHandFlopEnabled,
+  comboFlopDarkEnabled,
 }: GameBoardProps) {
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
 
@@ -1552,6 +1600,8 @@ export function GameBoard({
           onCardClick={onCardClick}
           onFaceDownClick={onFaceDownPlay}
           compact={isMobile}
+          comboHandFlopEnabled={comboHandFlopEnabled}
+          comboFlopDarkEnabled={comboFlopDarkEnabled}
         />
       </div>
 

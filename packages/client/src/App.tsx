@@ -160,9 +160,49 @@ function App() {
     const humanIdx = gameState.players.findIndex((p) => p.id === humanId);
     if (gameState.currentPlayerIndex !== humanIdx) return;
 
-    setSelectedCards((prev) => {
-      if (prev.includes(card.id)) return prev.filter((id) => id !== card.id);
+    // Determine which zone the clicked card belongs to
+    const isInHand = human.hand.some((c) => c.id === card.id);
+    const isInFaceUp = human.faceUp.some((c) => c.id === card.id);
+    const isInFaceDown = human.faceDown.some((c) => c.id === card.id);
 
+    setSelectedCards((prev) => {
+      // ── Toggle deselection ──────────────────────────────────────────────
+      if (prev.includes(card.id)) {
+        const newSelection = prev.filter((id) => id !== card.id);
+        // Cascade: deselecting a hand card → remove any faceUp combo cards
+        if (isInHand && zone === 'hand') {
+          const faceUpIds = new Set(human.faceUp.map((c) => c.id));
+          return newSelection.filter((id) => !faceUpIds.has(id));
+        }
+        // Cascade: deselecting a faceUp card → remove any faceDown combo cards
+        if (isInFaceUp && zone === 'faceUp') {
+          const faceDownIds = new Set(human.faceDown.map((c) => c.id));
+          return newSelection.filter((id) => !faceDownIds.has(id));
+        }
+        return newSelection;
+      }
+
+      // ── Adding a card ──────────────────────────────────────────────────
+
+      // Combo flop+dark: card from faceDown while activeZone is 'faceUp'
+      if (zone === 'faceUp' && isInFaceDown) {
+        if (!human.faceUp.every((c) => prev.includes(c.id))) return prev;
+        if (!human.hasSeenDarkFlop) return prev;
+        // No rank validation — engine handles it (invalid combo = pickup)
+        return [...prev, card.id];
+      }
+
+      // Combo hand+flop: card from faceUp while activeZone is 'hand'
+      if (zone === 'hand' && isInFaceUp) {
+        if (!human.hand.every((c) => prev.includes(c.id))) return prev;
+        // Fall through to same-rank/mirror validation below
+      }
+
+      // Reject if card is not from active zone and not a valid combo
+      if (zone === 'hand' && !isInHand && !isInFaceUp) return prev;
+      if (zone === 'faceUp' && !isInFaceUp && !isInFaceDown) return prev;
+
+      // ── Same-rank / mirror validation (active zone + combo hand+flop) ──
       if (prev.length > 0) {
         const allCards = gameState.players.flatMap((p) => [...p.hand, ...p.faceUp]);
         const prevCards = prev
@@ -204,7 +244,7 @@ function App() {
     if (selectedCards.length === 0 || !gameState) return;
 
     // Resolve card objects to check for powers requiring a pre-play target
-    const allCards = gameState.players.flatMap((p) => [...p.hand, ...p.faceUp]);
+    const allCards = gameState.players.flatMap((p) => [...p.hand, ...p.faceUp, ...p.faceDown]);
     const cards = selectedCards
       .map((id) => allCards.find((c) => c.id === id))
       .filter((c): c is CardType => c !== undefined);
@@ -370,6 +410,13 @@ function App() {
   const canPlay = isMyTurn && selectedCards.length > 0 && humanActiveZone !== 'faceDown';
   const canPickUp = isMyTurn && gameState.pile.length > 0;
 
+  // Combo flags: enable selecting cards from the next zone
+  const comboHandFlopEnabled = !!(human && isMyTurn && humanActiveZone === 'hand' &&
+    human.hand.length > 0 && human.hand.every((c) => selectedCards.includes(c.id)));
+  const comboFlopDarkEnabled = !!(human && isMyTurn && humanActiveZone === 'faceUp' &&
+    human.faceUp.length > 0 && human.faceUp.every((c) => selectedCards.includes(c.id)) &&
+    human.hasSeenDarkFlop === true);
+
   return (
     <>
     <AnimatePresence mode="wait">
@@ -415,6 +462,8 @@ function App() {
           debugRevealHands={isDev ? debugRevealHands : undefined}
           onInspectZone={isDev ? setDebugInspectZone : undefined}
           currentPower={currentPower}
+          comboHandFlopEnabled={comboHandFlopEnabled}
+          comboFlopDarkEnabled={comboFlopDarkEnabled}
         />
         <ChatPanel
           messages={chatMessages}

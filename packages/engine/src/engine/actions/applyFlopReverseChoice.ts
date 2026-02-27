@@ -45,6 +45,7 @@ export function applyFlopReverseTarget(
     faceUp: target.faceDown,
     faceDown: target.faceUp,
     faceDownRevealed: true,
+    hasSeenDarkFlop: true,
   };
 
   const newPlayers = [...state.players];
@@ -196,7 +197,7 @@ export function applyFlopRemake(
   const newFaceDown = faceDownIds.map((id) => cardMap.get(id)!);
 
   const newPlayers = [...state.players];
-  newPlayers[targetIdx] = { ...target, faceUp: newFaceUp, faceDown: newFaceDown };
+  newPlayers[targetIdx] = { ...target, faceUp: newFaceUp, faceDown: newFaceDown, hasSeenDarkFlop: true };
 
   // Launcher name for log (current player is still the launcher at this point)
   const launcherName = state.players.find((p) => p.id === launcherId)?.name ?? launcherId;

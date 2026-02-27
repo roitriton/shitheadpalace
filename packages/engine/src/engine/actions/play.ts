@@ -191,13 +191,54 @@ export function applyPlay(
   // Reset lastPowerTriggered at the start of each new action
   state = { ...state, lastPowerTriggered: null };
 
-  // ── Locate the cards in the active zone ────────────────────────────────────
+  // ── Locate the cards in the active zone (with combo detection) ─────────────
   const zoneCards = getZoneCards(player, zone);
-  const cardsToPlay: Card[] = cardIds.map((id) => {
+  const cardsToPlay: Card[] = [];
+  let comboFlopCards: Card[] = [];   // faceUp cards pulled into a hand+flop combo
+  let comboDarkCards: Card[] = [];   // faceDown cards pulled into a flop+dark combo
+  let isHandFlopCombo = false;
+  let isFlopDarkCombo = false;
+
+  for (const id of cardIds) {
     const found = zoneCards.find((c) => c.id === id);
-    if (!found) throw new Error(`Card '${id}' not found in player's ${zone}`);
-    return found;
-  });
+    if (found) {
+      cardsToPlay.push(found);
+    } else if (zone === 'hand') {
+      const flopCard = player.faceUp.find((c) => c.id === id);
+      if (flopCard) {
+        comboFlopCards.push(flopCard);
+        cardsToPlay.push(flopCard);
+        isHandFlopCombo = true;
+      } else {
+        throw new Error(`Card '${id}' not found in player's ${zone}`);
+      }
+    } else if (zone === 'faceUp' && player.hasSeenDarkFlop) {
+      const darkCard = player.faceDown.find((c) => c.id === id);
+      if (darkCard) {
+        comboDarkCards.push(darkCard);
+        cardsToPlay.push(darkCard);
+        isFlopDarkCombo = true;
+      } else {
+        throw new Error(`Card '${id}' not found in player's ${zone}`);
+      }
+    } else {
+      throw new Error(`Card '${id}' not found in player's ${zone}`);
+    }
+  }
+
+  // Validate combo conditions: must play ALL cards from the active zone
+  if (isHandFlopCombo) {
+    const remainingHand = player.hand.filter((c) => !cardIds.includes(c.id));
+    if (remainingHand.length > 0) {
+      throw new Error('Combo hand+flop requires playing ALL remaining hand cards');
+    }
+  }
+  if (isFlopDarkCombo) {
+    const remainingFlop = player.faceUp.filter((c) => !cardIds.includes(c.id));
+    if (remainingFlop.length > 0) {
+      throw new Error('Combo flop+dark requires playing ALL remaining flop cards');
+    }
+  }
 
   // Shared helper — used in both the revealed dark-flop path and the normal path
   const isMirrorCard = (c: Card) => matchesPowerRank(c.rank, state.variant, 'mirror');
@@ -360,8 +401,37 @@ export function applyPlay(
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Normal play path — hand or faceUp
+  // Normal play path — hand or faceUp (+ optional combo)
   // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Flop + dark flop combo: invalid rank mix → pickup ─────────────────────
+  if (isFlopDarkCombo) {
+    const mirrorCheck = getMirrorEffectiveRank(cardsToPlay, state.variant);
+    const nonMirrors = mirrorCheck !== null
+      ? cardsToPlay.filter((c) => !isMirrorCard(c))
+      : cardsToPlay;
+    if (!allSameRank(nonMirrors)) {
+      // Invalid combo: dark flop cards don't match — player picks up pile + all attempted cards
+      const pileCards = state.pile.flatMap((e) => e.cards);
+      const newHand = [...player.hand, ...pileCards, ...cardsToPlay];
+      const remainingFaceUp = player.faceUp.filter((c) => !cardIds.includes(c.id));
+      const remainingFaceDown = player.faceDown.filter((c) => !cardIds.includes(c.id));
+      const newPlayers = [...state.players];
+      newPlayers[playerIndex] = { ...player, hand: newHand, faceUp: remainingFaceUp, faceDown: remainingFaceDown };
+      let newState: GameState = {
+        ...state,
+        players: newPlayers,
+        pile: [],
+        activeUnder: null,
+        pileResetActive: false,
+      };
+      newState = appendLog(newState, 'comboFail', timestamp, player.id, player.name, {
+        cardIds,
+        ranks: cardsToPlay.map((c) => c.rank),
+      });
+      return resolveAutoSkip(advanceTurn(newState, false));
+    }
+  }
 
   // ── Mirror play validation ─────────────────────────────────────────────────
 
@@ -393,9 +463,18 @@ export function applyPlay(
     }
   }
 
-  // ── Remove played cards from zone, build pile entry ────────────────────────
+  // ── Remove played cards from zone(s), build pile entry ────────────────────
   const remaining = zoneCards.filter((c) => !cardIds.includes(c.id));
-  const updatedPlayer = setZoneCards(player, zone, remaining);
+  let updatedPlayer = setZoneCards(player, zone, remaining);
+  // For combos, also remove cards from the secondary zone
+  if (isHandFlopCombo) {
+    const remainingFlop = player.faceUp.filter((c) => !cardIds.includes(c.id));
+    updatedPlayer = { ...updatedPlayer, faceUp: remainingFlop };
+  }
+  if (isFlopDarkCombo) {
+    const remainingDark = player.faceDown.filter((c) => !cardIds.includes(c.id));
+    updatedPlayer = { ...updatedPlayer, faceDown: remainingDark };
+  }
 
   const entry: PileEntry = {
     cards: cardsToPlay,
