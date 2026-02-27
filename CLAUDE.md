@@ -134,13 +134,15 @@ Bugs connus :
   - Suppression des badges pouvoirs (RESET/UNDER/RÉV.)
   - Drag and drop pour réorganiser les cartes en main (Framer Motion Reorder)
 
-Étapes terminées (suite) :
-- [x] Phase 6 — Cemetery Transit (897 tests au total, +15 cemeteryTransit.test.ts)
-  - pendingCemeteryTransit flag sur GameState (état intermédiaire burn/jack → cimetière)
-  - resolveCemeteryTransit() : burn = pile entière → cimetière, jack = top entry → cimetière
-  - resolvePowers : applyBurn remplacé par log + flag, moveJacksToGraveyard remplacé par flag
-  - applyPlay : appel automatique resolveCemeteryTransit après chaque resolvePowers (3 chemins)
-  - Export depuis engine/index.ts, préservé par filterGameStateForPlayer
+Session 27/02 — Bug fixes et améliorations (916 tests au total) :
+- [x] Phase 1 — Bug fixes critiques : shifumi click (PendingFirstPlayerShifumi/PendingAllBlockedShifumi UI manquante), cartes flop/dark flop disparaissant (Framer Motion noLayout + slot size 40x56), overlay masquant le minilog (visible prop inversée), chevauchement main/flop (gap augmenté)
+- [x] Phase 2 — Cadres noirs permanents (overlay + révolution), TopBar avec titre + debug, opacités réduites à 10%
+- [x] Phase 3 — Animation overlay scale-up/fade-out, timing bots x1.5 (2250ms), synchronisation overlay
+- [x] Phase 4 — Message de tour dynamique au-dessus de la pile ("À [nom] de jouer sur/sous un [valeur]"), textes de statut déplacés sous la main
+- [x] Phase 5 — Engine : burn par 4+ cartes identiques jouées ensemble (quad burn), bypass contrainte de valeur pile, bloqué par Under/Révolution. Accumulation inter-tours avec mirrors (countConsecutiveTopEffectiveRank). 30 tests quadBurn.
+- [x] Phase 6 — Engine : transit pile→cimetière avec pendingCemeteryTransit flag, resolveCemeteryTransit(). Serveur émet deux states (intermédiaire + résolu) avec délai 2250ms. 15 tests cemeteryTransit.
+- [x] Phase 7 — Engine + Client : combo main+flop (dernières cartes) et flop+dark flop (hasSeenDarkFlop). Sélection multi-zone client. Dark flop reste face cachée en combo. 19 tests comboPlay.
+- [x] Phase 8 — Client : surbrillance rouge pour sélections burn (10, quad, accumulation), transit visuel pile→cimetière via double émission serveur
 
 Étapes à venir :
 - [ ] Étape 11B — Client : UI pouvoirs et interactions spéciales (suite)
@@ -650,6 +652,8 @@ interface BotStrategy {
 9\. \*\*Super Manouche\*\* : le nombre total de cartes dans chaque main doit rester identique après l'échange
 
 10\. \*\*Phase de swap initiale\*\* : les joueurs peuvent échanger cartes main ↔ flop AVANT que la partie commence
+
+11\. \*\*Après rebuild engine, il faut AUSSI tuer le port serveur\*\* (`npx kill-port 3456`) et relancer `npm run dev`. tsx watch ne recharge pas les modules engine mis à jour.
 
 
 
