@@ -1,6 +1,7 @@
 import type { GameState } from '../../types';
 import { advanceTurn, resolveAutoSkip } from '../turn';
 import { appendLog } from '../../utils/log';
+import { continueMultiJackSequence } from './applyMultiJackOrder';
 
 /**
  * Applies the target choice for Flop Reverse.
@@ -66,6 +67,9 @@ export function applyFlopReverseTarget(
     targetPlayerName: target.name,
   });
 
+  if (state.multiJackSequence) {
+    return continueMultiJackSequence(newState, timestamp);
+  }
   return resolveAutoSkip(advanceTurn(newState, false));
 }
 
@@ -215,5 +219,8 @@ export function applyFlopRemake(
     faceDownIds,
   });
 
+  if (state.multiJackSequence) {
+    return continueMultiJackSequence(newState, timestamp);
+  }
   return resolveAutoSkip(advanceTurn(newState, false));
 }

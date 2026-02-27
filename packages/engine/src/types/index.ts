@@ -129,7 +129,8 @@ export interface PendingShifumi {
 export interface PendingManouche {
   type: 'manouche' | 'superManouche';
   launcherId: string;
-  targetId: string;
+  /** Target player ID. Optional during multi-jack resolution (set via manoucheTarget). */
+  targetId?: string;
 }
 
 export interface PendingFlopReverse {
@@ -155,6 +156,27 @@ export interface PendingFirstPlayerShifumi {
   choices: Partial<Record<string, ShifumiChoice>>;
 }
 
+// ─── Multi-Jack ─────────────────────────────────────────────────────────────
+
+/** Entry in a multi-jack resolution sequence: one jack with optional mirror. */
+export interface MultiJackSequenceEntry {
+  jackCard: Card;
+  mirrorCard?: Card;
+}
+
+/**
+ * Pending action: the player must choose the resolution order for multiple jacks
+ * played simultaneously, and assign the mirror (if any) to one of the jacks.
+ */
+export interface PendingMultiJackOrder {
+  type: 'PendingMultiJackOrder';
+  playerId: string;
+  /** The 2 or 3 real jacks played. */
+  jacks: Card[];
+  /** 0 or 1 mirror card played alongside the jacks. */
+  mirrors: Card[];
+}
+
 export interface PendingAllBlockedShifumi {
   type: 'allBlockedShifumi';
   /** IDs of all active players who need to play shifumi to determine finish order */
@@ -172,7 +194,8 @@ export type PendingAction =
   | PendingFlopRemake
   | PendingTarget
   | PendingFirstPlayerShifumi
-  | PendingAllBlockedShifumi;
+  | PendingAllBlockedShifumi
+  | PendingMultiJackOrder;
 
 // ─── Log ──────────────────────────────────────────────────────────────────────
 
@@ -272,6 +295,17 @@ export interface GameState {
    * Set by resolvePowers, consumed by resolveCemeteryTransit in applyPlay.
    */
   pendingCemeteryTransit?: boolean;
+  /**
+   * Tracks the in-progress multi-jack resolution sequence.
+   * Set when multiple jacks are played together and the player has chosen the
+   * resolution order. Consumed one jack at a time by resolveNextMultiJack.
+   */
+  multiJackSequence?: {
+    remainingSequence: MultiJackSequenceEntry[];
+    launcherId: string;
+    /** The jack currently being resolved (placed on pile, pending power resolution). */
+    currentJackEntry?: MultiJackSequenceEntry;
+  } | null;
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -289,7 +323,9 @@ export type GameAction =
   | { type: 'flopRemakeTarget'; targetPlayerId: string }
   | { type: 'flopRemake'; faceUp: string[]; faceDown: string[] }
   | { type: 'targetChoice'; targetPlayerId: string }
-  | { type: 'pickUpWithFlop'; flopCardIds: string[] };
+  | { type: 'pickUpWithFlop'; flopCardIds: string[] }
+  | { type: 'multiJackOrder'; sequence: MultiJackSequenceEntry[] }
+  | { type: 'manoucheTarget'; targetPlayerId: string };
 
 // ─── Bot Strategy Interface ───────────────────────────────────────────────────
 

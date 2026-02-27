@@ -297,6 +297,33 @@ export function applyPlay(
       // Valid known dark-flop play
       const remaining = player.faceDown.filter((c) => !cardIds.includes(c.id));
       const updatedPlayerRevealed = { ...player, faceDown: remaining };
+
+      // Multi-jack detection for revealed dark flop
+      const realJacksRevealed = cardsToPlay.filter((c) => c.rank === 'J');
+      if (realJacksRevealed.length >= 2 && cardsToPlay.length < 4) {
+        const mirrorsRevealed = cardsToPlay.filter(isMirrorCard);
+        const mjPlayersRevealed = [...state.players];
+        mjPlayersRevealed[playerIndex] = updatedPlayerRevealed;
+        let mjStateRevealed: GameState = { ...state, players: mjPlayersRevealed };
+        mjStateRevealed = appendLog(mjStateRevealed, 'play', timestamp, player.id, player.name, {
+          cardIds, ranks: cardsToPlay.map((c) => c.rank), suits: cardsToPlay.map((c) => c.suit), zone,
+        });
+        mjStateRevealed = {
+          ...mjStateRevealed,
+          pendingAction: {
+            type: 'PendingMultiJackOrder',
+            playerId,
+            jacks: realJacksRevealed,
+            mirrors: mirrorsRevealed,
+          },
+        };
+        mjStateRevealed = appendLog(mjStateRevealed, 'multiJackPending', timestamp, player.id, player.name, {
+          jackCount: realJacksRevealed.length,
+          mirrorCount: mirrorsRevealed.length,
+        });
+        return mjStateRevealed;
+      }
+
       const entryRevealed: PileEntry = {
         cards: cardsToPlay,
         playerId: player.id,
@@ -497,6 +524,50 @@ export function applyPlay(
   if (isFlopDarkCombo) {
     const remainingDark = player.faceDown.filter((c) => !cardIds.includes(c.id));
     updatedPlayer = { ...updatedPlayer, faceDown: remainingDark };
+  }
+
+  // ── Multi-jack detection ──────────────────────────────────────────────────
+  // When ≥ 2 real jacks are played together with total cards < 4, trigger
+  // multi-jack resolution instead of the normal play path. If total ≥ 4,
+  // the normal burn/quad-burn path handles it.
+  const realJacksPlayed = cardsToPlay.filter((c) => c.rank === 'J');
+  if (realJacksPlayed.length >= 2 && cardsToPlay.length < 4) {
+    const mirrorsPlayed = cardsToPlay.filter(isMirrorCard);
+    let mjPlayers = [...state.players];
+    mjPlayers[playerIndex] = updatedPlayer;
+    let mjState: GameState = { ...state, players: mjPlayers };
+
+    // Auto-draw before setting pending (Phase 1 only)
+    if (zone === 'hand' && mjState.deck.length > 0) {
+      const { player: drawn, deck: newDeck } = autoDraw(updatedPlayer, mjState.deck);
+      mjPlayers = [...mjState.players];
+      mjPlayers[playerIndex] = drawn;
+      mjState = { ...mjState, players: mjPlayers, deck: newDeck };
+    }
+
+    mjState = appendLog(mjState, 'play', timestamp, player.id, player.name, {
+      cardIds,
+      ranks: cardsToPlay.map((c) => c.rank),
+      suits: cardsToPlay.map((c) => c.suit),
+      zone,
+    });
+
+    mjState = {
+      ...mjState,
+      pendingAction: {
+        type: 'PendingMultiJackOrder',
+        playerId,
+        jacks: realJacksPlayed,
+        mirrors: mirrorsPlayed,
+      },
+    };
+
+    mjState = appendLog(mjState, 'multiJackPending', timestamp, player.id, player.name, {
+      jackCount: realJacksPlayed.length,
+      mirrorCount: mirrorsPlayed.length,
+    });
+
+    return mjState;
   }
 
   const entry: PileEntry = {

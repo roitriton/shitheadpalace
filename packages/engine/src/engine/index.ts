@@ -4,7 +4,7 @@ import { applyPickUpPile } from './actions/pickUp';
 import { applySwap } from './actions/swap';
 import { applyReady, applyFirstPlayerShifumiChoice } from './actions/ready';
 import { applyTargetChoice } from './actions/applyTargetChoice';
-import { applyManouchePick, applySuperManouchePick } from './actions/applyManoucheChoice';
+import { applyManouchePick, applySuperManouchePick, applyManoucheTarget } from './actions/applyManoucheChoice';
 import {
   applyFlopReverseTarget,
   applyFlopRemakeTarget,
@@ -13,6 +13,7 @@ import {
 import { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiChoice';
 import { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
 import { applyPickUpWithFlopCards } from './actions/pickUpFlop';
+import { applyMultiJackOrder } from './actions/applyMultiJackOrder';
 
 // Re-export everything so consumers can import from '@shit-head-palace/engine'
 export { applyPlay } from './actions/play';
@@ -20,7 +21,7 @@ export { applyPickUpPile } from './actions/pickUp';
 export { applySwap } from './actions/swap';
 export { applyReady, applyFirstPlayerShifumiChoice } from './actions/ready';
 export { applyTargetChoice } from './actions/applyTargetChoice';
-export { applyManouchePick, applySuperManouchePick } from './actions/applyManoucheChoice';
+export { applyManouchePick, applySuperManouchePick, applyManoucheTarget } from './actions/applyManoucheChoice';
 export {
   applyFlopReverseTarget,
   applyFlopRemakeTarget,
@@ -29,6 +30,7 @@ export {
 export { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiChoice';
 export { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
 export { applyPickUpWithFlopCards, getAvailableFlopPickUpGroups } from './actions/pickUpFlop';
+export { applyMultiJackOrder, continueMultiJackSequence, resolveNextMultiJack } from './actions/applyMultiJackOrder';
 export { filterGameStateForPlayer } from './filter';
 export { resolveCemeteryTransit } from './cemeteryTransit';
 export { resolvePowers } from './powers';
@@ -108,5 +110,11 @@ export function applyAction(
 
     case 'pickUpWithFlop':
       return applyPickUpWithFlopCards(state, playerId, action.flopCardIds, timestamp);
+
+    case 'multiJackOrder':
+      return applyMultiJackOrder(state, playerId, action.sequence, timestamp);
+
+    case 'manoucheTarget':
+      return applyManoucheTarget(state, playerId, action.targetPlayerId, timestamp);
   }
 }

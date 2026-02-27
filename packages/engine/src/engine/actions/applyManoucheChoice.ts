@@ -1,6 +1,57 @@
 import type { GameState } from '../../types';
 import { advanceTurn, resolveAutoSkip } from '../turn';
 import { appendLog } from '../../utils/log';
+import { continueMultiJackSequence } from './applyMultiJackOrder';
+
+/**
+ * Sets the target for a Manouche or Super Manouche when the target was not
+ * specified at play time (multi-jack context).
+ *
+ * @param state          - Current game state (pendingAction.type must be 'manouche'/'superManouche'
+ *                         without targetId set).
+ * @param playerId       - ID of the launcher submitting the target choice.
+ * @param targetPlayerId - ID of the target player.
+ * @param timestamp      - Wall-clock ms for log entries (default 0 for tests).
+ */
+export function applyManoucheTarget(
+  state: GameState,
+  playerId: string,
+  targetPlayerId: string,
+  timestamp = 0,
+): GameState {
+  const pending = state.pendingAction;
+  if (pending?.type !== 'manouche' && pending?.type !== 'superManouche') {
+    throw new Error('No pending manouche action');
+  }
+  if (pending.targetId !== undefined) {
+    throw new Error('Manouche target has already been selected');
+  }
+  if (pending.launcherId !== playerId) {
+    throw new Error('Only the Manouche launcher can select a target');
+  }
+
+  const targetIdx = state.players.findIndex((p) => p.id === targetPlayerId);
+  if (targetIdx === -1) throw new Error(`Player '${targetPlayerId}' not found`);
+  if (state.players[targetIdx]!.isFinished) {
+    throw new Error(`Target player '${targetPlayerId}' is already finished`);
+  }
+  if (targetPlayerId === playerId) {
+    throw new Error('Cannot target yourself with Manouche');
+  }
+
+  const launcherName = state.players.find((p) => p.id === playerId)?.name ?? playerId;
+
+  let newState: GameState = {
+    ...state,
+    pendingAction: { ...pending, targetId: targetPlayerId },
+  };
+
+  newState = appendLog(newState, 'manoucheTarget', timestamp, playerId, launcherName, {
+    targetPlayerId,
+  });
+
+  return newState;
+}
 
 /**
  * Applies a Manouche exchange:
@@ -30,6 +81,9 @@ export function applyManouchePick(
     throw new Error('No pending manouche action');
   }
   const { launcherId, targetId } = state.pendingAction;
+  if (!targetId) {
+    throw new Error('Manouche target has not been selected yet');
+  }
   if (playerId !== launcherId) {
     throw new Error('Only the Manouche launcher can make this choice');
   }
@@ -89,6 +143,9 @@ export function applyManouchePick(
     targetId,
   });
 
+  if (state.multiJackSequence) {
+    return continueMultiJackSequence(newState, timestamp);
+  }
   return resolveAutoSkip(advanceTurn(newState, false));
 }
 
@@ -119,6 +176,9 @@ export function applySuperManouchePick(
     throw new Error('No pending superManouche action');
   }
   const { launcherId, targetId } = state.pendingAction;
+  if (!targetId) {
+    throw new Error('Super Manouche target has not been selected yet');
+  }
   if (playerId !== launcherId) {
     throw new Error('Only the Super Manouche launcher can make this choice');
   }
@@ -184,5 +244,8 @@ export function applySuperManouchePick(
     targetId,
   });
 
+  if (state.multiJackSequence) {
+    return continueMultiJackSequence(newState, timestamp);
+  }
   return resolveAutoSkip(advanceTurn(newState, false));
 }
