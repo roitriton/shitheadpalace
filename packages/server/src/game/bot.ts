@@ -12,6 +12,7 @@ import {
   applyShifumiTarget,
   applyShifumiChoice,
   applyMultiJackOrder,
+  applyRevolutionConfirm,
   canPlayCards,
   getActiveZone,
   getZoneCards,
@@ -85,6 +86,10 @@ export function canBotActOnPendingAction(state: GameState, botIds: string[]): bo
   }
 
   if (pending.type === 'PendingMultiJackOrder') {
+    return botIds.includes(pending.playerId);
+  }
+
+  if (pending.type === 'PendingRevolutionConfirm') {
     return botIds.includes(pending.playerId);
   }
 
@@ -190,6 +195,12 @@ export function tryResolveBotPendingAction(state: GameState, botIds: string[]): 
       return applyShifumiChoice(state, p.player2Id, choices[Math.floor(Math.random() * 3)]!, now);
     }
     return state;
+  }
+
+  // ── PendingRevolutionConfirm: bot auto-confirms
+  if (pending.type === 'PendingRevolutionConfirm') {
+    if (!botIds.includes(pending.playerId)) return state;
+    return applyRevolutionConfirm(state, pending.playerId, now);
   }
 
   // ── PendingMultiJackOrder: bot picks default order (as-is), mirror on first jack

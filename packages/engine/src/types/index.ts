@@ -187,6 +187,13 @@ export interface PendingAllBlockedShifumi {
   rankedIds: string[];
 }
 
+export interface PendingRevolutionConfirm {
+  type: 'PendingRevolutionConfirm';
+  playerId: string;
+  /** true = Super Révolution (permanent), false = Révolution (until pile pickup) */
+  isSuper: boolean;
+}
+
 export type PendingAction =
   | PendingShifumi
   | PendingManouche
@@ -195,7 +202,8 @@ export type PendingAction =
   | PendingTarget
   | PendingFirstPlayerShifumi
   | PendingAllBlockedShifumi
-  | PendingMultiJackOrder;
+  | PendingMultiJackOrder
+  | PendingRevolutionConfirm;
 
 // ─── Log ──────────────────────────────────────────────────────────────────────
 
@@ -305,6 +313,14 @@ export interface GameState {
     launcherId: string;
     /** The jack currently being resolved (placed on pile, pending power resolution). */
     currentJackEntry?: MultiJackSequenceEntry;
+    /**
+     * Set when a shifumi loser needs to pick up the pile after the animation delay.
+     * The actual pickup (jack→graveyard + pile→loser hand) is deferred to
+     * continueMultiJackSequence so the client can show the jack in the pile first.
+     */
+    pendingShifumiPickup?: {
+      loserId: string;
+    };
   } | null;
 }
 
@@ -325,7 +341,8 @@ export type GameAction =
   | { type: 'targetChoice'; targetPlayerId: string }
   | { type: 'pickUpWithFlop'; flopCardIds: string[] }
   | { type: 'multiJackOrder'; sequence: MultiJackSequenceEntry[] }
-  | { type: 'manoucheTarget'; targetPlayerId: string };
+  | { type: 'manoucheTarget'; targetPlayerId: string }
+  | { type: 'revolutionConfirm' };
 
 // ─── Bot Strategy Interface ───────────────────────────────────────────────────
 

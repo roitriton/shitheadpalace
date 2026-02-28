@@ -1,7 +1,7 @@
 import type { GameState } from '../../types';
 import { advanceTurn, resolveAutoSkip } from '../turn';
 import { appendLog } from '../../utils/log';
-import { continueMultiJackSequence } from './applyMultiJackOrder';
+
 
 /**
  * Sets the target for a Manouche or Super Manouche when the target was not
@@ -144,7 +144,7 @@ export function applyManouchePick(
   });
 
   if (state.multiJackSequence) {
-    return continueMultiJackSequence(newState, timestamp);
+    return newState; // Server calls continueMultiJackSequence after animation delay
   }
   return resolveAutoSkip(advanceTurn(newState, false));
 }
@@ -245,7 +245,7 @@ export function applySuperManouchePick(
   });
 
   if (state.multiJackSequence) {
-    return continueMultiJackSequence(newState, timestamp);
+    return newState; // Server calls continueMultiJackSequence after animation delay
   }
   return resolveAutoSkip(advanceTurn(newState, false));
 }

@@ -7,7 +7,6 @@ import type {
 } from '../../types';
 import { advanceTurn, isGameOver, isPlayerFinished, resolveAutoSkip } from '../turn';
 import { appendLog } from '../../utils/log';
-import { applyRevolution, applySuperRevolution } from '../../powers/revolution';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -148,22 +147,32 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
   // 3. Apply power
   switch (power) {
     case 'revolution': {
-      newState = applyRevolution(newState, launcherId, timestamp);
+      // Deferred: set PendingRevolutionConfirm instead of applying directly
       newState = {
         ...newState,
-        lastPowerTriggered: { type: 'revolution', playerId: launcherId, cardsPlayed: cardsInfo },
+        pendingAction: {
+          type: 'PendingRevolutionConfirm',
+          playerId: launcherId,
+          isSuper: false,
+        },
+        lastPowerTriggered: null,
+        pendingCardsPlayed: cardsInfo,
       };
-      // Jack stays on pile — server calls continueMultiJackSequence after animation delay
       return newState;
     }
 
     case 'superRevolution': {
-      newState = applySuperRevolution(newState, launcherId, timestamp);
+      // Deferred: set PendingRevolutionConfirm instead of applying directly
       newState = {
         ...newState,
-        lastPowerTriggered: { type: 'superRevolution', playerId: launcherId, cardsPlayed: cardsInfo },
+        pendingAction: {
+          type: 'PendingRevolutionConfirm',
+          playerId: launcherId,
+          isSuper: true,
+        },
+        lastPowerTriggered: null,
+        pendingCardsPlayed: cardsInfo,
       };
-      // Jack stays on pile — server calls continueMultiJackSequence after animation delay
       return newState;
     }
 
@@ -220,20 +229,89 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
 }
 
 /**
+ * Resolves a deferred shifumi pile pickup.
+ *
+ * Moves the current jack from pile top to graveyard, gives the remaining
+ * pile cards to the loser, clears the pile, and cancels non-super revolution
+ * if active (since emptying the pile cancels revolution).
+ */
+function resolveShifumiPickup(state: GameState): GameState {
+  const seq = state.multiJackSequence!;
+  const { loserId } = seq.pendingShifumiPickup!;
+
+  const loserIdx = state.players.findIndex((p) => p.id === loserId);
+  const loser = state.players[loserIdx]!;
+
+  // Separate jack (top pile entry) from the rest
+  let jackToGraveyard: Card[] = [];
+  let pileCards: Card[] = [];
+
+  if (seq.currentJackEntry && state.pile.length > 0) {
+    const topEntry = state.pile[state.pile.length - 1]!;
+    jackToGraveyard = topEntry.cards;
+    const restPile = state.pile.slice(0, -1);
+    pileCards = restPile.flatMap((e) => e.cards);
+  } else {
+    pileCards = state.pile.flatMap((e) => e.cards);
+  }
+
+  const newPlayers = [...state.players];
+  newPlayers[loserIdx] = { ...loser, hand: [...loser.hand, ...pileCards] };
+
+  let newState: GameState = {
+    ...state,
+    players: newPlayers,
+    pile: [],
+    graveyard: [...state.graveyard, ...jackToGraveyard],
+    activeUnder: null,
+    pileResetActive: false,
+    multiJackSequence: {
+      ...seq,
+      currentJackEntry: undefined,
+      pendingShifumiPickup: undefined,
+    },
+  };
+
+  // Cancel non-super revolution when pile is emptied.
+  // A regular revolution is tied to the pile — emptying the pile cancels it.
+  // Super Revolution is permanent and survives pile emptying.
+  if (state.revolution && !state.superRevolution) {
+    newState = { ...newState, phase: 'playing' as const, revolution: false };
+  }
+
+  return newState;
+}
+
+/**
  * Called after a sub-power resolves during a multi-jack sequence to move
  * the current jack to graveyard and continue with the next jack.
  *
  * For non-pile-clearing resolutions (manouche, flop reverse), the jack is
  * still on top of the pile and must be moved to graveyard.
  *
- * For pile-clearing resolutions (shifumi loss), the jack was already handled
- * by the modified resolveShifumi and won't be on the pile.
+ * For deferred shifumi pickups, resolves the pickup first (jack→graveyard,
+ * pile→loser hand) before continuing with the next jack.
  */
 export function continueMultiJackSequence(state: GameState, timestamp: number): GameState {
   const seq = state.multiJackSequence;
   if (!seq) {
     // No multi-jack sequence — fall back to normal turn advancement
     return resolveAutoSkip(advanceTurn(state, false));
+  }
+
+  // Handle deferred shifumi pickup first
+  if (seq.pendingShifumiPickup) {
+    state = resolveShifumiPickup(state);
+    // Re-read sequence after state mutation
+    const updatedSeq = state.multiJackSequence;
+    if (!updatedSeq) {
+      return resolveAutoSkip(advanceTurn(state, false));
+    }
+    // Continue with next jack or finalize
+    if (updatedSeq.remainingSequence.length > 0) {
+      return resolveNextMultiJack(state, timestamp);
+    }
+    return finalizeMultiJackSequence(state, timestamp);
   }
 
   // Move current jack to graveyard if still on top of pile

@@ -354,6 +354,7 @@ export function applyPlay(
         pendingManoucheType: pmRevealed,
         pendingFlopType: pfRevealed,
         pendingShifumiType: psRevealed,
+        pendingRevolutionType: prvRevealed,
       } = resolvePowers(newStateRevealed, cardsToPlay, playerId, timestamp);
       newStateRevealed = poweredRevealed;
 
@@ -362,6 +363,16 @@ export function applyPlay(
       if (isGameOver(newStateRevealed)) return finalizeGame(newStateRevealed, timestamp);
       if (prRevealed && !finishedRevealed) return newStateRevealed;
       if (ptRevealed && !finishedRevealed) return newStateRevealed;
+      if (prvRevealed !== null) {
+        return {
+          ...newStateRevealed,
+          pendingAction: {
+            type: 'PendingRevolutionConfirm',
+            playerId,
+            isSuper: prvRevealed === 'superRevolution',
+          },
+        };
+      }
       if (pmRevealed !== null && !finishedRevealed) {
         return setPendingManouche(newStateRevealed, pmRevealed, playerId, targetPlayerId, timestamp, player.name);
       }
@@ -430,6 +441,7 @@ export function applyPlay(
       pendingManoucheType,
       pendingFlopType,
       pendingShifumiType,
+      pendingRevolutionType: prvBlind,
     } = resolvePowers(newState, [revealedCard], playerId, timestamp);
     newState = powered;
 
@@ -438,6 +450,16 @@ export function applyPlay(
     if (isGameOver(newState)) return finalizeGame(newState, timestamp);
     if (playerReplays && !finished) return newState;
     if (pendingTarget && !finished) return newState;
+    if (prvBlind !== null) {
+      return {
+        ...newState,
+        pendingAction: {
+          type: 'PendingRevolutionConfirm',
+          playerId,
+          isSuper: prvBlind === 'superRevolution',
+        },
+      };
+    }
     if (pendingManoucheType !== null && !finished) {
       return setPendingManouche(newState, pendingManoucheType, playerId, targetPlayerId, timestamp, player.name);
     }
@@ -606,6 +628,7 @@ export function applyPlay(
     pendingManoucheType,
     pendingFlopType,
     pendingShifumiType,
+    pendingRevolutionType,
   } = resolvePowers(newState, cardsToPlay, playerId, timestamp);
   newState = powered;
 
@@ -622,6 +645,18 @@ export function applyPlay(
   if (pendingTarget && !finished) {
     // Target triggered: wait for launcher's targetChoice before advancing
     return newState;
+  }
+  if (pendingRevolutionType !== null) {
+    // Revolution triggered: wait for player confirmation before applying
+    // (applies even if player finished — applyRevolutionConfirm handles turn advancement)
+    return {
+      ...newState,
+      pendingAction: {
+        type: 'PendingRevolutionConfirm',
+        playerId,
+        isSuper: pendingRevolutionType === 'superRevolution',
+      },
+    };
   }
   if (pendingManoucheType !== null && !finished) {
     // Manouche triggered: validate target and set pendingAction; turn waits

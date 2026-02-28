@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Card, GameState, GameVariant, MultiJackSequenceEntry, Player } from '../../types';
 import { applyPlay } from './play';
 import { applyMultiJackOrder, continueMultiJackSequence } from './applyMultiJackOrder';
+import { applyRevolutionConfirm } from './applyRevolutionConfirm';
 import { applyShifumiTarget, applyShifumiChoice } from './applyShifumiChoice';
 import { applyManoucheTarget, applyManouchePick, applySuperManouchePick } from './applyManoucheChoice';
 import { applyFlopReverseTarget, applyFlopRemake, applyFlopRemakeTarget } from './applyFlopReverseChoice';
@@ -85,9 +86,10 @@ describe('Multi-Jack Detection', () => {
         makePlayer('p3'),
       ],
     });
-    const result = applyPlay(state, 'p0', [jDiamonds.id]);
-    // Revolution triggered, not PendingMultiJackOrder
-    expect(result.pendingAction).toBeNull();
+    let result = applyPlay(state, 'p0', [jDiamonds.id]);
+    // Revolution triggered via PendingRevolutionConfirm, not PendingMultiJackOrder
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.phase).toBe('revolution');
   });
 
@@ -100,9 +102,10 @@ describe('Multi-Jack Detection', () => {
         makePlayer('p3'),
       ],
     });
-    const result = applyPlay(state, 'p0', [jDiamonds.id, mirror9.id]);
-    // Super Revolution triggered, not PendingMultiJackOrder
-    expect(result.pendingAction).toBeNull();
+    let result = applyPlay(state, 'p0', [jDiamonds.id, mirror9.id]);
+    // Super Revolution triggered via PendingRevolutionConfirm, not PendingMultiJackOrder
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.phase).toBe('superRevolution');
   });
 
@@ -320,11 +323,12 @@ describe('Multi-Jack Resolution J+J', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Revolution applied, jack still on pile (step-by-step), no pending yet
+    // Revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.phase).toBe('revolution');
     expect(result.lastPowerTriggered?.type).toBe('revolution');
-    expect(result.pendingAction).toBeNull();
     // Revolution jack still on pile (not yet moved to graveyard)
     expect(result.pile.some((e) => e.cards.some((c) => c.id === jDiamonds.id))).toBe(true);
 
@@ -384,9 +388,16 @@ describe('Multi-Jack Resolution J+J', () => {
     // Resolve flop reverse → choose target
     result = applyFlopReverseTarget(result, 'p0', 'p1');
 
-    // After flopReverse, continueMultiJackSequence ran internally:
-    // jHearts moved to graveyard, revolution applied (step-by-step), jack on pile
+    // After flopReverse, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('flopReverse');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // jHearts moved to graveyard, PendingRevolutionConfirm set for J♦
     expect(result.graveyard.some((c) => c.id === jHearts.id)).toBe(true);
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -420,13 +431,17 @@ describe('Multi-Jack Resolution J+J', () => {
     // Both are revolution (J♦) — first revolution applied (step-by-step)
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // First revolution applied, jack still on pile
+    // First revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
     expect(result.multiJackSequence).toBeDefined();
 
-    // Continue: move first jack to graveyard, apply second revolution (step-by-step)
+    // Continue: move first jack to graveyard, second revolution (PendingRevolutionConfirm)
     result = continueMultiJackSequence(result, 1);
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
     // Continue: move second jack to graveyard, finalize
@@ -465,11 +480,12 @@ describe('Multi-Jack Resolution J+J+9 (mirror assignment)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Super revolution applied (step-by-step), jack still on pile
+    // Super revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.superRevolution).toBe(true);
     expect(result.phase).toBe('superRevolution');
     expect(result.lastPowerTriggered?.type).toBe('superRevolution');
-    expect(result.pendingAction).toBeNull();
 
     // Continue: move J♦+mirror to graveyard, flop reverse pending
     result = continueMultiJackSequence(result, 1);
@@ -498,12 +514,13 @@ describe('Multi-Jack Resolution J+J+9 (mirror assignment)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Normal revolution applied (step-by-step), jack still on pile
+    // Normal revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.superRevolution).toBeFalsy();
     expect(result.phase).toBe('revolution');
     expect(result.lastPowerTriggered?.type).toBe('revolution');
-    expect(result.pendingAction).toBeNull();
 
     // Continue: move J♦ to graveyard, flop REMAKE (super) pending
     result = continueMultiJackSequence(result, 1);
@@ -529,14 +546,18 @@ describe('Multi-Jack Resolution J+J+9 (mirror assignment)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // First: super revolution applied (step-by-step)
+    // First: super revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.superRevolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('superRevolution');
 
-    // Continue: move J♦+mirror to graveyard, second revolution (step-by-step)
+    // Continue: move J♦+mirror to graveyard, second revolution (PendingRevolutionConfirm)
     result = continueMultiJackSequence(result, 1);
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
     expect(result.graveyard.some((c) => c.id === mirror9.id)).toBe(true);
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
 
     // Continue: move second J♦ to graveyard, finalize
     result = continueMultiJackSequence(result, 2);
@@ -570,10 +591,11 @@ describe('Multi-Jack Resolution J+J+J', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Revolution applied (step-by-step), jack still on pile
+    // Revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
-    expect(result.pendingAction).toBeNull();
 
     // Continue: move J♦ to graveyard, then flop reverse pending
     result = continueMultiJackSequence(result, 1);
@@ -601,7 +623,9 @@ describe('Multi-Jack Resolution J+J+J', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Revolution applied (step-by-step), continue to get flopReverse pending
+    // Revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     result = continueMultiJackSequence(result, 1);
 
@@ -609,7 +633,12 @@ describe('Multi-Jack Resolution J+J+J', () => {
     expect(result.pendingAction?.type).toBe('flopReverse');
     result = applyFlopReverseTarget(result, 'p0', 'p1');
 
-    // After flopReverse, continueMultiJackSequence ran internally → shifumi pending
+    // After flopReverse, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('flopReverse');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
     expect(result.pendingAction?.type).toBe('shifumi');
 
     // Resolve shifumi: choose targets
@@ -617,6 +646,13 @@ describe('Multi-Jack Resolution J+J+J', () => {
     // Both submit choices
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors'); // p1 wins
+
+    // After shifumi, intermediate state
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+
+    // Server calls continueMultiJackSequence after animation delay → finalize
+    result = continueMultiJackSequence(result, 2);
 
     // All 3 jacks in graveyard
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
@@ -649,7 +685,9 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Revolution applied (step-by-step), jack still on pile
+    // Revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -662,6 +700,17 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiTarget(result, 'p0', 'p0', 'p1');
     result = applyShifumiChoice(result, 'p0', 'scissors');
     result = applyShifumiChoice(result, 'p1', 'rock'); // p0 loses
+
+    // Intermediate state: jack visible on pile, pickup deferred
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+    // Jack still on pile (visible for animation)
+    expect(result.pile.length).toBeGreaterThan(0);
+    // Revolution not cancelled yet (pile not emptied yet)
+    expect(result.revolution).toBe(true);
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 2);
 
     // Revolution cancelled (pile was emptied)
     expect(result.revolution).toBe(false);
@@ -692,7 +741,9 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Revolution applied (step-by-step)
+    // Revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
 
     // Continue: move J♦ to graveyard, shifumi pending
@@ -703,6 +754,14 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors'); // p2 loses
+
+    // Intermediate state: jack visible on pile, pickup deferred
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+    expect(result.revolution).toBe(true); // Not cancelled yet
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 2);
 
     // Revolution cancelled — pile was emptied by the shifumi loss,
     // regardless of who lost. Revolution is tied to the pile.
@@ -736,8 +795,15 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiChoice(result, 'p0', 'scissors');
     result = applyShifumiChoice(result, 'p1', 'rock'); // p0 loses
 
-    // After shifumi resolution, continueMultiJackSequence ran internally:
-    // revolution applied (step-by-step), jack on pile
+    // After shifumi, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // PendingRevolutionConfirm set for J♦
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -771,8 +837,15 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors'); // p2 loses
 
-    // After shifumi, continueMultiJackSequence ran internally:
-    // revolution applied (step-by-step), jack on pile
+    // After shifumi, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // PendingRevolutionConfirm set for J♦
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -809,6 +882,13 @@ describe('Manouche after shifumi in sequence', () => {
     result = applyShifumiChoice(result, 'p0', 'scissors');
     result = applyShifumiChoice(result, 'p1', 'rock'); // p0 loses, picks up pile
 
+    // After shifumi, intermediate state
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+
     // Manouche pending — need to select target
     expect(result.pendingAction?.type).toBe('manouche');
 
@@ -822,11 +902,18 @@ describe('Manouche after shifumi in sequence', () => {
     // p0 gives the picked-up card to p1, takes a card from p1
     result = applyManouchePick(result, 'p0', card('Q', 'hearts').id, [giveCard.id]);
 
+    // After manouche, intermediate state
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('manouche');
+
     // Exchange happened
     const p0After = result.players.find((p) => p.id === 'p0')!;
     const p1After = result.players.find((p) => p.id === 'p1')!;
     expect(p0After.hand.some((c) => c.id === card('Q', 'hearts').id)).toBe(true);
     expect(p1After.hand.some((c) => c.id === giveCard.id)).toBe(true);
+
+    // Server calls continueMultiJackSequence after animation delay → finalize
+    result = continueMultiJackSequence(result, 2);
     expect(result.multiJackSequence).toBeUndefined();
   });
 });
@@ -861,7 +948,15 @@ describe('Flop reverse in multi-jack sequence', () => {
     const p1 = result.players.find((p) => p.id === 'p1')!;
     expect(p1.hasSeenDarkFlop).toBe(true);
     expect(p1.faceDownRevealed).toBe(true);
-    // Revolution applied (step-by-step) after flopReverse
+    // After flopReverse, intermediate state
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('flopReverse');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // PendingRevolutionConfirm set for J♦
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -900,8 +995,15 @@ describe('Pending intermediaries', () => {
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
 
-    // After shifumi, continueMultiJackSequence ran internally:
-    // revolution applied (step-by-step), jack on pile
+    // After shifumi, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // PendingRevolutionConfirm set for J♦
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
     expect(result.multiJackSequence).toBeDefined();
@@ -970,8 +1072,15 @@ describe('Pending intermediaries', () => {
     // Do the exchange
     result = applyManouchePick(result, 'p0', card('Q', 'hearts').id, [card('5', 'hearts', 2).id]);
 
-    // After manouche, continueMultiJackSequence ran internally:
-    // revolution applied (step-by-step), jack on pile
+    // After manouche, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('manouche');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // PendingRevolutionConfirm set for J♦
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -997,11 +1106,16 @@ describe('Pending intermediaries', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // First revolution applied (step-by-step)
+    // First revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.multiJackSequence).toBeDefined();
 
-    // Continue twice: first jack → graveyard + second revolution, second jack → graveyard + finalize
+    // Continue: first jack → graveyard + second revolution (PendingRevolutionConfirm)
     result = continueMultiJackSequence(result, 1);
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
+    // Continue: second jack → graveyard + finalize
     result = continueMultiJackSequence(result, 2);
 
     expect(result.multiJackSequence).toBeUndefined();
@@ -1029,8 +1143,12 @@ describe('End of sequence', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Step-by-step: continue twice
+    // Step-by-step: confirm + continue for each revolution
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     result = continueMultiJackSequence(result, 1);
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     result = continueMultiJackSequence(result, 2);
 
     expect(result.currentPlayerIndex).toBe(1);
@@ -1054,8 +1172,12 @@ describe('End of sequence', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Step-by-step: continue twice
+    // Step-by-step: confirm + continue for each revolution
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     result = continueMultiJackSequence(result, 1);
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     result = continueMultiJackSequence(result, 2);
 
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
@@ -1114,8 +1236,15 @@ describe('Flop remake in multi-jack sequence (J+J+9)', () => {
     // Target redistributes cards
     result = applyFlopRemake(result, 'p1', [darkCard.id], [flopCard.id]);
 
-    // After flop remake, continueMultiJackSequence ran internally:
-    // revolution applied (step-by-step)
+    // After flop remake, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('flopRemake');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // PendingRevolutionConfirm set for J♦
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -1160,8 +1289,15 @@ describe('Super manouche in multi-jack sequence', () => {
     // Free exchange: give 1 card, take 1 card
     result = applySuperManouchePick(result, 'p0', [card5.id], [cardQ.id]);
 
-    // After super manouche, continueMultiJackSequence ran internally:
-    // revolution applied (step-by-step)
+    // After super manouche, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('superManouche');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // PendingRevolutionConfirm set for J♦
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -1244,7 +1380,15 @@ describe('Shifumi tie during multi-jack', () => {
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
 
-    // Sequence continues: revolution applied (step-by-step)
+    // After shifumi, intermediate state: lastPowerTriggered set, pendingAction null
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+    // PendingRevolutionConfirm set for J♦
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.lastPowerTriggered?.type).toBe('revolution');
 
@@ -1303,13 +1447,19 @@ describe('Edge cases', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
+    // First revolution deferred — PendingRevolutionConfirm set
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.phase).toBe('revolution');
     // Step-by-step: first jack still on pile
     expect(result.graveyard).toHaveLength(0);
 
-    // Continue twice to finalize
+    // Continue: move first jack to graveyard + second revolution (PendingRevolutionConfirm)
     result = continueMultiJackSequence(result, 1);
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
+    // Continue: move second jack to graveyard + finalize
     result = continueMultiJackSequence(result, 2);
     expect(result.graveyard).toHaveLength(2);
   });
@@ -1337,11 +1487,25 @@ describe('Edge cases', () => {
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
 
+    // After first shifumi, intermediate state
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+
     // Second shifumi pending
     expect(result.pendingAction?.type).toBe('shifumi');
     result = applyShifumiTarget(result, 'p0', 'p1', 'p3');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p3', 'scissors');
+
+    // After second shifumi, intermediate state
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+
+    // Server calls continueMultiJackSequence after animation delay → finalize
+    result = continueMultiJackSequence(result, 2);
 
     // Both resolved
     expect(result.multiJackSequence).toBeUndefined();
@@ -1369,8 +1533,10 @@ describe('Edge cases', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Step-by-step: continue twice to resolve both revolutions
+    // Step-by-step: confirm + continue for each revolution
+    result = applyRevolutionConfirm(result, 'p0');
     result = continueMultiJackSequence(result, 1);
+    result = applyRevolutionConfirm(result, 'p0');
     result = continueMultiJackSequence(result, 2);
 
     // Both jacks resolved (revolution), both in graveyard
@@ -1403,6 +1569,15 @@ describe('Edge cases', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
+
+    // Intermediate state: jack visible on pile, pickup deferred
+    expect(result.pendingAction).toBeNull();
+    expect(result.lastPowerTriggered?.type).toBe('shifumi');
+    // Jack still on pile (visible for animation)
+    expect(result.pile.some((e) => e.cards.some((c) => c.id === jClubs.id))).toBe(true);
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 2);
 
     // p2 picked up the pile (including the existing card) but NOT the jack
     const p2 = result.players.find((p) => p.id === 'p2')!;

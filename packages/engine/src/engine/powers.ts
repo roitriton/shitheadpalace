@@ -9,8 +9,6 @@ import { isTargetTriggered, applyTarget } from '../powers/target';
 import {
   isRevolutionTriggered,
   isSuperRevolutionTriggered,
-  applyRevolution,
-  applySuperRevolution,
 } from '../powers/revolution';
 import { isManoucheTriggered, isSuperManoucheTriggered } from '../powers/manouche';
 import {
@@ -58,6 +56,12 @@ export interface PowerResult {
    * The caller must NOT advance the turn until targets and choices are resolved.
    */
   pendingShifumiType: 'shifumi' | 'superShifumi' | null;
+  /**
+   * When non-null, a Revolution or Super Revolution was triggered and
+   * requires player confirmation before applying.
+   * The caller must NOT advance the turn.
+   */
+  pendingRevolutionType: 'revolution' | 'superRevolution' | null;
 }
 
 /**
@@ -99,7 +103,7 @@ export function resolvePowers(
   if (newState.phase === 'revolution' || newState.phase === 'superRevolution') {
     // During revolution, Jacks stay in the pile (powers suppressed) — no transit.
     newState = { ...newState, lastPowerTriggered: null };
-    return { state: newState, playerReplays: false, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
+    return { state: newState, playerReplays: false, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   }
 
   // ── 3. Mirror — update effectiveRank on the top PileEntry ─────────────────
@@ -131,7 +135,7 @@ export function resolvePowers(
       lastPowerTriggered: { type: 'burn', playerId, cardsPlayed: cardsInfo },
       pendingCemeteryTransit: true,
     };
-    return { state: newState, playerReplays: true, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
+    return { state: newState, playerReplays: true, skipCount: 0, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   }
 
   // ── 4.5. Jack cards → graveyard (deferred to resolveCemeteryTransit) ─────
@@ -166,18 +170,19 @@ export function resolvePowers(
   if (isTargetTriggered(playedCards, newState.variant, newState.phase)) {
     newState = applyTarget(newState, playerId, timestamp);
     newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
-    return { state: newState, playerReplays: false, skipCount, pendingTarget: true, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: true, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   }
 
   // ── 9. Super Revolution / Revolution ──────────────────────────────────────
   // Super Revolution (J♦ + Mirror) is checked before regular Revolution so the
   // presence of Mirror cards selects the super variant.
+  // Now deferred: sets PendingRevolutionConfirm instead of applying directly.
   if (isSuperRevolutionTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = applySuperRevolution(newState, playerId, timestamp);
-    newState = { ...newState, lastPowerTriggered: { type: 'superRevolution', playerId, cardsPlayed: cardsInfo } };
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: 'superRevolution' };
   } else if (isRevolutionTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = applyRevolution(newState, playerId, timestamp);
-    newState = { ...newState, lastPowerTriggered: { type: 'revolution', playerId, cardsPlayed: cardsInfo } };
+    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: 'revolution' };
   }
 
   // ── 10. Manouche / Super Manouche ─────────────────────────────────────────
@@ -188,10 +193,10 @@ export function resolvePowers(
   // applySuperManouchePick after the choice is resolved.
   if (isSuperManoucheTriggered(playedCards, newState.variant, newState.phase)) {
     newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
-    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'superManouche', pendingFlopType: null, pendingShifumiType: null };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'superManouche', pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   } else if (isManoucheTriggered(playedCards, newState.variant, newState.phase)) {
     newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
-    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'manouche', pendingFlopType: null, pendingShifumiType: null };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'manouche', pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   }
 
   // ── 11. Flop Reverse / Flop Remake (J♥) ──────────────────────────────────
@@ -204,10 +209,10 @@ export function resolvePowers(
   // applyFlopReverseTarget / applyFlopRemake after the choice is resolved.
   if (isFlopRemakeTriggered(playedCards, newState.variant, newState.phase)) {
     newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
-    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopRemake', pendingShifumiType: null };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopRemake', pendingShifumiType: null, pendingRevolutionType: null };
   } else if (isFlopReverseTriggered(playedCards, newState.variant, newState.phase)) {
     newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
-    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopReverse', pendingShifumiType: null };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopReverse', pendingShifumiType: null, pendingRevolutionType: null };
   }
 
   // ── 12. Shifumi / Super Shifumi (J♣) ──────────────────────────────────────
@@ -218,10 +223,10 @@ export function resolvePowers(
   // applyShifumiChoice (resolveShifumi) after the confrontation is resolved.
   if (isSuperShifumiTriggered(playedCards, newState.variant, newState.phase)) {
     newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
-    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'superShifumi' };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'superShifumi', pendingRevolutionType: null };
   } else if (isShifumiTriggered(playedCards, newState.variant, newState.phase)) {
     newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
-    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'shifumi' };
+    return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'shifumi', pendingRevolutionType: null };
   }
 
   // ── Determine lastPowerTriggered for simple powers (skip, reset, under) ──
@@ -237,5 +242,5 @@ export function resolvePowers(
     newState = { ...newState, lastPowerTriggered: null };
   }
 
-  return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null };
+  return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
 }

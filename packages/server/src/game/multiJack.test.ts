@@ -8,7 +8,7 @@ import type {
   PendingMultiJackOrder,
   MultiJackSequenceEntry,
 } from '@shit-head-palace/engine';
-import { applyMultiJackOrder, continueMultiJackSequence } from '@shit-head-palace/engine';
+import { applyMultiJackOrder, continueMultiJackSequence, applyRevolutionConfirm } from '@shit-head-palace/engine';
 import { applyPlay } from '@shit-head-palace/engine';
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -131,9 +131,9 @@ describe('tryResolveBotPendingAction — PendingMultiJackOrder', () => {
     expect(s.pendingAction?.type).toBe('PendingMultiJackOrder');
 
     s = tryResolveBotPendingAction(s, ['bot1']);
-    // Mirror was assigned to first jack (J♦ = super revolution)
-    expect(s.pendingAction?.type).not.toBe('PendingMultiJackOrder');
-    // Super revolution should have been applied (step-by-step)
+    // Mirror was assigned to first jack (J♦ = super revolution → PendingRevolutionConfirm)
+    expect(s.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    s = applyRevolutionConfirm(s, 'bot1');
     expect(s.superRevolution).toBe(true);
   });
 
@@ -158,9 +158,10 @@ describe('tryResolveBotPendingAction — PendingMultiJackOrder', () => {
     let s = applyPlay(stateWithCards, 'bot1', [jDiamonds.id, jDiamonds2.id]);
     expect(s.pendingAction?.type).toBe('PendingMultiJackOrder');
 
-    // Bot resolves without mirror
+    // Bot resolves without mirror → PendingRevolutionConfirm for first revolution
     s = tryResolveBotPendingAction(s, ['bot1']);
-    // Both revolutions applied (step-by-step for first)
+    expect(s.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    s = applyRevolutionConfirm(s, 'bot1');
     expect(s.revolution).toBe(true);
   });
 
@@ -220,10 +221,11 @@ describe('continueMultiJackSequence', () => {
     ];
     s = applyMultiJackOrder(s, 'p0', seq);
 
-    // Revolution applied, jack still on pile (step-by-step)
+    // Revolution deferred — PendingRevolutionConfirm set
+    expect(s.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    s = applyRevolutionConfirm(s, 'p0');
     expect(s.revolution).toBe(true);
     expect(s.lastPowerTriggered?.type).toBe('revolution');
-    expect(s.pendingAction).toBeNull();
     expect(s.graveyard.some((c) => c.id === jDiamonds.id)).toBe(false);
 
     // Continue: move jack to graveyard, flop reverse pending
@@ -249,9 +251,11 @@ describe('continueMultiJackSequence', () => {
     ];
     s = applyMultiJackOrder(s, 'p0', seq);
 
-    // First revolution step
+    // First revolution: confirm + continue
+    s = applyRevolutionConfirm(s, 'p0');
     s = continueMultiJackSequence(s, Date.now());
-    // Second revolution step
+    // Second revolution: confirm + continue
+    s = applyRevolutionConfirm(s, 'p0');
     s = continueMultiJackSequence(s, Date.now());
 
     expect(s.multiJackSequence).toBeUndefined();

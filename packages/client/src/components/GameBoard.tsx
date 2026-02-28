@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
-import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, PendingMultiJackOrder, MultiJackSequenceEntry, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, PendingMultiJackOrder, PendingRevolutionConfirm, MultiJackSequenceEntry, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
 import { getActiveZone } from '@shit-head-palace/engine';
 import { getIllegalPlayReason } from '../utils/illegalPlayReason';
 import type { InspectZone } from './DebugPanel';
@@ -564,6 +564,8 @@ const POPUP_PENDING_TYPES = new Set([
   'target', 'manouche', 'superManouche',
   'flopReverse', 'flopRemake',
   'shifumi', 'superShifumi',
+  'PendingRevolutionConfirm',
+  'PendingMultiJackOrder',
 ]);
 
 /** Center column: Pile centred vertically. Overlay space handled externally. */
@@ -1324,6 +1326,8 @@ interface GameBoardProps {
   onFlopRemake?: (faceUp: string[], faceDown: string[]) => void;
   // Multi-Jack Order
   onMultiJackOrder?: (sequence: MultiJackSequenceEntry[]) => void;
+  // Revolution confirmation
+  onRevolutionConfirm?: () => void;
   // Debug (dev mode only)
   debugRevealHands?: boolean;
   onInspectZone?: (zone: InspectZone) => void;
@@ -1366,6 +1370,7 @@ export function GameBoard({
   onFlopRemakeTarget,
   onFlopRemake,
   onMultiJackOrder,
+  onRevolutionConfirm,
   debugRevealHands,
   onInspectZone,
   currentPower,
@@ -1483,6 +1488,13 @@ export function GameBoard({
   const pendingMultiJackForHuman =
     pending?.type === 'PendingMultiJackOrder' && pending.playerId === humanId;
 
+  const pendingRevolutionConfirmForHuman =
+    pending?.type === 'PendingRevolutionConfirm' && pending.playerId === humanId;
+  const pendingRevolutionConfirm =
+    pending?.type === 'PendingRevolutionConfirm'
+      ? (pending as PendingRevolutionConfirm)
+      : null;
+
   // Message de statut
   let status = '';
   let statusIsIllegal = false;
@@ -1510,6 +1522,10 @@ export function GameBoard({
     status = 'Redistribuez vos cartes (flop + dark flop).';
   } else if (pendingMultiJackForHuman) {
     status = 'Choisissez l\'ordre de résolution des valets.';
+  } else if (pendingRevolutionConfirmForHuman) {
+    status = pendingRevolutionConfirm?.isSuper
+      ? 'Confirmez la Super Révolution !'
+      : 'Confirmez la Révolution !';
   } else if (pending) {
     // Any other pending action where a bot needs to act
     status = 'En attente…';
@@ -1865,6 +1881,58 @@ export function GameBoard({
             humanId={humanId}
             onSubmit={onMultiJackOrder}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── Revolution Confirmation popup ── */}
+      <AnimatePresence>
+        {pendingRevolutionConfirmForHuman && pendingRevolutionConfirm && onRevolutionConfirm && (
+          <motion.div
+            key="revolution-confirm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-gray-900 border border-gold/30 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl max-w-sm w-full mx-4"
+            >
+              {/* Jack card display */}
+              {state.pile.length > 0 && (() => {
+                const topEntry = state.pile[state.pile.length - 1]!;
+                const jackCard = topEntry.cards.find((c) => c.rank === 'J' && c.suit === 'diamonds');
+                return jackCard ? (
+                  <div className="flex justify-center">
+                    <Card card={jackCard} size="md" noLayout />
+                  </div>
+                ) : null;
+              })()}
+
+              <h3 className="font-serif text-xl text-gold text-center">
+                {pendingRevolutionConfirm.isSuper
+                  ? 'Faire la Super Révolution !'
+                  : 'Faire la Révolution !'}
+              </h3>
+
+              <p className="text-xs text-gray-400 text-center">
+                {pendingRevolutionConfirm.isSuper
+                  ? 'Les valeurs restent inversées pour le reste de la partie.'
+                  : 'Les valeurs sont inversées jusqu\'au prochain ramassage.'}
+              </p>
+
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={onRevolutionConfirm}
+                className="w-full px-4 py-2.5 rounded-full font-semibold text-sm bg-gold text-gray-900 hover:bg-yellow-400"
+              >
+                Confirmer
+              </motion.button>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

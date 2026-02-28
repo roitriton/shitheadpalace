@@ -380,6 +380,11 @@ function App() {
     emit('game:action', { type: 'multiJackOrder', sequence });
   };
 
+  /** Revolution / Super Revolution: player confirms */
+  const handleRevolutionConfirm = () => {
+    emit('game:action', { type: 'revolutionConfirm' });
+  };
+
   // ── Écran de chargement ──────────────────────────────────────────────────────
 
   if (!gameState) {
@@ -553,6 +558,7 @@ function App() {
           onFlopRemakeTarget={handleFlopRemakeTarget}
           onFlopRemake={handleFlopRemake}
           onMultiJackOrder={handleMultiJackOrder}
+          onRevolutionConfirm={handleRevolutionConfirm}
           debugRevealHands={isDev ? debugRevealHands : undefined}
           onInspectZone={isDev ? setDebugInspectZone : undefined}
           currentPower={currentPower}

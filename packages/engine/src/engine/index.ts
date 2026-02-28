@@ -14,6 +14,7 @@ import { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiCh
 import { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
 import { applyPickUpWithFlopCards } from './actions/pickUpFlop';
 import { applyMultiJackOrder } from './actions/applyMultiJackOrder';
+import { applyRevolutionConfirm } from './actions/applyRevolutionConfirm';
 
 // Re-export everything so consumers can import from '@shit-head-palace/engine'
 export { applyPlay } from './actions/play';
@@ -31,6 +32,7 @@ export { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiCh
 export { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
 export { applyPickUpWithFlopCards, getAvailableFlopPickUpGroups } from './actions/pickUpFlop';
 export { applyMultiJackOrder, continueMultiJackSequence, resolveNextMultiJack } from './actions/applyMultiJackOrder';
+export { applyRevolutionConfirm } from './actions/applyRevolutionConfirm';
 export { filterGameStateForPlayer } from './filter';
 export { resolveCemeteryTransit } from './cemeteryTransit';
 export { resolvePowers } from './powers';
@@ -116,5 +118,8 @@ export function applyAction(
 
     case 'manoucheTarget':
       return applyManoucheTarget(state, playerId, action.targetPlayerId, timestamp);
+
+    case 'revolutionConfirm':
+      return applyRevolutionConfirm(state, playerId, timestamp);
   }
 }

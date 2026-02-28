@@ -1,7 +1,7 @@
-import type { Card, GameState, PendingShifumi, ShifumiChoice } from '../../types';
+import type { GameState, PendingShifumi, ShifumiChoice } from '../../types';
 import { advanceTurn, resolveAutoSkip } from '../turn';
 import { appendLog } from '../../utils/log';
-import { continueMultiJackSequence } from './applyMultiJackOrder';
+
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -116,23 +116,38 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
   const loserIdx = state.players.findIndex((p) => p.id === loserId);
   const loser = state.players[loserIdx]!;
 
-  let pileCards: Card[];
-  let jackToGraveyard: Card[] = [];
+  if (isMultiJack) {
+    // Deferred pickup: keep the jack visible on the pile for animation.
+    // The actual pile-to-hand transfer and jack-to-graveyard happen in
+    // continueMultiJackSequence after the server animation delay (~1500ms).
+    let newState: GameState = {
+      ...state,
+      pendingAction: null,
+      lastPowerTriggered: {
+        type: 'shifumi',
+        playerId: pending.initiatorId,
+        players: [player1Id!, player2Id!],
+        cardsPlayed: state.pendingCardsPlayed,
+      },
+      pendingCardsPlayed: undefined,
+      multiJackSequence: {
+        ...state.multiJackSequence!,
+        pendingShifumiPickup: { loserId },
+      },
+    };
 
-  if (isMultiJack && state.multiJackSequence!.currentJackEntry) {
-    // Multi-jack: exclude the current jack (top pile entry) from pickup
-    // The jack goes to graveyard instead of the loser's hand.
-    if (state.pile.length > 0) {
-      const topEntry = state.pile[state.pile.length - 1]!;
-      jackToGraveyard = topEntry.cards;
-      const restPile = state.pile.slice(0, -1);
-      pileCards = restPile.flatMap((e) => e.cards);
-    } else {
-      pileCards = [];
-    }
-  } else {
-    pileCards = state.pile.flatMap((e) => e.cards);
+    newState = appendLog(newState, 'shifumiResolved', timestamp, loserId, loser.name, {
+      loserId,
+      winnerId,
+      player1Choice,
+      player2Choice,
+    });
+
+    return newState;
   }
+
+  // Non-multi-jack: immediate resolution
+  const pileCards = state.pile.flatMap((e) => e.cards);
 
   const newPlayers = [...state.players];
   newPlayers[loserIdx] = { ...loser, hand: [...loser.hand, ...pileCards] };
@@ -141,7 +156,6 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
     ...state,
     players: newPlayers,
     pile: [],
-    graveyard: [...state.graveyard, ...jackToGraveyard],
     pendingAction: null,
     activeUnder: null,
     pileResetActive: false,
@@ -149,31 +163,12 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
     pendingCardsPlayed: undefined,
   };
 
-  // Multi-jack: cancel revolution when the pile is emptied by the shifumi.
-  // A regular revolution is tied to the pile — emptying the pile cancels it.
-  // Super Revolution is permanent and survives pile emptying.
-  // This only matters when revolution was activated EARLIER in the sequence
-  // (state.revolution is true at this point). If the shifumi was BEFORE the
-  // revolution in the sequence, state.revolution is false and this block is skipped,
-  // allowing the revolution to be applied in a later step.
-  if (isMultiJack && state.revolution && !state.superRevolution) {
-    newState = { ...newState, phase: 'playing' as const, revolution: false };
-  }
-
   newState = appendLog(newState, 'shifumiResolved', timestamp, loserId, loser.name, {
     loserId,
     winnerId,
     player1Choice,
     player2Choice,
   });
-
-  if (isMultiJack) {
-    // Continue multi-jack sequence (jack already moved to graveyard above)
-    return continueMultiJackSequence(
-      { ...newState, multiJackSequence: { ...state.multiJackSequence!, currentJackEntry: undefined } },
-      timestamp,
-    );
-  }
 
   // Turn advances from the initiator's position (currentPlayerIndex)
   return resolveAutoSkip(advanceTurn(newState, false));

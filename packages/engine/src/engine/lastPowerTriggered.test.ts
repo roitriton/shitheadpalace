@@ -125,7 +125,7 @@ describe('lastPowerTriggered', () => {
     expect(next.lastPowerTriggered).toBeNull();
   });
 
-  it('play of revolution card (J diamonds) sets lastPowerTriggered to revolution', () => {
+  it('play of revolution card (J diamonds) sets PendingRevolutionConfirm (deferred)', () => {
     const jd = card('J', 'diamonds');
     const state = makeState(
       { hand: [jd, card('K'), card('Q')] },
@@ -134,8 +134,9 @@ describe('lastPowerTriggered', () => {
     state.variant.powerAssignments = { revolution: 'J' };
 
     const next = applyPlay(state, 'p0', [jd.id]);
-    expect(next.lastPowerTriggered).toMatchObject({ type: 'revolution', playerId: 'p0' });
-    expect(next.lastPowerTriggered!.cardsPlayed).toEqual([{ rank: 'J', suit: 'diamonds' }]);
+    // Revolution is now deferred — overlay comes after confirmation
+    expect(next.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    expect(next.lastPowerTriggered).toBeNull();
   });
 
   it('mirror (9+10) sets lastPowerTriggered to burn (copies the accompanied power)', () => {

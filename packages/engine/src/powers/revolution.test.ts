@@ -7,6 +7,7 @@ import {
   applySuperRevolution,
 } from './revolution';
 import { applyPlay } from '../engine/actions/play';
+import { applyRevolutionConfirm } from '../engine/actions/applyRevolutionConfirm';
 import { applyPickUpPile } from '../engine/actions/pickUp';
 import { canPlayCards } from '../engine/validation';
 import type { Card, GameState, GameVariant, PileEntry, Player } from '../types';
@@ -304,22 +305,25 @@ describe('Powers disabled during revolution', () => {
 // ─── Full flow: playing J♦ triggers Revolution ────────────────────────────────
 
 describe('Revolution — full play flow', () => {
-  it('playing J♦ transitions phase to revolution', () => {
+  it('playing J♦ sets PendingRevolutionConfirm', () => {
     const players = makeState().players.map((p, i) =>
       i === 0 ? { ...p, hand: [jd, cK] } : { ...p, hand: [cK] },
     );
     const state = makeState({ players, pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'x', playerName: 'X', timestamp: 0 }] });
     const next = applyPlay(state, 'p0', [jd.id]);
-    expect(next.phase).toBe('revolution');
-    expect(next.revolution).toBe(true);
+    expect(next.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    expect((next.pendingAction as any).isSuper).toBe(false);
   });
 
-  it('playing J♦ advances turn normally (no pending action)', () => {
+  it('playing J♦ + confirm transitions phase to revolution and advances turn', () => {
     const players = makeState().players.map((p, i) =>
       i === 0 ? { ...p, hand: [jd, cK] } : { ...p, hand: [cK] },
     );
     const state = makeState({ players, pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'x', playerName: 'X', timestamp: 0 }] });
-    const next = applyPlay(state, 'p0', [jd.id]);
+    let next = applyPlay(state, 'p0', [jd.id]);
+    next = applyRevolutionConfirm(next, 'p0');
+    expect(next.phase).toBe('revolution');
+    expect(next.revolution).toBe(true);
     expect(next.pendingAction).toBeNull();
     expect(next.currentPlayerIndex).toBe(1);
   });
@@ -333,12 +337,15 @@ describe('Revolution — full play flow', () => {
     expect(() => applyPlay(state, 'p0', [jd.id])).toThrow(/too low/);
   });
 
-  it('playing J♦ + Mirror(9) triggers Super Revolution', () => {
+  it('playing J♦ + Mirror(9) sets PendingRevolutionConfirm with isSuper', () => {
     const players = makeState().players.map((p, i) =>
       i === 0 ? { ...p, hand: [jd, c9, cK] } : { ...p, hand: [cK] },
     );
     const state = makeState({ players, pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'x', playerName: 'X', timestamp: 0 }] });
-    const next = applyPlay(state, 'p0', [jd.id, c9.id]);
+    let next = applyPlay(state, 'p0', [jd.id, c9.id]);
+    expect(next.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    expect((next.pendingAction as any).isSuper).toBe(true);
+    next = applyRevolutionConfirm(next, 'p0');
     expect(next.phase).toBe('superRevolution');
     expect(next.revolution).toBe(true);
     expect(next.superRevolution).toBe(true);
@@ -353,7 +360,8 @@ describe('Revolution — full play flow', () => {
     // Pile already has a '5': J♦ (11) ≥ 5 → valid in playing phase.
     // After J♦ goes to graveyard, pile top is still '5'.
     const state = makeState({ players, pile: pileOf('5') });
-    const afterRev = applyPlay(state, 'p0', [jd.id]);
+    let afterRev = applyPlay(state, 'p0', [jd.id]);
+    afterRev = applyRevolutionConfirm(afterRev, 'p0');
     expect(afterRev.phase).toBe('revolution');
     // p1 tries K (value 13) — pile top is now '5' (value 5).
     // In revolution (≤ ordering): K(13) > 5 → NOT playable.
@@ -367,7 +375,8 @@ describe('Revolution — full play flow', () => {
       return { ...p, hand: [cK] };
     });
     const state = makeState({ players, pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'x', playerName: 'X', timestamp: 0 }] });
-    const afterRev = applyPlay(state, 'p0', [jd.id]);
+    let afterRev = applyPlay(state, 'p0', [jd.id]);
+    afterRev = applyRevolutionConfirm(afterRev, 'p0');
     expect(() => applyPlay(afterRev, 'p1', [c5.id])).not.toThrow();
   });
 });

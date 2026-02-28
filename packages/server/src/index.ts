@@ -18,6 +18,7 @@ import {
   applyReady,
   resolveCemeteryTransit,
   continueMultiJackSequence,
+  applyRevolutionConfirm,
 } from '@shit-head-palace/engine';
 import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './game/bot';
