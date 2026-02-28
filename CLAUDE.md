@@ -144,13 +144,39 @@ Session 27/02 — Bug fixes et améliorations (916 tests au total) :
 - [x] Phase 7 — Engine + Client : combo main+flop (dernières cartes) et flop+dark flop (hasSeenDarkFlop). Sélection multi-zone client. Dark flop reste face cachée en combo. 19 tests comboPlay.
 - [x] Phase 8 — Client : surbrillance rouge pour sélections burn (10, quad, accumulation), transit visuel pile→cimetière via double émission serveur
 
-Phase 6 — Multi-valets UI client + serveur (1036 tests au total, +10 server) :
-- [x] Engine : resolveNextMultiJack step-by-step pour revolution/superRevolution (jack reste sur pile, serveur gère la continuation)
-- [x] Client : MultiJackOrderModal.tsx (attribution mirror, ordre des valets, bouton confirmer)
-- [x] Client : intégration GameBoard.tsx (détection PendingMultiJackOrder, status, modal) + App.tsx (handler multiJackOrder)
-- [x] Server : needsMultiJackContinuation + scheduleSoloMultiJackContinuation dans index.ts, scheduleMultiJackContinuation dans GameRoom.ts
-- [x] Server : bot support PendingMultiJackOrder dans bot.ts (canBotActOnPendingAction + tryResolveBotPendingAction)
-- [x] Tests : 45 tests engine multiJack adaptés (step-by-step), 10 nouveaux tests serveur (multiJack.test.ts)
+Session 28/02 — Phases 3-6 (1033 tests au total) :
+- [x] Phase 3 (3A → 3H) — Refonte panneaux latéraux + stabilisation layout (969 tests)
+  - Layout 3 colonnes : gauche (pouvoirs + cimetière/pioche) / centre (pile + overlays absolute) / droite (dernier coup 50% + minilog 50%)
+  - Cimetière déplacé à gauche, espacement harmonieux justify-evenly, positions fixes
+  - Overlays centrés en absolute sous la pile, centrage parfait sans à-coup
+  - Hauteurs fixes partout, rien ne bouge lors de la sélection de cartes
+  - Timing unifié 1500ms (overlay, transit cimetière, bots)
+  - Synchronisation complète : minilog + dernier coup + overlay simultanés
+  - Carte dans la pile APRÈS le choix des popups pouvoir (pas pendant)
+  - Pioche vide affiche "vide" en pointillé
+  - Fix transparence cartes en main (noLayout, initial={false}, style opacity:1, transition opacity duration 0)
+  - Drag & drop cartes en main fonctionnel
+  - Popup "pas de coup légal" quand la main ne contient que des cartes injouables
+  - Cartes en main toujours opaques même hors tour
+- [x] Phase 4 — Texte explicatif sélection illégale (981 tests)
+  - illegalPlayReason.ts : 5 cas (valeur trop basse, trop haute révolution, trop haute under, mirror seul, valet pile vide)
+  - Texte orange sous la main
+- [x] Phase 5 — Multi-valets engine (1026 tests)
+  - Détection ≥ 2 valets réels → PendingMultiJackOrder
+  - 3 cas : J+J, J+J+9, J+J+J. Quad burn si ≥ 4
+  - Résolution séquentielle avec pending intermédiaires
+  - Interaction révolution + shifumi : révolution annulée si pile vidée après
+- [x] Phase 6 (6A → 6H) — Multi-valets UI + serveur (1033 tests)
+  - MultiJackOrderModal : slots numérotés drag & drop, attribution mirror obligatoire J+J+9
+  - PendingRevolutionConfirm : popup confirmation pour toute révolution/super révolution
+  - Séquence visuelle : popup → choix → valet pile + overlay + minilog → 1500ms → cimetière → suivant
+  - Fix manouche avant multi-jack (requiresTargetPicker exclut multi-jack)
+  - Fix manouche sans targetId (flow 2 étapes avec TargetPickerModal)
+  - Fix timing shifumi (pendingShifumiPickup, ramassage différé)
+  - Bot support : auto-résolution PendingMultiJackOrder + PendingRevolutionConfirm
+  - Continuation step-by-step serveur
+
+Nombre total de tests : 1033 (910 engine + 123 server)
 
 Étapes à venir :
 - [ ] Étape 11B — Client : UI pouvoirs et interactions spéciales (suite)
