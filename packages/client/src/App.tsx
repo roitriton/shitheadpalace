@@ -546,6 +546,14 @@ function App() {
           onRestart={handleRestart}
           error={error}
           targetPickerVisible={targetPickerCardIds !== null}
+          targetPickerIsSuper={(() => {
+            if (!targetPickerCardIds || !gameState) return false;
+            const allCards = gameState.players.flatMap((p) => [...p.hand, ...p.faceUp, ...p.faceDown]);
+            const cards = targetPickerCardIds
+              .map((id) => allCards.find((c) => c.id === id))
+              .filter((c): c is CardType => c !== undefined);
+            return cards.length > 1 && cards.some((c) => matchesPowerRank(c.rank, gameState.variant, 'mirror'));
+          })()}
           onTargetSelected={handleTargetSelected}
           onCancelTargetPicker={handleCancelTargetPicker}
           onTargetChoice={handleTargetChoice}

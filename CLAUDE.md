@@ -178,8 +178,24 @@ Session 28/02 — Phases 3-6 (1033 tests au total) :
 
 Nombre total de tests : 1033 (910 engine + 123 server)
 
+Session 28/02 (suite) — Étape 11B : Uniformisation modals (1033 tests, pas de nouveaux tests) :
+- [x] Étape 11B-A — Composants ModalWrapper + ModalButton
+  - ModalWrapper.tsx : overlay bg-black/60, conteneur bg-gray-800/95 backdrop-blur, border gray-600/50, rounded-xl, shadow-2xl, max-w-md, p-6
+  - Animation Framer Motion : scale 0.95→1 + opacity 0→1 (0.2s)
+  - Titre serif doré (text-amber-400 font-bold), sous-titre optionnel gris clair, bouton Annuler auto si onClose
+  - ModalButton.tsx : 3 variantes (player, confirm, cancel) avec états selected/disabled
+- [x] Étape 11B-B — Migration de toutes les modals vers ModalWrapper
+  - 9 modals migrées : TargetPickerModal, ManouchePickModal, SuperManouchePickModal, ShifumiTargetPickerModal, ShifumiChoiceModal, FlopRemakeModal, RevolutionConfirm (inline), MultiJackOrderModal, FlopPickUpModal
+  - Révolution : carte J♦ supprimée de la popup (fix bug disparition), titres "Révolution ♦" / "Super Révolution ♦"
+  - Target (As) : titre corrigé "Target ♦" → "Target (As)"
+  - Couleurs unifiées text-amber-400 / bg-amber-400 dans toutes les modals migrées
+- [x] Fix 11B-C — Titre TargetPickerModal Super Manouche
+  - Prop targetPickerIsSuper ajoutée (App.tsx → GameBoard.tsx)
+  - Détection J♠ + mirror via matchesPowerRank sur les cartes sélectionnées
+  - Titre dynamique "Super Manouche ♠" / "Manouche ♠" selon la présence d'un mirror
+
 Étapes à venir :
-- [ ] Étape 11B — Client : UI pouvoirs et interactions spéciales (suite)
+- [ ] Étape 11B (suite) — Client : UI pouvoirs et interactions spéciales
 - [ ] Étape 12 — Lobby, profil, variantes (client)
 - [ ] Étape 13 — IA (bots intermédiaire et expert)
 - [ ] Étape 14 — Son et polish

@@ -12,6 +12,8 @@ import { LastPlayDisplay } from './LastPlayDisplay';
 import { PowerSummary } from './PowerSummary';
 import { FlopPickUpModal } from './FlopPickUpModal';
 import { MultiJackOrderModal } from './MultiJackOrderModal';
+import { ModalWrapper } from './ModalWrapper';
+import { ModalButton } from './ModalButton';
 
 // ─── Zone de joueur (bot ou humain) ───────────────────────────────────────────
 
@@ -641,40 +643,15 @@ function TargetPickerModal({
 }: TargetPickerModalProps) {
   const opponents = players.filter((p) => !p.isFinished && (includeSelf || p.id !== humanId));
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50"
-    >
-      <div className="bg-gray-900 border border-gold/30 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl min-w-[240px]">
-        <h3 className="font-serif text-xl text-gold">{title}</h3>
-        <p className="text-sm text-gray-300 text-center">{description}</p>
-        <div className="flex flex-col gap-2 w-full">
-          {opponents.map((p) => (
-            <motion.button
-              key={p.id}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => onSelect(p.id)}
-              className="px-4 py-2.5 rounded-full bg-gray-700 text-white hover:bg-gray-600 font-semibold text-sm"
-            >
-              {p.name}
-            </motion.button>
-          ))}
-        </div>
-        {onCancel && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onCancel}
-            className="px-6 py-1.5 rounded-full text-sm bg-gray-800 text-gray-400 hover:bg-gray-700"
-          >
-            Annuler
-          </motion.button>
-        )}
+    <ModalWrapper title={title} subtitle={description} onClose={onCancel}>
+      <div className="flex flex-col gap-2">
+        {opponents.map((p) => (
+          <ModalButton key={p.id} variant="player" onClick={() => onSelect(p.id)}>
+            {p.name}
+          </ModalButton>
+        ))}
       </div>
-    </motion.div>
+    </ModalWrapper>
   );
 }
 
@@ -729,89 +706,72 @@ function ManouchePickModal({ state, humanId, onPick }: ManouchePickModalProps) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50"
-    >
-      <div className="bg-gray-900 border border-gold/30 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl max-w-sm w-full mx-4">
-        <h3 className="font-serif text-xl text-gold">Manouche ♠</h3>
+    <ModalWrapper title="Manouche ♠">
+      {/* Étape 1 : prendre une carte chez l'adversaire */}
+      <div className="w-full">
+        <p className="text-xs text-gray-400 mb-2">
+          Prenez une carte chez{' '}
+          <span className="font-semibold text-white">{target.name}</span> :
+        </p>
+        <div className="flex gap-2 flex-wrap justify-center">
+          {target.hand.map((card) => {
+            const canTake = !card.hidden;
+            const isSelected = selectedTakeId === card.id;
+            return (
+              <div
+                key={card.id}
+                className={`transition-transform ${
+                  canTake
+                    ? `cursor-pointer hover:scale-105 ${isSelected ? 'ring-2 ring-gold rounded-lg' : ''}`
+                    : 'opacity-30 cursor-not-allowed'
+                }`}
+                onClick={() => canTake && handleSelectTake(card)}
+              >
+                <Card card={card} size="md" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-        {/* Étape 1 : prendre une carte chez l'adversaire */}
-        <div className="w-full">
+      {/* Étape 2 : choisir les cartes à donner (même valeur entre elles) */}
+      {selectedTakeId && humanPlayer.hand.length > 0 && (
+        <div className="w-full mt-4">
           <p className="text-xs text-gray-400 mb-2">
-            Prenez une carte chez{' '}
-            <span className="font-semibold text-white">{target.name}</span> :
+            Donnez une ou plusieurs cartes de même valeur :
           </p>
           <div className="flex gap-2 flex-wrap justify-center">
-            {target.hand.map((card) => {
-              const canTake = !card.hidden;
-              const isSelected = selectedTakeId === card.id;
+            {humanPlayer.hand.map((card) => {
+              const isSelected = selectedGiveIds.includes(card.id);
+              // Once a give card is selected, only same-rank cards can be added
+              const canGive = selectedGiveRank === null || card.rank === selectedGiveRank;
               return (
                 <div
                   key={card.id}
                   className={`transition-transform ${
-                    canTake
+                    canGive
                       ? `cursor-pointer hover:scale-105 ${isSelected ? 'ring-2 ring-gold rounded-lg' : ''}`
-                      : 'opacity-30 cursor-not-allowed'
+                      : `opacity-30 ${isSelected ? '' : 'cursor-not-allowed'}`
                   }`}
-                  onClick={() => canTake && handleSelectTake(card)}
+                  onClick={() => (canGive || isSelected) && handleToggleGive(card.id)}
                 >
                   <Card card={card} size="md" />
                 </div>
               );
             })}
           </div>
+          <p className="text-xs text-gray-500 text-center mt-1">
+            {selectedGiveIds.length} carte(s) sélectionnée(s) (min. 1)
+          </p>
         </div>
+      )}
 
-        {/* Étape 2 : choisir les cartes à donner (même valeur entre elles) */}
-        {selectedTakeId && humanPlayer.hand.length > 0 && (
-          <div className="w-full">
-            <p className="text-xs text-gray-400 mb-2">
-              Donnez une ou plusieurs cartes de même valeur :
-            </p>
-            <div className="flex gap-2 flex-wrap justify-center">
-              {humanPlayer.hand.map((card) => {
-                const isSelected = selectedGiveIds.includes(card.id);
-                // Once a give card is selected, only same-rank cards can be added
-                const canGive = selectedGiveRank === null || card.rank === selectedGiveRank;
-                return (
-                  <div
-                    key={card.id}
-                    className={`transition-transform ${
-                      canGive
-                        ? `cursor-pointer hover:scale-105 ${isSelected ? 'ring-2 ring-gold rounded-lg' : ''}`
-                        : `opacity-30 ${isSelected ? '' : 'cursor-not-allowed'}`
-                    }`}
-                    onClick={() => (canGive || isSelected) && handleToggleGive(card.id)}
-                  >
-                    <Card card={card} size="md" />
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-xs text-gray-500 text-center mt-1">
-              {selectedGiveIds.length} carte(s) sélectionnée(s) (min. 1)
-            </p>
-          </div>
-        )}
-
-        <motion.button
-          whileHover={canConfirm ? { scale: 1.05 } : {}}
-          whileTap={canConfirm ? { scale: 0.95 } : {}}
-          onClick={handleConfirm}
-          disabled={!canConfirm}
-          className={`px-8 py-2 rounded-full font-semibold text-sm ${
-            canConfirm
-              ? 'bg-gold text-gray-900 hover:bg-yellow-400'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Confirmer l'échange
-        </motion.button>
+      <div className="mt-4">
+        <ModalButton variant="confirm" disabled={!canConfirm} onClick={handleConfirm}>
+          Confirmer l&apos;échange
+        </ModalButton>
       </div>
-    </motion.div>
+    </ModalWrapper>
   );
 }
 
@@ -902,79 +862,61 @@ function SuperManouchePickModal({ state, humanId, onPick }: SuperManouchePickMod
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50"
+    <ModalWrapper
+      title="Super Manouche ♠"
+      subtitle={`Cliquez sur une carte puis sur une autre pour les échanger avec ${target.name}.`}
     >
-      <div className="bg-gray-900 border border-gold/30 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl max-w-sm w-full mx-4">
-        <h3 className="font-serif text-xl text-gold">Super Manouche ♠</h3>
-        <p className="text-sm text-gray-300 text-center">
-          Cliquez sur une carte puis sur une autre pour les échanger avec{' '}
-          <span className="font-semibold text-white">{target.name}</span>.
+      <div className="w-full">
+        <p className="text-xs text-gray-400 mb-2">
+          Main de {target.name} :
         </p>
-
-        <div className="w-full">
-          <p className="text-xs text-gray-400 mb-2">
-            Main de {target.name} :
-          </p>
-          <div className="flex gap-2 flex-wrap min-h-[64px]">
-            {theirIds.map((id) => {
-              const card = cardById(id);
-              return (
-                <Card
-                  key={id}
-                  card={card}
-                  selected={selectedId === id}
-                  size="sm"
-                  noLayout
-                  onClick={() => handleCardClick(id)}
-                />
-              );
-            })}
-          </div>
+        <div className="flex gap-2 flex-wrap min-h-[64px]">
+          {theirIds.map((id) => {
+            const card = cardById(id);
+            return (
+              <Card
+                key={id}
+                card={card}
+                selected={selectedId === id}
+                size="sm"
+                noLayout
+                onClick={() => handleCardClick(id)}
+              />
+            );
+          })}
         </div>
-
-        <div className="w-full">
-          <p className="text-xs text-gray-400 mb-2">Votre main :</p>
-          <div className="flex gap-2 flex-wrap min-h-[64px]">
-            {myIds.map((id) => {
-              const card = cardById(id);
-              return (
-                <Card
-                  key={id}
-                  card={card}
-                  selected={selectedId === id}
-                  size="sm"
-                  noLayout
-                  onClick={() => handleCardClick(id)}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Instruction contextuelle — espace réservé pour éviter le redimensionnement */}
-        <p className={`text-xs min-h-[1.25rem] ${selectedId ? 'text-gold' : 'text-transparent'}`}>
-          Cliquez sur une autre carte pour échanger leurs places
-        </p>
-
-        <motion.button
-          whileHover={isValid ? { scale: 1.05 } : {}}
-          whileTap={isValid ? { scale: 0.95 } : {}}
-          onClick={handleConfirm}
-          disabled={!isValid}
-          className={`px-8 py-2 rounded-full font-semibold text-sm ${
-            isValid
-              ? 'bg-gold text-gray-900 hover:bg-yellow-400'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Confirmer l'échange
-        </motion.button>
       </div>
-    </motion.div>
+
+      <div className="w-full mt-4">
+        <p className="text-xs text-gray-400 mb-2">Votre main :</p>
+        <div className="flex gap-2 flex-wrap min-h-[64px]">
+          {myIds.map((id) => {
+            const card = cardById(id);
+            return (
+              <Card
+                key={id}
+                card={card}
+                selected={selectedId === id}
+                size="sm"
+                noLayout
+                onClick={() => handleCardClick(id)}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Instruction contextuelle — espace réservé pour éviter le redimensionnement */}
+      <p className={`text-xs min-h-[1.25rem] mt-2 ${selectedId ? 'text-amber-400' : 'text-transparent'}`}>
+        Cliquez sur une autre carte pour échanger leurs places
+      </p>
+
+      <div className="mt-4">
+        <ModalButton variant="confirm" disabled={!isValid} onClick={handleConfirm}>
+          Confirmer l&apos;échange
+        </ModalButton>
+      </div>
+    </ModalWrapper>
   );
 }
 
@@ -1007,47 +949,29 @@ function ShifumiTargetPickerModal({
   const canConfirm = selected.length === 2;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50"
-    >
-      <div className="bg-gray-900 border border-gold/30 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl min-w-[240px]">
-        <h3 className="font-serif text-xl text-gold">{title}</h3>
-        <p className="text-sm text-gray-300 text-center">{description}</p>
-        <div className="flex flex-col gap-2 w-full">
-          {active.map((p) => (
-            <motion.button
-              key={p.id}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => handleClick(p.id)}
-              className={`px-4 py-2.5 rounded-full font-semibold text-sm transition-colors ${
-                selected.includes(p.id)
-                  ? 'bg-gold text-gray-900 ring-2 ring-gold'
-                  : 'bg-gray-700 text-white hover:bg-gray-600'
-              }`}
-            >
-              {p.name}
-            </motion.button>
-          ))}
-        </div>
-        <motion.button
-          whileHover={canConfirm ? { scale: 1.05 } : {}}
-          whileTap={canConfirm ? { scale: 0.95 } : {}}
-          onClick={() => canConfirm && onSelect(selected[0]!, selected[1]!)}
+    <ModalWrapper title={title} subtitle={description}>
+      <div className="flex flex-col gap-2">
+        {active.map((p) => (
+          <ModalButton
+            key={p.id}
+            variant="player"
+            selected={selected.includes(p.id)}
+            onClick={() => handleClick(p.id)}
+          >
+            {p.name}
+          </ModalButton>
+        ))}
+      </div>
+      <div className="mt-4">
+        <ModalButton
+          variant="confirm"
           disabled={!canConfirm}
-          className={`px-8 py-2 rounded-full font-semibold text-sm ${
-            canConfirm
-              ? 'bg-gold text-gray-900 hover:bg-yellow-400'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-          }`}
+          onClick={() => canConfirm && onSelect(selected[0]!, selected[1]!)}
         >
           Confirmer
-        </motion.button>
+        </ModalButton>
       </div>
-    </motion.div>
+    </ModalWrapper>
   );
 }
 
@@ -1066,33 +990,23 @@ function ShifumiChoiceModal({ isSuper, onChoice }: ShifumiChoiceModalProps) {
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50"
+    <ModalWrapper
+      title={isSuper ? 'Super Shifumi ♣' : 'Shifumi ♣'}
+      subtitle="Pierre-papier-ciseaux !"
     >
-      <div className="bg-gray-900 border border-gold/30 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl min-w-[240px]">
-        <h3 className="font-serif text-xl text-gold">
-          {isSuper ? 'Super Shifumi ♣' : 'Shifumi ♣'}
-        </h3>
-        <p className="text-sm text-gray-300 text-center">Pierre-papier-ciseaux !</p>
-        <div className="flex gap-3">
-          {choices.map((c) => (
-            <motion.button
-              key={c.value}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => onChoice(c.value)}
-              className="flex flex-col items-center gap-1 px-4 py-3 rounded-xl bg-gray-700 text-white hover:bg-gray-600 font-semibold text-sm"
-            >
-              <span className="text-2xl">{c.emoji}</span>
-              <span>{c.label}</span>
-            </motion.button>
-          ))}
-        </div>
+      <div className="flex gap-3 justify-center">
+        {choices.map((c) => (
+          <button
+            key={c.value}
+            onClick={() => onChoice(c.value)}
+            className="flex flex-col items-center gap-1 px-4 py-3 rounded-xl bg-gray-700 text-white hover:bg-gray-600 font-semibold text-sm transition-colors"
+          >
+            <span className="text-2xl">{c.emoji}</span>
+            <span>{c.label}</span>
+          </button>
+        ))}
       </div>
-    </motion.div>
+    </ModalWrapper>
   );
 }
 
@@ -1161,80 +1075,63 @@ function FlopRemakeModal({ state, humanId, onSubmit }: FlopRemakeModalProps) {
     faceUpIds.length + faceDownIds.length === allCards.length;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50"
+    <ModalWrapper
+      title="Flop Remake ♥"
+      subtitle="Cliquez sur une carte, puis sur une autre pour les échanger."
     >
-      <div className="bg-gray-900 border border-gold/30 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl max-w-sm w-full mx-4">
-        <h3 className="font-serif text-xl text-gold">Flop Remake ♥</h3>
-        <p className="text-sm text-gray-300 text-center">
-          Cliquez sur une carte, puis sur une autre pour les échanger.
+      <div className="w-full">
+        <p className="text-xs text-gray-400 mb-2">
+          Face visible ({faceUpIds.length}/3) :
         </p>
-
-        <div className="w-full">
-          <p className="text-xs text-gray-400 mb-2">
-            Face visible ({faceUpIds.length}/3) :
-          </p>
-          <div className="flex gap-2 flex-wrap min-h-[64px]">
-            {faceUpIds.map((id) => {
-              const card = allCards.find((c) => c.id === id)!;
-              return (
-                <Card
-                  key={id}
-                  card={card}
-                  selected={selectedId === id}
-                  size="sm"
-                  noLayout
-                  onClick={() => handleCardClick(id)}
-                />
-              );
-            })}
-          </div>
+        <div className="flex gap-2 flex-wrap min-h-[64px]">
+          {faceUpIds.map((id) => {
+            const card = allCards.find((c) => c.id === id)!;
+            return (
+              <Card
+                key={id}
+                card={card}
+                selected={selectedId === id}
+                size="sm"
+                noLayout
+                onClick={() => handleCardClick(id)}
+              />
+            );
+          })}
         </div>
-
-        <div className="w-full">
-          <p className="text-xs text-gray-400 mb-2">
-            Face cachée ({faceDownIds.length}/3) :
-          </p>
-          <div className="flex gap-2 flex-wrap min-h-[64px]">
-            {faceDownIds.map((id) => {
-              const card = allCards.find((c) => c.id === id)!;
-              return (
-                <Card
-                  key={id}
-                  card={card}
-                  selected={selectedId === id}
-                  size="sm"
-                  noLayout
-                  onClick={() => handleCardClick(id)}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Instruction contextuelle — espace réservé pour éviter le redimensionnement */}
-        <p className={`text-xs min-h-[1.25rem] ${selectedId ? 'text-gold' : 'text-transparent'}`}>
-          Cliquez sur une autre carte pour échanger leurs places
-        </p>
-
-        <motion.button
-          whileHover={isValid ? { scale: 1.05 } : {}}
-          whileTap={isValid ? { scale: 0.95 } : {}}
-          onClick={() => isValid && onSubmit(faceUpIds, faceDownIds)}
-          disabled={!isValid}
-          className={`px-8 py-2 rounded-full font-semibold text-sm ${
-            isValid
-              ? 'bg-gold text-gray-900 hover:bg-yellow-400'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Confirmer
-        </motion.button>
       </div>
-    </motion.div>
+
+      <div className="w-full mt-4">
+        <p className="text-xs text-gray-400 mb-2">
+          Face cachée ({faceDownIds.length}/3) :
+        </p>
+        <div className="flex gap-2 flex-wrap min-h-[64px]">
+          {faceDownIds.map((id) => {
+            const card = allCards.find((c) => c.id === id)!;
+            return (
+              <Card
+                key={id}
+                card={card}
+                selected={selectedId === id}
+                size="sm"
+                noLayout
+                onClick={() => handleCardClick(id)}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Instruction contextuelle — espace réservé pour éviter le redimensionnement */}
+      <p className={`text-xs min-h-[1.25rem] mt-2 ${selectedId ? 'text-amber-400' : 'text-transparent'}`}>
+        Cliquez sur une autre carte pour échanger leurs places
+      </p>
+
+      <div className="mt-4">
+        <ModalButton variant="confirm" disabled={!isValid} onClick={() => isValid && onSubmit(faceUpIds, faceDownIds)}>
+          Confirmer
+        </ModalButton>
+      </div>
+    </ModalWrapper>
   );
 }
 
@@ -1309,6 +1206,7 @@ interface GameBoardProps {
   error: string | null;
   // Target picker (pre-play: choisir la cible avant d'envoyer J♠)
   targetPickerVisible?: boolean;
+  targetPickerIsSuper?: boolean;
   onTargetSelected?: (targetId: string) => void;
   onCancelTargetPicker?: () => void;
   // Target choice (post-play As : choisir qui joue ensuite)
@@ -1358,6 +1256,7 @@ export function GameBoard({
   onRestart,
   error,
   targetPickerVisible,
+  targetPickerIsSuper,
   onTargetSelected,
   onCancelTargetPicker,
   onTargetChoice,
@@ -1731,7 +1630,7 @@ export function GameBoard({
       <AnimatePresence>
         {targetPickerVisible && onTargetSelected && (
           <TargetPickerModal
-            title="Manouche ♠"
+            title={targetPickerIsSuper ? 'Super Manouche ♠' : 'Manouche ♠'}
             description="Choisissez un adversaire pour l'échange."
             players={state.players}
             humanId={humanId}
@@ -1745,7 +1644,7 @@ export function GameBoard({
       <AnimatePresence>
         {pendingTargetForHuman && onTargetChoice && (
           <TargetPickerModal
-            title="Target ♦"
+            title="Target (As)"
             description="Choisissez qui jouera après vous."
             players={state.players}
             humanId={humanId}
@@ -1759,7 +1658,7 @@ export function GameBoard({
         {pendingManoucheTargetForHuman && onManoucheTarget && (
           <TargetPickerModal
             title="Manouche ♠"
-            description="Choisissez un adversaire pour l'échange Manouche."
+            description="Choisissez un adversaire pour l'échange."
             players={state.players.filter((p) => !p.isFinished && p.id !== humanId && p.hand.length > 0)}
             humanId={humanId}
             onSelect={onManoucheTarget}
@@ -1783,7 +1682,7 @@ export function GameBoard({
         {pendingSuperManoucheTargetForHuman && onManoucheTarget && (
           <TargetPickerModal
             title="Super Manouche ♠"
-            description="Choisissez un adversaire pour l'échange Super Manouche."
+            description="Choisissez un adversaire pour l'échange."
             players={state.players.filter((p) => !p.isFinished && p.id !== humanId && p.hand.length > 0)}
             humanId={humanId}
             onSelect={onManoucheTarget}
@@ -1887,52 +1786,16 @@ export function GameBoard({
       {/* ── Revolution Confirmation popup ── */}
       <AnimatePresence>
         {pendingRevolutionConfirmForHuman && pendingRevolutionConfirm && onRevolutionConfirm && (
-          <motion.div
-            key="revolution-confirm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50"
+          <ModalWrapper
+            title={pendingRevolutionConfirm.isSuper ? 'Super Révolution ♦' : 'Révolution ♦'}
+            subtitle={pendingRevolutionConfirm.isSuper
+              ? 'Les valeurs sont inversées jusqu\'à la fin de la partie.'
+              : 'Les valeurs sont inversées jusqu\'à ce qu\'un joueur ramasse.'}
           >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-gray-900 border border-gold/30 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl max-w-sm w-full mx-4"
-            >
-              {/* Jack card display */}
-              {state.pile.length > 0 && (() => {
-                const topEntry = state.pile[state.pile.length - 1]!;
-                const jackCard = topEntry.cards.find((c) => c.rank === 'J' && c.suit === 'diamonds');
-                return jackCard ? (
-                  <div className="flex justify-center">
-                    <Card card={jackCard} size="md" noLayout />
-                  </div>
-                ) : null;
-              })()}
-
-              <h3 className="font-serif text-xl text-gold text-center">
-                {pendingRevolutionConfirm.isSuper
-                  ? 'Faire la Super Révolution !'
-                  : 'Faire la Révolution !'}
-              </h3>
-
-              <p className="text-xs text-gray-400 text-center">
-                {pendingRevolutionConfirm.isSuper
-                  ? 'Les valeurs restent inversées pour le reste de la partie.'
-                  : 'Les valeurs sont inversées jusqu\'au prochain ramassage.'}
-              </p>
-
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={onRevolutionConfirm}
-                className="w-full px-4 py-2.5 rounded-full font-semibold text-sm bg-gold text-gray-900 hover:bg-yellow-400"
-              >
-                Confirmer
-              </motion.button>
-            </motion.div>
-          </motion.div>
+            <ModalButton variant="confirm" onClick={onRevolutionConfirm}>
+              Confirmer
+            </ModalButton>
+          </ModalWrapper>
         )}
       </AnimatePresence>
 
