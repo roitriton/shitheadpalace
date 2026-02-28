@@ -149,14 +149,15 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
     pendingCardsPlayed: undefined,
   };
 
-  // Multi-jack: cancel revolution if the multi-jack launcher lost the shifumi
-  // (pile emptied because the launcher picked it up). If someone else lost,
-  // revolution stays active per the rules.
+  // Multi-jack: cancel revolution when the pile is emptied by the shifumi.
+  // A regular revolution is tied to the pile — emptying the pile cancels it.
+  // Super Revolution is permanent and survives pile emptying.
+  // This only matters when revolution was activated EARLIER in the sequence
+  // (state.revolution is true at this point). If the shifumi was BEFORE the
+  // revolution in the sequence, state.revolution is false and this block is skipped,
+  // allowing the revolution to be applied in a later step.
   if (isMultiJack && state.revolution && !state.superRevolution) {
-    const launcherId = state.multiJackSequence!.launcherId;
-    if (loserId === launcherId) {
-      newState = { ...newState, phase: 'playing' as const, revolution: false };
-    }
+    newState = { ...newState, phase: 'playing' as const, revolution: false };
   }
 
   newState = appendLog(newState, 'shifumiResolved', timestamp, loserId, loser.name, {

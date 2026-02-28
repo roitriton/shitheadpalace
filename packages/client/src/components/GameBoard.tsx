@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
-import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, PendingMultiJackOrder, MultiJackSequenceEntry, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
 import { getActiveZone } from '@shit-head-palace/engine';
 import { getIllegalPlayReason } from '../utils/illegalPlayReason';
 import type { InspectZone } from './DebugPanel';
@@ -11,6 +11,7 @@ import { PowerOverlay } from './PowerOverlay';
 import { LastPlayDisplay } from './LastPlayDisplay';
 import { PowerSummary } from './PowerSummary';
 import { FlopPickUpModal } from './FlopPickUpModal';
+import { MultiJackOrderModal } from './MultiJackOrderModal';
 
 // ─── Zone de joueur (bot ou humain) ───────────────────────────────────────────
 
@@ -1311,6 +1312,7 @@ interface GameBoardProps {
   // Target choice (post-play As : choisir qui joue ensuite)
   onTargetChoice?: (targetId: string) => void;
   // Manouche / Super Manouche pick
+  onManoucheTarget?: (targetId: string) => void;
   onManouchePick?: (takeCardId: string, giveCardIds: string[]) => void;
   onSuperManouchePick?: (giveCardIds: string[], takeCardIds: string[]) => void;
   // Shifumi (J♣)
@@ -1320,6 +1322,8 @@ interface GameBoardProps {
   onFlopReverseTarget?: (targetId: string) => void;
   onFlopRemakeTarget?: (targetId: string) => void;
   onFlopRemake?: (faceUp: string[], faceDown: string[]) => void;
+  // Multi-Jack Order
+  onMultiJackOrder?: (sequence: MultiJackSequenceEntry[]) => void;
   // Debug (dev mode only)
   debugRevealHands?: boolean;
   onInspectZone?: (zone: InspectZone) => void;
@@ -1353,6 +1357,7 @@ export function GameBoard({
   onTargetSelected,
   onCancelTargetPicker,
   onTargetChoice,
+  onManoucheTarget,
   onManouchePick,
   onSuperManouchePick,
   onShifumiTarget,
@@ -1360,6 +1365,7 @@ export function GameBoard({
   onFlopReverseTarget,
   onFlopRemakeTarget,
   onFlopRemake,
+  onMultiJackOrder,
   debugRevealHands,
   onInspectZone,
   currentPower,
@@ -1412,9 +1418,14 @@ export function GameBoard({
   // Pending actions the human needs to resolve
   const pending = state.pendingAction;
   const pendingTargetForHuman = pending?.type === 'target' && pending.launcherId === humanId;
-  const pendingManoucheForHuman = pending?.type === 'manouche' && pending.launcherId === humanId;
+  const pendingManoucheTargetForHuman =
+    pending?.type === 'manouche' && pending.launcherId === humanId && !pending.targetId;
+  const pendingManoucheForHuman =
+    pending?.type === 'manouche' && pending.launcherId === humanId && !!pending.targetId;
+  const pendingSuperManoucheTargetForHuman =
+    pending?.type === 'superManouche' && pending.launcherId === humanId && !pending.targetId;
   const pendingSuperManoucheForHuman =
-    pending?.type === 'superManouche' && pending.launcherId === humanId;
+    pending?.type === 'superManouche' && pending.launcherId === humanId && !!pending.targetId;
 
   // Shifumi: human is initiator and needs to pick 2 players
   const pendingShifumiTargetForHuman =
@@ -1469,6 +1480,9 @@ export function GameBoard({
   const pendingFlopRemakeForHuman =
     pending?.type === 'flopRemake' && pending.targetId === humanId;
 
+  const pendingMultiJackForHuman =
+    pending?.type === 'PendingMultiJackOrder' && pending.playerId === humanId;
+
   // Message de statut
   let status = '';
   let statusIsIllegal = false;
@@ -1476,6 +1490,8 @@ export function GameBoard({
     status = 'Partie terminée';
   } else if (pendingTargetForHuman) {
     status = 'Choisissez qui jouera après vous.';
+  } else if (pendingManoucheTargetForHuman || pendingSuperManoucheTargetForHuman) {
+    status = 'Choisissez la cible de la Manouche.';
   } else if (pendingManoucheForHuman || pendingSuperManoucheForHuman) {
     status = 'Résolvez l\'échange Manouche.';
   } else if (pendingShifumiTargetForHuman) {
@@ -1492,6 +1508,8 @@ export function GameBoard({
     status = 'Choisissez la cible du Flop Remake.';
   } else if (pendingFlopRemakeForHuman) {
     status = 'Redistribuez vos cartes (flop + dark flop).';
+  } else if (pendingMultiJackForHuman) {
+    status = 'Choisissez l\'ordre de résolution des valets.';
   } else if (pending) {
     // Any other pending action where a bot needs to act
     status = 'En attente…';
@@ -1720,6 +1738,19 @@ export function GameBoard({
         )}
       </AnimatePresence>
 
+      {/* ── Manouche target picker (multi-jack: targetId not yet set) ── */}
+      <AnimatePresence>
+        {pendingManoucheTargetForHuman && onManoucheTarget && (
+          <TargetPickerModal
+            title="Manouche ♠"
+            description="Choisissez un adversaire pour l'échange Manouche."
+            players={state.players.filter((p) => !p.isFinished && p.id !== humanId && p.hand.length > 0)}
+            humanId={humanId}
+            onSelect={onManoucheTarget}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Manouche pick ── */}
       <AnimatePresence>
         {pendingManoucheForHuman && onManouchePick && (
@@ -1727,6 +1758,19 @@ export function GameBoard({
             state={state}
             humanId={humanId}
             onPick={onManouchePick}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Super Manouche target picker (multi-jack: targetId not yet set) ── */}
+      <AnimatePresence>
+        {pendingSuperManoucheTargetForHuman && onManoucheTarget && (
+          <TargetPickerModal
+            title="Super Manouche ♠"
+            description="Choisissez un adversaire pour l'échange Super Manouche."
+            players={state.players.filter((p) => !p.isFinished && p.id !== humanId && p.hand.length > 0)}
+            humanId={humanId}
+            onSelect={onManoucheTarget}
           />
         )}
       </AnimatePresence>
@@ -1809,6 +1853,17 @@ export function GameBoard({
             state={state}
             humanId={humanId}
             onSubmit={onFlopRemake}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Multi-Jack Order modal ── */}
+      <AnimatePresence>
+        {pendingMultiJackForHuman && onMultiJackOrder && (
+          <MultiJackOrderModal
+            state={state}
+            humanId={humanId}
+            onSubmit={onMultiJackOrder}
           />
         )}
       </AnimatePresence>

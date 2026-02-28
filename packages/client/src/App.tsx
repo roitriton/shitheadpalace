@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { Card as CardType, GameState, ShifumiChoice, LastPowerTriggered } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, ShifumiChoice, LastPowerTriggered, MultiJackSequenceEntry } from '@shit-head-palace/engine';
 import { getActiveZone, matchesPowerRank, isManoucheCard, canPlayerPlayAnything } from '@shit-head-palace/engine';
 import { SwapPhase } from './components/SwapPhase';
 import { DebugSwapPhase } from './components/DebugSwapPhase';
@@ -139,11 +139,19 @@ function App() {
    * Returns true when the selected cards include a J♠ (Manouche / Super Manouche)
    * that requires a targetPlayerId before the play can be submitted.
    * Disabled during revolution/superRevolution (powers suppressed).
+   * Also disabled when ≥ 2 real jacks are present (multi-jack path handles
+   * manouche during sequential resolution) or when ≥ 4 cards are played
+   * (quad burn path, no individual power resolution).
    */
   const requiresTargetPicker = (cards: CardType[]): boolean => {
     if (!gameState) return false;
     const { phase } = gameState;
     if (phase === 'revolution' || phase === 'superRevolution') return false;
+    // Multi-jack: ≥ 2 real jacks → PendingMultiJackOrder handles everything
+    const realJacks = cards.filter((c) => c.rank === 'J');
+    if (realJacks.length >= 2) return false;
+    // Quad burn: ≥ 4 cards → burn takes priority, no manouche
+    if (cards.length >= 4) return false;
     return cards.some((c) => isManoucheCard(c));
   };
 
@@ -327,6 +335,11 @@ function App() {
     emit('game:action', { type: 'targetChoice', targetPlayerId: targetId });
   };
 
+  /** J♠ Manouche/Super Manouche: choose target (multi-jack context, targetId missing) */
+  const handleManoucheTarget = (targetId: string) => {
+    emit('game:action', { type: 'manoucheTarget', targetPlayerId: targetId });
+  };
+
   /** J♠ Manouche: take one card from target, give all same-rank from hand */
   const handleManouchePick = (takeCardId: string, giveCardIds: string[]) => {
     emit('game:action', { type: 'manouchePick', takeCardId, giveCardIds });
@@ -360,6 +373,11 @@ function App() {
   /** J♥ + Mirror (Flop Remake): target redistributes cards */
   const handleFlopRemake = (faceUp: string[], faceDown: string[]) => {
     emit('game:action', { type: 'flopRemake', faceUp, faceDown });
+  };
+
+  /** Multi-Jack: player submits chosen resolution order */
+  const handleMultiJackOrder = (sequence: MultiJackSequenceEntry[]) => {
+    emit('game:action', { type: 'multiJackOrder', sequence });
   };
 
   // ── Écran de chargement ──────────────────────────────────────────────────────
@@ -526,6 +544,7 @@ function App() {
           onTargetSelected={handleTargetSelected}
           onCancelTargetPicker={handleCancelTargetPicker}
           onTargetChoice={handleTargetChoice}
+          onManoucheTarget={handleManoucheTarget}
           onManouchePick={handleManouchePick}
           onSuperManouchePick={handleSuperManouchePick}
           onShifumiTarget={handleShifumiTarget}
@@ -533,6 +552,7 @@ function App() {
           onFlopReverseTarget={handleFlopReverseTarget}
           onFlopRemakeTarget={handleFlopRemakeTarget}
           onFlopRemake={handleFlopRemake}
+          onMultiJackOrder={handleMultiJackOrder}
           debugRevealHands={isDev ? debugRevealHands : undefined}
           onInspectZone={isDev ? setDebugInspectZone : undefined}
           currentPower={currentPower}

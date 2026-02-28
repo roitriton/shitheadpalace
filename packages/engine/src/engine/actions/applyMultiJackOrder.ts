@@ -94,8 +94,10 @@ function getJackPowerType(
 /**
  * Resolves the next jack in the multi-jack sequence.
  *
- * For immediate powers (Revolution/Super Revolution), applies the power,
- * moves the jack to graveyard, and continues to the next jack.
+ * For immediate powers (Revolution/Super Revolution), applies the power and
+ * returns the state with the jack still on the pile and `lastPowerTriggered`
+ * set. The server must call `continueMultiJackSequence` after an animation
+ * delay to move the jack to graveyard and continue to the next jack.
  *
  * For interactive powers (Manouche, Shifumi, Flop Reverse/Remake), places
  * the jack on the pile, sets the appropriate pending action, and stores the
@@ -151,9 +153,8 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
         ...newState,
         lastPowerTriggered: { type: 'revolution', playerId: launcherId, cardsPlayed: cardsInfo },
       };
-      // Move jack to graveyard and continue
-      newState = moveTopPileToGraveyard(newState);
-      return resolveNextMultiJack(newState, timestamp);
+      // Jack stays on pile — server calls continueMultiJackSequence after animation delay
+      return newState;
     }
 
     case 'superRevolution': {
@@ -162,8 +163,8 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
         ...newState,
         lastPowerTriggered: { type: 'superRevolution', playerId: launcherId, cardsPlayed: cardsInfo },
       };
-      newState = moveTopPileToGraveyard(newState);
-      return resolveNextMultiJack(newState, timestamp);
+      // Jack stays on pile — server calls continueMultiJackSequence after animation delay
+      return newState;
     }
 
     case 'manouche':

@@ -144,6 +144,14 @@ Session 27/02 — Bug fixes et améliorations (916 tests au total) :
 - [x] Phase 7 — Engine + Client : combo main+flop (dernières cartes) et flop+dark flop (hasSeenDarkFlop). Sélection multi-zone client. Dark flop reste face cachée en combo. 19 tests comboPlay.
 - [x] Phase 8 — Client : surbrillance rouge pour sélections burn (10, quad, accumulation), transit visuel pile→cimetière via double émission serveur
 
+Phase 6 — Multi-valets UI client + serveur (1036 tests au total, +10 server) :
+- [x] Engine : resolveNextMultiJack step-by-step pour revolution/superRevolution (jack reste sur pile, serveur gère la continuation)
+- [x] Client : MultiJackOrderModal.tsx (attribution mirror, ordre des valets, bouton confirmer)
+- [x] Client : intégration GameBoard.tsx (détection PendingMultiJackOrder, status, modal) + App.tsx (handler multiJackOrder)
+- [x] Server : needsMultiJackContinuation + scheduleSoloMultiJackContinuation dans index.ts, scheduleMultiJackContinuation dans GameRoom.ts
+- [x] Server : bot support PendingMultiJackOrder dans bot.ts (canBotActOnPendingAction + tryResolveBotPendingAction)
+- [x] Tests : 45 tests engine multiJack adaptés (step-by-step), 10 nouveaux tests serveur (multiJack.test.ts)
+
 Étapes à venir :
 - [ ] Étape 11B — Client : UI pouvoirs et interactions spéciales (suite)
 - [ ] Étape 12 — Lobby, profil, variantes (client)

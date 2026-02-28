@@ -5,6 +5,7 @@ import {
   applyAction,
   applyReady,
   resolveCemeteryTransit,
+  continueMultiJackSequence,
 } from '@shit-head-palace/engine';
 import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './bot';
@@ -52,6 +53,9 @@ const BOT_DELAY_MS = 1500;
 
 /** Delay before resolving cemetery transit (burn/jack animation). */
 const CEMETERY_TRANSIT_DELAY_MS = 1500;
+
+/** Delay between each multi-jack step (revolution animation). */
+const MULTI_JACK_STEP_DELAY_MS = 1500;
 
 const MAX_CHAT_MESSAGE_LENGTH = 200;
 const MAX_CHAT_HISTORY = 100;
@@ -202,10 +206,22 @@ export class GameRoom {
       this.status = 'finished';
     }
 
+    // [MULTI-JACK] diagnostic after handleAction
+    if (this.state?.multiJackSequence) {
+      console.log('[MULTI-JACK] handleAction result:',
+        'pendingAction:', this.state.pendingAction?.type ?? 'null',
+        'remaining:', this.state.multiJackSequence?.remainingSequence?.length ?? 0,
+        'phase:', this.state.phase,
+        'lastPower:', this.state.lastPowerTriggered?.type ?? 'null',
+        'needsContinuation:', this.needsMultiJackContinuation());
+    }
+
     this.broadcast();
 
-    // Two-step cemetery transit: intermediate state already broadcast, resolve after delay
-    if (this.state.pendingCemeteryTransit) {
+    // Multi-jack continuation, cemetery transit, or bot scheduling
+    if (this.needsMultiJackContinuation()) {
+      this.scheduleMultiJackContinuation();
+    } else if (this.state.pendingCemeteryTransit) {
       setTimeout(() => {
         if (!this.state) return;
         this.state = resolveCemeteryTransit(this.state);
@@ -213,7 +229,11 @@ export class GameRoom {
           this.status = 'finished';
         }
         this.broadcast();
-        this.scheduleBotIfNeeded();
+        if (this.needsMultiJackContinuation()) {
+          this.scheduleMultiJackContinuation();
+        } else {
+          this.scheduleBotIfNeeded();
+        }
       }, CEMETERY_TRANSIT_DELAY_MS);
     } else {
       this.scheduleBotIfNeeded();
@@ -250,6 +270,58 @@ export class GameRoom {
     return this.players.filter((p) => !p.isBot).map((p) => p.playerId);
   }
 
+  private needsMultiJackContinuation(): boolean {
+    return (
+      !!this.state?.multiJackSequence &&
+      !this.state.pendingAction &&
+      !this.state.pendingCemeteryTransit &&
+      this.state.phase !== 'finished'
+    );
+  }
+
+  private scheduleMultiJackContinuation(): void {
+    console.log('[MULTI-JACK] scheduleMultiJackContinuation scheduled');
+    setTimeout(() => {
+      if (!this.state) return;
+
+      console.log('[MULTI-JACK] room continuing, before:',
+        'pendingAction:', this.state.pendingAction?.type ?? 'null',
+        'remaining:', this.state.multiJackSequence?.remainingSequence?.length ?? 0,
+        'phase:', this.state.phase);
+
+      this.state = continueMultiJackSequence(this.state, Date.now());
+
+      console.log('[MULTI-JACK] room continuing, after:',
+        'pendingAction:', this.state.pendingAction?.type ?? 'null',
+        'multiJackSequence:', !!this.state.multiJackSequence,
+        'remaining:', this.state.multiJackSequence?.remainingSequence?.length ?? 0,
+        'phase:', this.state.phase,
+        'lastPower:', this.state.lastPowerTriggered?.type ?? 'null',
+        'needsContinuation:', this.needsMultiJackContinuation());
+
+      if (this.state.phase === 'finished') {
+        this.status = 'finished';
+      }
+      this.broadcast();
+
+      if (this.needsMultiJackContinuation()) {
+        this.scheduleMultiJackContinuation();
+      } else if (this.state.pendingCemeteryTransit) {
+        setTimeout(() => {
+          if (!this.state) return;
+          this.state = resolveCemeteryTransit(this.state);
+          if (this.state.phase === 'finished') {
+            this.status = 'finished';
+          }
+          this.broadcast();
+          this.scheduleBotIfNeeded();
+        }, CEMETERY_TRANSIT_DELAY_MS);
+      } else {
+        this.scheduleBotIfNeeded();
+      }
+    }, MULTI_JACK_STEP_DELAY_MS);
+  }
+
   private scheduleBotIfNeeded(): void {
     if (!this.state) return;
     const { phase } = this.state;
@@ -267,13 +339,24 @@ export class GameRoom {
       this.state = botActOnce(this.state, this.botIds, this.humanPlayerIds);
 
       if (this.state !== prev) {
+        // [MULTI-JACK] diagnostic after bot action in room
+        if (this.state.multiJackSequence) {
+          console.log('[MULTI-JACK] room after bot action:',
+            'pendingAction:', this.state.pendingAction?.type ?? 'null',
+            'remaining:', this.state.multiJackSequence?.remainingSequence?.length ?? 0,
+            'phase:', this.state.phase,
+            'needsContinuation:', this.needsMultiJackContinuation());
+        }
+
         if (this.state.phase === 'finished') {
           this.status = 'finished';
         }
         this.broadcast();
 
-        // Two-step cemetery transit for bot actions
-        if (this.state.pendingCemeteryTransit) {
+        // Multi-jack continuation, cemetery transit, or next bot
+        if (this.needsMultiJackContinuation()) {
+          this.scheduleMultiJackContinuation();
+        } else if (this.state.pendingCemeteryTransit) {
           setTimeout(() => {
             if (!this.state) return;
             this.state = resolveCemeteryTransit(this.state);
@@ -281,7 +364,11 @@ export class GameRoom {
               this.status = 'finished';
             }
             this.broadcast();
-            this.scheduleBotIfNeeded();
+            if (this.needsMultiJackContinuation()) {
+              this.scheduleMultiJackContinuation();
+            } else {
+              this.scheduleBotIfNeeded();
+            }
           }, CEMETERY_TRANSIT_DELAY_MS);
         } else {
           this.scheduleBotIfNeeded();

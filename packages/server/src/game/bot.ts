@@ -3,6 +3,7 @@ import {
   applyPickUpPile,
   applyFirstPlayerShifumiChoice,
   applyTargetChoice,
+  applyManoucheTarget,
   applyManouchePick,
   applySuperManouchePick,
   applyFlopReverseTarget,
@@ -10,13 +11,14 @@ import {
   applyFlopRemake,
   applyShifumiTarget,
   applyShifumiChoice,
+  applyMultiJackOrder,
   canPlayCards,
   getActiveZone,
   getZoneCards,
   matchesPowerRank,
   isManoucheCard,
 } from '@shit-head-palace/engine';
-import type { GameState, ShifumiChoice, PendingShifumi } from '@shit-head-palace/engine';
+import type { GameState, ShifumiChoice, PendingShifumi, MultiJackSequenceEntry } from '@shit-head-palace/engine';
 
 // ─── Bot facile ────────────────────────────────────────────────────────────────
 
@@ -82,6 +84,10 @@ export function canBotActOnPendingAction(state: GameState, botIds: string[]): bo
     return false;
   }
 
+  if (pending.type === 'PendingMultiJackOrder') {
+    return botIds.includes(pending.playerId);
+  }
+
   return false;
 }
 
@@ -107,6 +113,13 @@ export function tryResolveBotPendingAction(state: GameState, botIds: string[]): 
   // ── Manouche: bot takes any card from target, gives lowest-rank card(s)
   if (pending.type === 'manouche') {
     if (!botIds.includes(pending.launcherId)) return state;
+    // Multi-jack context: targetId may be undefined — select target first
+    if (!pending.targetId) {
+      const targets = state.players.filter((p) => !p.isFinished && p.id !== pending.launcherId && p.hand.length > 0);
+      if (targets.length === 0) return state;
+      const target = targets[Math.floor(Math.random() * targets.length)]!;
+      return applyManoucheTarget(state, pending.launcherId, target.id, now);
+    }
     const target = state.players.find((p) => p.id === pending.targetId);
     const bot = state.players.find((p) => p.id === pending.launcherId)!;
     if (!target || target.hand.length === 0 || bot.hand.length === 0) return state;
@@ -118,6 +131,13 @@ export function tryResolveBotPendingAction(state: GameState, botIds: string[]): 
   // ── Super Manouche: bot launcher picks random exchange
   if (pending.type === 'superManouche') {
     if (!botIds.includes(pending.launcherId)) return state;
+    // Multi-jack context: targetId may be undefined — select target first
+    if (!pending.targetId) {
+      const targets = state.players.filter((p) => !p.isFinished && p.id !== pending.launcherId && p.hand.length > 0);
+      if (targets.length === 0) return state;
+      const target = targets[Math.floor(Math.random() * targets.length)]!;
+      return applyManoucheTarget(state, pending.launcherId, target.id, now);
+    }
     const target = state.players.find((p) => p.id === pending.targetId);
     const bot = state.players.find((p) => p.id === pending.launcherId)!;
     if (!target || target.hand.length === 0 || bot.hand.length === 0) return state;
@@ -170,6 +190,17 @@ export function tryResolveBotPendingAction(state: GameState, botIds: string[]): 
       return applyShifumiChoice(state, p.player2Id, choices[Math.floor(Math.random() * 3)]!, now);
     }
     return state;
+  }
+
+  // ── PendingMultiJackOrder: bot picks default order (as-is), mirror on first jack
+  if (pending.type === 'PendingMultiJackOrder') {
+    if (!botIds.includes(pending.playerId)) return state;
+    const { jacks, mirrors } = pending;
+    const sequence: MultiJackSequenceEntry[] = jacks.map((jack, i) => ({
+      jackCard: jack,
+      mirrorCard: i === 0 && mirrors.length > 0 ? mirrors[0] : undefined,
+    }));
+    return applyMultiJackOrder(state, pending.playerId, sequence, Date.now());
   }
 
   return state;

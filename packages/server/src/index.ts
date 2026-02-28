@@ -17,6 +17,7 @@ import {
   applyAction,
   applyReady,
   resolveCemeteryTransit,
+  continueMultiJackSequence,
 } from '@shit-head-palace/engine';
 import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './game/bot';
@@ -74,6 +75,9 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 /** Delay before resolving cemetery transit (burn/jack animation). */
 const CEMETERY_TRANSIT_DELAY_MS = 1500;
 
+/** Delay between each multi-jack step (revolution animation). */
+const MULTI_JACK_STEP_DELAY_MS = 1500;
+
 /** Bot turn delay in milliseconds (solo mode). */
 const BOT_DELAY_MS = 1500;
 
@@ -109,22 +113,96 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
     session.state = botActOnce(session.state, session.botIds, [session.humanId]);
 
     if (session.state !== prev) {
+      // [MULTI-JACK] diagnostic after bot action
+      if (session.state.multiJackSequence) {
+        console.log('[MULTI-JACK] after bot action:',
+          'pendingAction:', session.state.pendingAction?.type ?? 'null',
+          'remaining:', session.state.multiJackSequence?.remainingSequence?.length ?? 0,
+          'phase:', session.state.phase,
+          'needsContinuation:', needsMultiJackContinuation(session.state));
+      }
+
       sendSoloState(socket, session);
 
-      // Two-step cemetery transit for bot actions
-      if (session.state.pendingCemeteryTransit) {
+      // Multi-jack continuation, cemetery transit, or next bot
+      if (needsMultiJackContinuation(session.state)) {
+        scheduleSoloMultiJackContinuation(socket, session);
+      } else if (session.state.pendingCemeteryTransit) {
         setTimeout(() => {
           const stillCurrent = soloSessions.get(socket.id);
           if (!stillCurrent || stillCurrent !== session) return;
           session.state = resolveCemeteryTransit(session.state);
           sendSoloState(socket, session);
-          scheduleSoloBotIfNeeded(socket, session);
+          if (needsMultiJackContinuation(session.state)) {
+            scheduleSoloMultiJackContinuation(socket, session);
+          } else {
+            scheduleSoloBotIfNeeded(socket, session);
+          }
         }, CEMETERY_TRANSIT_DELAY_MS);
       } else {
         scheduleSoloBotIfNeeded(socket, session);
       }
     }
   }, BOT_DELAY_MS);
+}
+
+/**
+ * Returns true when a multi-jack sequence is in progress and the next step
+ * is an immediate power (revolution/superRevolution) that needs server-driven
+ * continuation (no pending action, no cemetery transit, game not finished).
+ */
+function needsMultiJackContinuation(state: GameState): boolean {
+  return (
+    !!state.multiJackSequence &&
+    !state.pendingAction &&
+    !state.pendingCemeteryTransit &&
+    state.phase !== 'finished'
+  );
+}
+
+/**
+ * Schedules continuation of a multi-jack sequence in solo mode.
+ * After a delay, calls continueMultiJackSequence to move the current jack
+ * to graveyard and proceed to the next one.
+ */
+function scheduleSoloMultiJackContinuation(socket: Socket, session: SoloSession): void {
+  console.log('[MULTI-JACK] scheduleSoloMultiJackContinuation scheduled');
+  setTimeout(() => {
+    const current = soloSessions.get(socket.id);
+    if (!current || current !== session) return;
+
+    console.log('[MULTI-JACK] continuing sequence, before:',
+      'pendingAction:', session.state.pendingAction?.type ?? 'null',
+      'remaining:', session.state.multiJackSequence?.remainingSequence?.length ?? 0,
+      'phase:', session.state.phase);
+
+    session.state = continueMultiJackSequence(session.state, Date.now());
+
+    console.log('[MULTI-JACK] continuing sequence, after:',
+      'pendingAction:', session.state.pendingAction?.type ?? 'null',
+      'multiJackSequence:', !!session.state.multiJackSequence,
+      'remaining:', session.state.multiJackSequence?.remainingSequence?.length ?? 0,
+      'phase:', session.state.phase,
+      'lastPower:', session.state.lastPowerTriggered?.type ?? 'null',
+      'needsContinuation:', needsMultiJackContinuation(session.state));
+
+    sendSoloState(socket, session);
+
+    if (needsMultiJackContinuation(session.state)) {
+      // Another immediate power in the sequence — continue
+      scheduleSoloMultiJackContinuation(socket, session);
+    } else if (session.state.pendingCemeteryTransit) {
+      setTimeout(() => {
+        const c = soloSessions.get(socket.id);
+        if (!c || c !== session) return;
+        session.state = resolveCemeteryTransit(session.state);
+        sendSoloState(socket, session);
+        scheduleSoloBotIfNeeded(socket, session);
+      }, CEMETERY_TRANSIT_DELAY_MS);
+    } else {
+      scheduleSoloBotIfNeeded(socket, session);
+    }
+  }, MULTI_JACK_STEP_DELAY_MS);
 }
 
 /** Emit a system chat message to a solo socket. */
@@ -226,16 +304,35 @@ io.on('connection', (rawSocket) => {
         s.state = resolveFirstPlayerShifumi(s.state);
       }
 
+      // [MULTI-JACK] diagnostic after solo:action
+      if (s.state.multiJackSequence) {
+        console.log('[MULTI-JACK] solo:action result:',
+          'pendingAction:', s.state.pendingAction?.type ?? 'null',
+          'multiJackSequence:', !!s.state.multiJackSequence,
+          'remaining:', s.state.multiJackSequence?.remainingSequence?.length ?? 0,
+          'phase:', s.state.phase,
+          'lastPower:', s.state.lastPowerTriggered?.type ?? 'null',
+          'pendingCemeteryTransit:', !!s.state.pendingCemeteryTransit,
+          'needsContinuation:', needsMultiJackContinuation(s.state));
+      }
+
       sendSoloState(socket, s);
 
-      // Two-step cemetery transit: intermediate state already sent, resolve after delay
-      if (s.state.pendingCemeteryTransit) {
+      // Multi-jack continuation: revolution/superRevolution needs server-driven step
+      if (needsMultiJackContinuation(s.state)) {
+        scheduleSoloMultiJackContinuation(socket, s);
+      } else if (s.state.pendingCemeteryTransit) {
+        // Two-step cemetery transit: intermediate state already sent, resolve after delay
         setTimeout(() => {
           const current = soloSessions.get(socket.id);
           if (!current || current !== s) return;
           s.state = resolveCemeteryTransit(s.state);
           sendSoloState(socket, s);
-          scheduleSoloBotIfNeeded(socket, s);
+          if (needsMultiJackContinuation(s.state)) {
+            scheduleSoloMultiJackContinuation(socket, s);
+          } else {
+            scheduleSoloBotIfNeeded(socket, s);
+          }
         }, CEMETERY_TRANSIT_DELAY_MS);
       } else {
         scheduleSoloBotIfNeeded(socket, s);
@@ -280,16 +377,33 @@ io.on('connection', (rawSocket) => {
         s.state = resolveFirstPlayerShifumi(s.state);
       }
 
+      // [MULTI-JACK] diagnostic after game:action
+      if (s.state.multiJackSequence) {
+        console.log('[MULTI-JACK] game:action result:',
+          'pendingAction:', s.state.pendingAction?.type ?? 'null',
+          'multiJackSequence:', !!s.state.multiJackSequence,
+          'remaining:', s.state.multiJackSequence?.remainingSequence?.length ?? 0,
+          'phase:', s.state.phase,
+          'lastPower:', s.state.lastPowerTriggered?.type ?? 'null',
+          'needsContinuation:', needsMultiJackContinuation(s.state));
+      }
+
       sendSoloState(socket, s);
 
-      // Two-step cemetery transit
-      if (s.state.pendingCemeteryTransit) {
+      // Multi-jack continuation or cemetery transit
+      if (needsMultiJackContinuation(s.state)) {
+        scheduleSoloMultiJackContinuation(socket, s);
+      } else if (s.state.pendingCemeteryTransit) {
         setTimeout(() => {
           const current = soloSessions.get(socket.id);
           if (!current || current !== s) return;
           s.state = resolveCemeteryTransit(s.state);
           sendSoloState(socket, s);
-          scheduleSoloBotIfNeeded(socket, s);
+          if (needsMultiJackContinuation(s.state)) {
+            scheduleSoloMultiJackContinuation(socket, s);
+          } else {
+            scheduleSoloBotIfNeeded(socket, s);
+          }
         }, CEMETERY_TRANSIT_DELAY_MS);
       } else {
         scheduleSoloBotIfNeeded(socket, s);

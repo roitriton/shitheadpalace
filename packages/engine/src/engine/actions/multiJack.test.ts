@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Card, GameState, GameVariant, MultiJackSequenceEntry, Player } from '../../types';
 import { applyPlay } from './play';
-import { applyMultiJackOrder } from './applyMultiJackOrder';
+import { applyMultiJackOrder, continueMultiJackSequence } from './applyMultiJackOrder';
 import { applyShifumiTarget, applyShifumiChoice } from './applyShifumiChoice';
 import { applyManoucheTarget, applyManouchePick, applySuperManouchePick } from './applyManoucheChoice';
 import { applyFlopReverseTarget, applyFlopRemake, applyFlopRemakeTarget } from './applyFlopReverseChoice';
@@ -161,6 +161,25 @@ describe('Multi-Jack Detection', () => {
     }
   });
 
+  it('J♠+J♣ → PendingMultiJackOrder, not PendingManouche', () => {
+    const state = makeState({
+      players: [
+        makePlayer('p0', { hand: [jSpades, jClubs, card('5', 'hearts')] }),
+        makePlayer('p1', { hand: [card('3', 'clubs'), card('4', 'clubs')] }),
+        makePlayer('p2'),
+        makePlayer('p3'),
+      ],
+    });
+    const result = applyPlay(state, 'p0', [jSpades.id, jClubs.id], undefined, 'p1');
+    // Must be PendingMultiJackOrder — NOT PendingManouche
+    expect(result.pendingAction?.type).toBe('PendingMultiJackOrder');
+    expect(result.pendingAction?.type).not.toBe('manouche');
+    if (result.pendingAction?.type === 'PendingMultiJackOrder') {
+      expect(result.pendingAction.jacks).toHaveLength(2);
+      expect(result.pendingAction.playerId).toBe('p0');
+    }
+  });
+
   it('J+J+9+9 → quad burn (4 total)', () => {
     const state = makeState({
       players: [
@@ -301,15 +320,22 @@ describe('Multi-Jack Resolution J+J', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Revolution applied immediately, flop reverse pending
+    // Revolution applied, jack still on pile (step-by-step), no pending yet
     expect(result.revolution).toBe(true);
     expect(result.phase).toBe('revolution');
-    expect(result.pendingAction?.type).toBe('flopReverse');
-    // Revolution jack should be in graveyard
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+    expect(result.pendingAction).toBeNull();
+    // Revolution jack still on pile (not yet moved to graveyard)
+    expect(result.pile.some((e) => e.cards.some((c) => c.id === jDiamonds.id))).toBe(true);
+
+    // Server calls continueMultiJackSequence after animation delay
+    result = continueMultiJackSequence(result, 1);
+
+    // Now J♦ in graveyard, flop reverse pending
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
-    // Flop reverse jack should be on pile (waiting for resolution) — base pile + jack entry
-    expect(result.pile.length).toBe(2);
-    expect(result.pile[1]!.cards.some((c) => c.id === jHearts.id)).toBe(true);
+    expect(result.pendingAction?.type).toBe('flopReverse');
+    // Flop reverse jack on pile
+    expect(result.pile.some((e) => e.cards.some((c) => c.id === jHearts.id))).toBe(true);
   });
 
   it('J♥ then J♦: flop reverse first (pending), order B then A', () => {
@@ -358,11 +384,18 @@ describe('Multi-Jack Resolution J+J', () => {
     // Resolve flop reverse → choose target
     result = applyFlopReverseTarget(result, 'p0', 'p1');
 
+    // After flopReverse, continueMultiJackSequence ran internally:
+    // jHearts moved to graveyard, revolution applied (step-by-step), jack on pile
+    expect(result.graveyard.some((c) => c.id === jHearts.id)).toBe(true);
+    expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Server calls continueMultiJackSequence to finalize revolution jack
+    result = continueMultiJackSequence(result, 2);
+
     // After full resolution: both jacks in graveyard
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
     expect(result.graveyard.some((c) => c.id === jHearts.id)).toBe(true);
-    // Revolution applied (second in sequence)
-    expect(result.revolution).toBe(true);
     // multiJackSequence cleaned up
     expect(result.multiJackSequence).toBeUndefined();
     // Turn advanced to next player
@@ -384,8 +417,20 @@ describe('Multi-Jack Resolution J+J', () => {
       { jackCard: jDiamonds },
       { jackCard: jDiamonds2 },
     ];
-    // Both are revolution (J♦) — both apply immediately
+    // Both are revolution (J♦) — first revolution applied (step-by-step)
     result = applyMultiJackOrder(result, 'p0', seq);
+
+    // First revolution applied, jack still on pile
+    expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+    expect(result.multiJackSequence).toBeDefined();
+
+    // Continue: move first jack to graveyard, apply second revolution (step-by-step)
+    result = continueMultiJackSequence(result, 1);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move second jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
 
     // Both resolved, turn advanced
     expect(result.pendingAction).toBeNull();
@@ -420,12 +465,16 @@ describe('Multi-Jack Resolution J+J+9 (mirror assignment)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Super revolution applied
+    // Super revolution applied (step-by-step), jack still on pile
     expect(result.superRevolution).toBe(true);
     expect(result.phase).toBe('superRevolution');
-    // Flop reverse is pending
+    expect(result.lastPowerTriggered?.type).toBe('superRevolution');
+    expect(result.pendingAction).toBeNull();
+
+    // Continue: move J♦+mirror to graveyard, flop reverse pending
+    result = continueMultiJackSequence(result, 1);
     expect(result.pendingAction?.type).toBe('flopReverse');
-    // Mirror should be in graveyard with J♦
+    // Mirror and J♦ now in graveyard
     expect(result.graveyard.some((c) => c.id === mirror9.id)).toBe(true);
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
   });
@@ -449,11 +498,15 @@ describe('Multi-Jack Resolution J+J+9 (mirror assignment)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Normal revolution applied
+    // Normal revolution applied (step-by-step), jack still on pile
     expect(result.revolution).toBe(true);
     expect(result.superRevolution).toBeFalsy();
     expect(result.phase).toBe('revolution');
-    // Flop REMAKE (super) is pending (not flop reverse)
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+    expect(result.pendingAction).toBeNull();
+
+    // Continue: move J♦ to graveyard, flop REMAKE (super) pending
+    result = continueMultiJackSequence(result, 1);
     expect(result.pendingAction?.type).toBe('flopRemake');
   });
 
@@ -476,10 +529,20 @@ describe('Multi-Jack Resolution J+J+9 (mirror assignment)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Both jacks and mirror in graveyard
+    // First: super revolution applied (step-by-step)
+    expect(result.superRevolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('superRevolution');
+
+    // Continue: move J♦+mirror to graveyard, second revolution (step-by-step)
+    result = continueMultiJackSequence(result, 1);
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
-    expect(result.graveyard.some((c) => c.id === jDiamonds2.id)).toBe(true);
     expect(result.graveyard.some((c) => c.id === mirror9.id)).toBe(true);
+
+    // Continue: move second J♦ to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
+
+    // All in graveyard
+    expect(result.graveyard.some((c) => c.id === jDiamonds2.id)).toBe(true);
   });
 });
 
@@ -507,11 +570,15 @@ describe('Multi-Jack Resolution J+J+J', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Revolution applied immediately, then flop reverse pending
+    // Revolution applied (step-by-step), jack still on pile
     expect(result.revolution).toBe(true);
-    expect(result.pendingAction?.type).toBe('flopReverse');
-    // J♦ in graveyard
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+    expect(result.pendingAction).toBeNull();
+
+    // Continue: move J♦ to graveyard, then flop reverse pending
+    result = continueMultiJackSequence(result, 1);
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
+    expect(result.pendingAction?.type).toBe('flopReverse');
     // J♥ on pile (pending resolution)
     expect(result.pile.some((e) => e.cards.some((c) => c.id === jHearts.id))).toBe(true);
   });
@@ -534,10 +601,15 @@ describe('Multi-Jack Resolution J+J+J', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
+    // Revolution applied (step-by-step), continue to get flopReverse pending
+    expect(result.revolution).toBe(true);
+    result = continueMultiJackSequence(result, 1);
+
     // Resolve flop reverse
+    expect(result.pendingAction?.type).toBe('flopReverse');
     result = applyFlopReverseTarget(result, 'p0', 'p1');
 
-    // Now shifumi should be pending
+    // After flopReverse, continueMultiJackSequence ran internally → shifumi pending
     expect(result.pendingAction?.type).toBe('shifumi');
 
     // Resolve shifumi: choose targets
@@ -577,9 +649,14 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
-    // Revolution applied, shifumi pending
+    // Revolution applied (step-by-step), jack still on pile
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move J♦ to graveyard, shifumi pending
+    result = continueMultiJackSequence(result, 1);
     expect(result.pendingAction?.type).toBe('shifumi');
+    expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
 
     // Resolve shifumi: p0 (launcher) participates and loses
     result = applyShifumiTarget(result, 'p0', 'p0', 'p1');
@@ -597,7 +674,7 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     expect(result.players[0]!.hand.every((c) => c.rank !== 'J')).toBe(true);
   });
 
-  it('J♦ (revolution) then J♣ (shifumi won) → revolution stays active', () => {
+  it('J♦ (revolution) then J♣ (shifumi lost by anyone) → revolution cancelled', () => {
     const state = makeState({
       pile: [{ cards: [card('5', 'hearts')], playerId: 'p3', playerName: 'p3', timestamp: 0 }],
       players: [
@@ -615,14 +692,22 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
+    // Revolution applied (step-by-step)
+    expect(result.revolution).toBe(true);
+
+    // Continue: move J♦ to graveyard, shifumi pending
+    result = continueMultiJackSequence(result, 1);
+    expect(result.pendingAction?.type).toBe('shifumi');
+
     // Resolve shifumi: p1 and p2 play, p2 loses
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors'); // p2 loses
 
-    // Revolution stays active (pile not emptied by launcher)
-    expect(result.revolution).toBe(true);
-    expect(result.phase).toBe('revolution');
+    // Revolution cancelled — pile was emptied by the shifumi loss,
+    // regardless of who lost. Revolution is tied to the pile.
+    expect(result.revolution).toBe(false);
+    expect(result.phase).toBe('playing');
   });
 
   it('J♣ (shifumi lost) then J♦ (revolution) → revolution active on empty pile', () => {
@@ -651,10 +736,14 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiChoice(result, 'p0', 'scissors');
     result = applyShifumiChoice(result, 'p1', 'rock'); // p0 loses
 
-    // Revolution should be applied after (on now-empty pile)
+    // After shifumi resolution, continueMultiJackSequence ran internally:
+    // revolution applied (step-by-step), jack on pile
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move revolution jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
     expect(result.phase).toBe('revolution');
-    // Pile may have been emptied then revolution jack placed and removed
     expect(result.graveyard.some((c) => c.id === jClubs.id)).toBe(true);
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
   });
@@ -682,8 +771,13 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors'); // p2 loses
 
-    // Revolution active
+    // After shifumi, continueMultiJackSequence ran internally:
+    // revolution applied (step-by-step), jack on pile
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move revolution jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
     expect(result.phase).toBe('revolution');
   });
 });
@@ -767,8 +861,13 @@ describe('Flop reverse in multi-jack sequence', () => {
     const p1 = result.players.find((p) => p.id === 'p1')!;
     expect(p1.hasSeenDarkFlop).toBe(true);
     expect(p1.faceDownRevealed).toBe(true);
-    // Revolution applied after
+    // Revolution applied (step-by-step) after flopReverse
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move revolution jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
+    expect(result.multiJackSequence).toBeUndefined();
   });
 });
 
@@ -801,10 +900,48 @@ describe('Pending intermediaries', () => {
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
 
-    // After shifumi, revolution should have been applied
+    // After shifumi, continueMultiJackSequence ran internally:
+    // revolution applied (step-by-step), jack on pile
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+    expect(result.multiJackSequence).toBeDefined();
+
+    // Continue: move revolution jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
     expect(result.multiJackSequence).toBeUndefined();
     expect(result.pendingAction).toBeNull();
+  });
+
+  it('J♠ in multi-jack → PendingManouche WITHOUT targetId (two-step flow)', () => {
+    const state = makeState({
+      players: [
+        makePlayer('p0', { hand: [jSpades, jDiamonds, card('K', 'hearts')] }),
+        makePlayer('p1', { hand: [card('Q', 'hearts')] }),
+        makePlayer('p2'),
+        makePlayer('p3'),
+      ],
+    });
+
+    let result = applyPlay(state, 'p0', [jSpades.id, jDiamonds.id]);
+    const seq: MultiJackSequenceEntry[] = [
+      { jackCard: jSpades },
+      { jackCard: jDiamonds },
+    ];
+    result = applyMultiJackOrder(result, 'p0', seq);
+
+    // Manouche pending — targetId must be undefined (requires manoucheTarget action)
+    expect(result.pendingAction?.type).toBe('manouche');
+    if (result.pendingAction?.type === 'manouche') {
+      expect(result.pendingAction.targetId).toBeUndefined();
+      expect(result.pendingAction.launcherId).toBe('p0');
+    }
+
+    // After manoucheTarget, targetId is set
+    result = applyManoucheTarget(result, 'p0', 'p1');
+    expect(result.pendingAction?.type).toBe('manouche');
+    if (result.pendingAction?.type === 'manouche') {
+      expect(result.pendingAction.targetId).toBe('p1');
+    }
   });
 
   it('J♠ + J♦: manouche pending (with target selection), after resolution → continues', () => {
@@ -833,8 +970,13 @@ describe('Pending intermediaries', () => {
     // Do the exchange
     result = applyManouchePick(result, 'p0', card('Q', 'hearts').id, [card('5', 'hearts', 2).id]);
 
-    // Revolution should have been applied after manouche
+    // After manouche, continueMultiJackSequence ran internally:
+    // revolution applied (step-by-step), jack on pile
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move revolution jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
     expect(result.multiJackSequence).toBeUndefined();
   });
 
@@ -854,6 +996,13 @@ describe('Pending intermediaries', () => {
       { jackCard: jDiamonds2 },
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
+
+    // First revolution applied (step-by-step)
+    expect(result.multiJackSequence).toBeDefined();
+
+    // Continue twice: first jack → graveyard + second revolution, second jack → graveyard + finalize
+    result = continueMultiJackSequence(result, 1);
+    result = continueMultiJackSequence(result, 2);
 
     expect(result.multiJackSequence).toBeUndefined();
     expect(result.pendingAction).toBeNull();
@@ -880,6 +1029,10 @@ describe('End of sequence', () => {
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
 
+    // Step-by-step: continue twice
+    result = continueMultiJackSequence(result, 1);
+    result = continueMultiJackSequence(result, 2);
+
     expect(result.currentPlayerIndex).toBe(1);
     expect(result.multiJackSequence).toBeUndefined();
   });
@@ -900,6 +1053,10 @@ describe('End of sequence', () => {
       { jackCard: jDiamonds2 },
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
+
+    // Step-by-step: continue twice
+    result = continueMultiJackSequence(result, 1);
+    result = continueMultiJackSequence(result, 2);
 
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
     expect(result.graveyard.some((c) => c.id === jDiamonds2.id)).toBe(true);
@@ -957,8 +1114,13 @@ describe('Flop remake in multi-jack sequence (J+J+9)', () => {
     // Target redistributes cards
     result = applyFlopRemake(result, 'p1', [darkCard.id], [flopCard.id]);
 
-    // After flop remake, revolution should be applied
+    // After flop remake, continueMultiJackSequence ran internally:
+    // revolution applied (step-by-step)
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move revolution jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
     expect(result.multiJackSequence).toBeUndefined();
     const p1 = result.players.find((p) => p.id === 'p1')!;
     expect(p1.hasSeenDarkFlop).toBe(true);
@@ -998,8 +1160,13 @@ describe('Super manouche in multi-jack sequence', () => {
     // Free exchange: give 1 card, take 1 card
     result = applySuperManouchePick(result, 'p0', [card5.id], [cardQ.id]);
 
-    // After super manouche, revolution should be applied
+    // After super manouche, continueMultiJackSequence ran internally:
+    // revolution applied (step-by-step)
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move revolution jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
     expect(result.multiJackSequence).toBeUndefined();
   });
 });
@@ -1077,8 +1244,12 @@ describe('Shifumi tie during multi-jack', () => {
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
 
-    // Sequence continues to revolution
+    // Sequence continues: revolution applied (step-by-step)
     expect(result.revolution).toBe(true);
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+
+    // Continue: move revolution jack to graveyard, finalize
+    result = continueMultiJackSequence(result, 2);
     expect(result.multiJackSequence).toBeUndefined();
   });
 });
@@ -1134,6 +1305,12 @@ describe('Edge cases', () => {
 
     expect(result.revolution).toBe(true);
     expect(result.phase).toBe('revolution');
+    // Step-by-step: first jack still on pile
+    expect(result.graveyard).toHaveLength(0);
+
+    // Continue twice to finalize
+    result = continueMultiJackSequence(result, 1);
+    result = continueMultiJackSequence(result, 2);
     expect(result.graveyard).toHaveLength(2);
   });
 
@@ -1191,6 +1368,10 @@ describe('Edge cases', () => {
       { jackCard: jDiamonds2 },
     ];
     result = applyMultiJackOrder(result, 'p0', seq);
+
+    // Step-by-step: continue twice to resolve both revolutions
+    result = continueMultiJackSequence(result, 1);
+    result = continueMultiJackSequence(result, 2);
 
     // Both jacks resolved (revolution), both in graveyard
     expect(result.graveyard.some((c) => c.id === jDiamonds.id)).toBe(true);
