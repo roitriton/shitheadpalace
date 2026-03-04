@@ -58,7 +58,6 @@ export function applyFlopReverseTarget(
     ...state,
     players: newPlayers,
     pendingAction: null,
-    lastPowerTriggered: { type: 'flopReverse', playerId, targetId: targetPlayerId, cardsPlayed: state.pendingCardsPlayed },
     pendingCardsPlayed: undefined,
   };
 
@@ -211,7 +210,6 @@ export function applyFlopRemake(
     ...state,
     players: newPlayers,
     pendingAction: null,
-    lastPowerTriggered: { type: 'flopRemake', playerId: launcherId, targetId: targetId, cardsPlayed: state.pendingCardsPlayed },
     pendingCardsPlayed: undefined,
   };
 

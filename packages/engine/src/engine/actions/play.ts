@@ -105,7 +105,9 @@ function finalizeGame(state: GameState, timestamp: number): GameState {
 
 /**
  * Validates the Manouche target and sets the pendingAction on the state.
- * Throws if `targetPlayerId` is missing, invalid, finished, or is the launcher.
+ * When `targetPlayerId` is undefined, sets a 2-step pending action (target
+ * chosen later via `applyManoucheTarget`), same as the multi-jack path.
+ * When provided, validates the target and sets the full pending action.
  */
 function setPendingManouche(
   state: GameState,
@@ -116,9 +118,13 @@ function setPendingManouche(
   launcherName: string,
 ): GameState {
   if (!targetPlayerId) {
-    throw new Error(
-      `targetPlayerId is required when playing a ${manoucheType} card (J\u2660)`,
-    );
+    // 2-step: target chosen later via applyManoucheTarget (same as multi-jack path)
+    let newState: GameState = {
+      ...state,
+      pendingAction: { type: manoucheType, launcherId },
+    };
+    newState = appendLog(newState, manoucheType, timestamp, launcherId, launcherName, {}, 'power');
+    return newState;
   }
   const targetIdx = state.players.findIndex((p) => p.id === targetPlayerId);
   if (targetIdx === -1) throw new Error(`Target player '${targetPlayerId}' not found`);
@@ -669,6 +675,10 @@ export function applyPlay(
   if (pendingShifumiType !== null && !finished) {
     // Shifumi triggered: set pendingAction; initiator will pick two targets
     return setPendingShifumi(newState, pendingShifumiType, playerId, player.name, timestamp);
+  }
+  // Clear overlay fields when jack power is skipped (player finished)
+  if (newState.pendingActionDelayed) {
+    newState = { ...newState, lastPowerTriggered: null, pendingActionDelayed: undefined };
   }
   return resolveAutoSkip(advanceTurn(newState, finished, skipCount));
 }

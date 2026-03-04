@@ -109,20 +109,17 @@ export function PowerOverlay({ power, players }: PowerOverlayProps) {
           key={counterRef.current}
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.15 }}
+          exit={{ opacity: 0, scale: 3.5 }}
           transition={{
             duration: 0.4,
             ease: 'easeOut',
-            exit: { duration: 0.5, ease: 'easeIn' },
+            exit: { duration: 0.6, ease: 'easeIn' },
           }}
           style={{ transformOrigin: 'center center', willChange: 'transform, opacity' }}
-          className="flex flex-col items-center gap-1"
+          className="flex items-center justify-center"
         >
-          <span className="text-3xl drop-shadow-lg">
+          <span className="text-5xl drop-shadow-lg">
             {POWER_DISPLAY[power.type].icon}
-          </span>
-          <span className="font-serif text-xs font-bold text-white drop-shadow-lg text-center px-1 leading-tight">
-            {POWER_DISPLAY[power.type].label(power, players)}
           </span>
         </motion.div>
       )}

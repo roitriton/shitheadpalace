@@ -621,10 +621,7 @@ function rankLabel(rank: string): string {
 
 /** Pending action types that require hiding the last pile entry (card shown after choice). */
 const POPUP_PENDING_TYPES = new Set([
-  'target', 'manouche', 'superManouche',
-  'flopReverse', 'flopRemake',
-  'shifumi', 'superShifumi',
-  'PendingRevolutionConfirm',
+  'target',
   'PendingMultiJackOrder',
 ]);
 
@@ -1260,11 +1257,6 @@ interface GameBoardProps {
   onFaceDownPlay: (card: CardType) => void;
   onRestart: () => void;
   error: string | null;
-  // Target picker (pre-play: choisir la cible avant d'envoyer J♠)
-  targetPickerVisible?: boolean;
-  targetPickerIsSuper?: boolean;
-  onTargetSelected?: (targetId: string) => void;
-  onCancelTargetPicker?: () => void;
   // Target choice (post-play As : choisir qui joue ensuite)
   onTargetChoice?: (targetId: string) => void;
   // Manouche / Super Manouche pick
@@ -1311,10 +1303,6 @@ export function GameBoard({
   onFaceDownPlay,
   onRestart,
   error,
-  targetPickerVisible,
-  targetPickerIsSuper,
-  onTargetSelected,
-  onCancelTargetPicker,
   onTargetChoice,
   onManoucheTarget,
   onManouchePick,
@@ -1546,29 +1534,6 @@ export function GameBoard({
         )}
       </AnimatePresence>
 
-      {/* No legal move banner */}
-      <AnimatePresence>
-        {noLegalMove && (
-          <motion.div
-            key="no-legal"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-12 left-1/2 -translate-x-1/2 z-40 bg-orange-800/90 backdrop-blur-sm text-white px-5 py-3 rounded-xl text-center shadow-lg"
-          >
-            <p className="text-sm font-bold">{"Pas de coup légal"}</p>
-            {onPickUp && (
-              <button
-                onClick={onPickUp}
-                className="mt-2 px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-full transition-colors"
-              >
-                {"Ramasser la pile"}
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── 1. Zone adversaires (25%) ── */}
       <div className="flex-[25] min-h-0 flex items-start justify-evenly px-2 sm:px-3 md:px-4">
         {bots.map((bot) => {
@@ -1690,20 +1655,6 @@ export function GameBoard({
         )}
       </AnimatePresence>
 
-      {/* ── Target picker (pre-play : sélection cible J♠) ── */}
-      <AnimatePresence>
-        {targetPickerVisible && onTargetSelected && (
-          <TargetPickerModal
-            title={targetPickerIsSuper ? 'Super Manouche ♠' : 'Manouche ♠'}
-            description="Choisissez un adversaire pour l'échange."
-            players={state.players}
-            humanId={humanId}
-            onSelect={onTargetSelected}
-            onCancel={onCancelTargetPicker}
-          />
-        )}
-      </AnimatePresence>
-
       {/* ── Target choice (post-play As : qui joue après ?) ── */}
       <AnimatePresence>
         {pendingTargetForHuman && onTargetChoice && (
@@ -1719,7 +1670,7 @@ export function GameBoard({
 
       {/* ── Manouche target picker (multi-jack: targetId not yet set) ── */}
       <AnimatePresence>
-        {pendingManoucheTargetForHuman && onManoucheTarget && (
+        {pendingManoucheTargetForHuman && !state.pendingActionDelayed && onManoucheTarget && (
           <TargetPickerModal
             title="Manouche ♠"
             description="Choisissez un adversaire pour l'échange."
@@ -1732,7 +1683,7 @@ export function GameBoard({
 
       {/* ── Manouche pick ── */}
       <AnimatePresence>
-        {pendingManoucheForHuman && onManouchePick && (
+        {pendingManoucheForHuman && !state.pendingActionDelayed && onManouchePick && (
           <ManouchePickModal
             state={state}
             humanId={humanId}
@@ -1743,7 +1694,7 @@ export function GameBoard({
 
       {/* ── Super Manouche target picker (multi-jack: targetId not yet set) ── */}
       <AnimatePresence>
-        {pendingSuperManoucheTargetForHuman && onManoucheTarget && (
+        {pendingSuperManoucheTargetForHuman && !state.pendingActionDelayed && onManoucheTarget && (
           <TargetPickerModal
             title="Super Manouche ♠"
             description="Choisissez un adversaire pour l'échange."
@@ -1756,7 +1707,7 @@ export function GameBoard({
 
       {/* ── Super Manouche pick ── */}
       <AnimatePresence>
-        {pendingSuperManoucheForHuman && onSuperManouchePick && (
+        {pendingSuperManoucheForHuman && !state.pendingActionDelayed && onSuperManouchePick && (
           <SuperManouchePickModal
             state={state}
             humanId={humanId}
@@ -1767,7 +1718,7 @@ export function GameBoard({
 
       {/* ── Shifumi target picker (initiator picks 2 players) ── */}
       <AnimatePresence>
-        {pendingShifumiTargetForHuman && onShifumiTarget && (
+        {pendingShifumiTargetForHuman && !state.pendingActionDelayed && onShifumiTarget && (
           <ShifumiTargetPickerModal
             title={pending?.type === 'superShifumi' ? 'Super Shifumi ♣' : 'Shifumi ♣'}
             description="Choisissez 2 joueurs pour le duel."
@@ -1779,7 +1730,7 @@ export function GameBoard({
 
       {/* ── Shifumi choice (participant picks rock/paper/scissors) ── */}
       <AnimatePresence>
-        {pendingShifumiChoiceForHuman && onShifumiChoice && (
+        {pendingShifumiChoiceForHuman && !state.pendingActionDelayed && onShifumiChoice && (
           <ShifumiChoiceModal
             isSuper={pending?.type === 'superShifumi'}
             onChoice={onShifumiChoice}
@@ -1806,7 +1757,7 @@ export function GameBoard({
 
       {/* ── Flop Reverse target picker ── */}
       <AnimatePresence>
-        {pendingFlopReverseForHuman && onFlopReverseTarget && (
+        {pendingFlopReverseForHuman && !state.pendingActionDelayed && onFlopReverseTarget && (
           <TargetPickerModal
             title="Flop Reverse ♥"
             description="Choisissez un joueur dont le flop et le dark flop seront échangés."
@@ -1820,7 +1771,7 @@ export function GameBoard({
 
       {/* ── Flop Remake target picker (step 1) ── */}
       <AnimatePresence>
-        {pendingFlopRemakeTargetForHuman && onFlopRemakeTarget && (
+        {pendingFlopRemakeTargetForHuman && !state.pendingActionDelayed && onFlopRemakeTarget && (
           <TargetPickerModal
             title="Flop Remake ♥"
             description="Choisissez un joueur qui redistribuera son flop et dark flop."
@@ -1834,7 +1785,7 @@ export function GameBoard({
 
       {/* ── Flop Remake distribution (step 2) ── */}
       <AnimatePresence>
-        {pendingFlopRemakeForHuman && onFlopRemake && (
+        {pendingFlopRemakeForHuman && !state.pendingActionDelayed && onFlopRemake && (
           <FlopRemakeModal
             state={state}
             humanId={humanId}
@@ -1856,7 +1807,7 @@ export function GameBoard({
 
       {/* ── Revolution Confirmation popup ── */}
       <AnimatePresence>
-        {pendingRevolutionConfirmForHuman && pendingRevolutionConfirm && onRevolutionConfirm && (
+        {pendingRevolutionConfirmForHuman && !state.pendingActionDelayed && pendingRevolutionConfirm && onRevolutionConfirm && (
           <ModalWrapper
             title={pendingRevolutionConfirm.isSuper ? 'Super Révolution ♦' : 'Révolution ♦'}
             subtitle={pendingRevolutionConfirm.isSuper

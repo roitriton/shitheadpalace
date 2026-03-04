@@ -157,7 +157,7 @@ export function resolveShifumiResult(state: GameState, timestamp = 0): GameState
   if (originalType === 'superShifumi') {
     let finalState: GameState = { ...state, pendingAction: null };
     finalState = finalizeGameWithShitHead(finalState, loserId, winnerId, timestamp);
-    finalState = { ...finalState, lastPowerTriggered: { type: 'superShifumi', playerId: initiatorId, players: [player1Id, player2Id], cardsPlayed: state.pendingCardsPlayed }, pendingCardsPlayed: undefined };
+    finalState = { ...finalState, pendingCardsPlayed: undefined };
     return finalState;
   }
 
@@ -169,12 +169,6 @@ export function resolveShifumiResult(state: GameState, timestamp = 0): GameState
     let newState: GameState = {
       ...state,
       pendingAction: null,
-      lastPowerTriggered: {
-        type: 'shifumi',
-        playerId: initiatorId,
-        players: [player1Id, player2Id],
-        cardsPlayed: state.pendingCardsPlayed,
-      },
       pendingCardsPlayed: undefined,
       multiJackSequence: {
         ...state.multiJackSequence!,
@@ -206,7 +200,6 @@ export function resolveShifumiResult(state: GameState, timestamp = 0): GameState
     pendingAction: null,
     activeUnder: null,
     pileResetActive: false,
-    lastPowerTriggered: { type: 'shifumi', playerId: initiatorId, players: [player1Id, player2Id], cardsPlayed: state.pendingCardsPlayed },
     pendingCardsPlayed: undefined,
   };
 

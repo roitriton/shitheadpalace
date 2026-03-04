@@ -181,10 +181,10 @@ export function resolvePowers(
   // presence of Mirror cards selects the super variant.
   // Now deferred: sets PendingRevolutionConfirm instead of applying directly.
   if (isSuperRevolutionTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'superRevolution', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: 'superRevolution' };
   } else if (isRevolutionTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'revolution', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: 'revolution' };
   }
 
@@ -195,10 +195,10 @@ export function resolvePowers(
   // lastPowerTriggered is forced to null — it will be set in applyManouchePick /
   // applySuperManouchePick after the choice is resolved.
   if (isSuperManoucheTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'superManouche', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'superManouche', pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   } else if (isManoucheTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'manouche', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'manouche', pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   }
 
@@ -211,10 +211,10 @@ export function resolvePowers(
   // lastPowerTriggered is forced to null — it will be set in
   // applyFlopReverseTarget / applyFlopRemake after the choice is resolved.
   if (isFlopRemakeTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'flopRemake', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopRemake', pendingShifumiType: null, pendingRevolutionType: null };
   } else if (isFlopReverseTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'flopReverse', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopReverse', pendingShifumiType: null, pendingRevolutionType: null };
   }
 
@@ -225,10 +225,10 @@ export function resolvePowers(
   // lastPowerTriggered is forced to null — it will be set in
   // applyShifumiChoice (resolveShifumi) after the confrontation is resolved.
   if (isSuperShifumiTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'superShifumi', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'superShifumi', pendingRevolutionType: null };
   } else if (isShifumiTriggered(playedCards, newState.variant, newState.phase)) {
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'shifumi', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'shifumi', pendingRevolutionType: null };
   }
 

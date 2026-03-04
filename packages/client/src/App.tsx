@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Card as CardType, GameState, ShifumiChoice, LastPowerTriggered, MultiJackSequenceEntry } from '@shit-head-palace/engine';
-import { getActiveZone, matchesPowerRank, isManoucheCard, canPlayerPlayAnything } from '@shit-head-palace/engine';
+import { getActiveZone, matchesPowerRank, canPlayerPlayAnything, canPlayCards } from '@shit-head-palace/engine';
 import { SwapPhase } from './components/SwapPhase';
 import { DebugSwapPhase } from './components/DebugSwapPhase';
 import { GameBoard } from './components/GameBoard';
@@ -23,8 +23,6 @@ function App() {
   const [humanId, setHumanId] = useState('');
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // Card IDs waiting for a target to be picked before the play is sent (J♠)
-  const [targetPickerCardIds, setTargetPickerCardIds] = useState<string[] | null>(null);
 
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -60,7 +58,6 @@ function App() {
         setGameState(state);
         setHumanId(playerId);
         setSelectedCards([]);
-        setTargetPickerCardIds(null);
 
         // Track unread log entries
         const newEntries = state.log.length - prevLogLengthRef.current;
@@ -134,26 +131,6 @@ function App() {
       }
       return opening;
     });
-
-  /**
-   * Returns true when the selected cards include a J♠ (Manouche / Super Manouche)
-   * that requires a targetPlayerId before the play can be submitted.
-   * Disabled during revolution/superRevolution (powers suppressed).
-   * Also disabled when ≥ 2 real jacks are present (multi-jack path handles
-   * manouche during sequential resolution) or when ≥ 4 cards are played
-   * (quad burn path, no individual power resolution).
-   */
-  const requiresTargetPicker = (cards: CardType[]): boolean => {
-    if (!gameState) return false;
-    const { phase } = gameState;
-    if (phase === 'revolution' || phase === 'superRevolution') return false;
-    // Multi-jack: ≥ 2 real jacks → PendingMultiJackOrder handles everything
-    const realJacks = cards.filter((c) => c.rank === 'J');
-    if (realJacks.length >= 2) return false;
-    // Quad burn: ≥ 4 cards → burn takes priority, no manouche
-    if (cards.length >= 4) return false;
-    return cards.some((c) => isManoucheCard(c));
-  };
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -241,28 +218,11 @@ function App() {
 
   const handleFaceDownPlay = (card: CardType) => {
     if (!gameState) return;
-    const { phase } = gameState;
-    // J♠ face-down still triggers Manouche — show picker before playing
-    if (isManoucheCard(card) && phase !== 'revolution' && phase !== 'superRevolution') {
-      setTargetPickerCardIds([card.id]);
-      return;
-    }
     emit('game:action', { type: 'play', cardIds: [card.id] });
   };
 
   const handlePlay = () => {
     if (selectedCards.length === 0 || !gameState) return;
-
-    // Resolve card objects to check for powers requiring a pre-play target
-    const allCards = gameState.players.flatMap((p) => [...p.hand, ...p.faceUp, ...p.faceDown]);
-    const cards = selectedCards
-      .map((id) => allCards.find((c) => c.id === id))
-      .filter((c): c is CardType => c !== undefined);
-
-    if (requiresTargetPicker(cards)) {
-      setTargetPickerCardIds(selectedCards);
-      return;
-    }
 
     emit('game:action', { type: 'play', cardIds: selectedCards });
     setSelectedCards([]);
@@ -298,7 +258,6 @@ function App() {
   const handleRestart = () => {
     setSelectedCards([]);
     setError(null);
-    setTargetPickerCardIds(null);
     setChatMessages([]);
     setChatUnread(0);
     setChatOpen(false);
@@ -309,23 +268,6 @@ function App() {
     prevPowerTypeRef.current = null;
     if (powerTimerRef.current) { clearTimeout(powerTimerRef.current); powerTimerRef.current = null; }
     emit('game:restart');
-  };
-
-  // ── Target picker callbacks (pre-play J♠) ──────────────────────────────────
-
-  const handleTargetSelected = (targetId: string) => {
-    if (!targetPickerCardIds) return;
-    emit('game:action', {
-      type: 'play',
-      cardIds: targetPickerCardIds,
-      targetPlayerId: targetId,
-    });
-    setSelectedCards([]);
-    setTargetPickerCardIds(null);
-  };
-
-  const handleCancelTargetPicker = () => {
-    setTargetPickerCardIds(null);
   };
 
   // ── Post-play pending action callbacks ─────────────────────────────────────
@@ -445,6 +387,18 @@ function App() {
   const canPlay = isMyTurn && selectedCards.length > 0 && humanActiveZone !== 'faceDown';
   const canPickUp = isMyTurn && gameState.pile.length > 0;
 
+  // Check if current selection is a legal play
+  const isSelectionLegal = (() => {
+    if (!canPlay || !human) return false;
+    const allCards = [...human.hand, ...human.faceUp, ...human.faceDown];
+    const selected = selectedCards.map((id) => allCards.find((c) => c.id === id)).filter((c): c is CardType => c != null);
+    if (selected.length === 0) return false;
+    const isMirror = (c: CardType) => matchesPowerRank(c.rank, gameState.variant, 'mirror');
+    const nonMirrors = selected.filter((c) => !isMirror(c));
+    const mirrorCount = selected.length - nonMirrors.length;
+    return canPlayCards(nonMirrors, gameState, nonMirrors.length + mirrorCount);
+  })();
+
   // Flop pick-up: player is in flop phase and can't play anything
   const showFlopPickUp = !!(
     human && isMyTurn && humanActiveZone === 'faceUp' &&
@@ -545,17 +499,6 @@ function App() {
           onFaceDownPlay={handleFaceDownPlay}
           onRestart={handleRestart}
           error={error}
-          targetPickerVisible={targetPickerCardIds !== null}
-          targetPickerIsSuper={(() => {
-            if (!targetPickerCardIds || !gameState) return false;
-            const allCards = gameState.players.flatMap((p) => [...p.hand, ...p.faceUp, ...p.faceDown]);
-            const cards = targetPickerCardIds
-              .map((id) => allCards.find((c) => c.id === id))
-              .filter((c): c is CardType => c !== undefined);
-            return cards.length > 1 && cards.some((c) => matchesPowerRank(c.rank, gameState.variant, 'mirror'));
-          })()}
-          onTargetSelected={handleTargetSelected}
-          onCancelTargetPicker={handleCancelTargetPicker}
           onTargetChoice={handleTargetChoice}
           onManoucheTarget={handleManoucheTarget}
           onManouchePick={handleManouchePick}
@@ -603,6 +546,7 @@ function App() {
           onClearSelection={() => setSelectedCards([])}
           onActionLogToggle={handleActionLogToggle}
           actionLogUnread={actionLogUnread}
+          isSelectionLegal={isSelectionLegal}
           overlayActive={currentPower !== null}
         />
         {isDev && debugInspectZone && (

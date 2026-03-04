@@ -87,18 +87,11 @@ export function applyRevolutionConfirm(
     : [];
 
   // Apply the revolution effect
+  // Note: lastPowerTriggered was already set when the jack was played (overlay shown before popup)
   if (pending.isSuper) {
     newState = applySuperRevolution(newState, playerId, timestamp);
-    newState = {
-      ...newState,
-      lastPowerTriggered: { type: 'superRevolution', playerId, cardsPlayed: cardsInfo },
-    };
   } else {
     newState = applyRevolution(newState, playerId, timestamp);
-    newState = {
-      ...newState,
-      lastPowerTriggered: { type: 'revolution', playerId, cardsPlayed: cardsInfo },
-    };
   }
 
   // If in multi-jack sequence, the jack stays on pile — server will call

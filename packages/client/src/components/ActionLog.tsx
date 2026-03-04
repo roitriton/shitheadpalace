@@ -1,12 +1,19 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LogEntry } from '@shit-head-palace/engine';
 
-// ─── Log formatting ─────────────────────────────────────────────────────────
+// ─── Suit symbols & colors (shared with MiniLog) ────────────────────────────
 
-function formatRanks(ranks: string[]): string {
-  return ranks.join(', ');
-}
+const LOG_SUIT_SYMBOL: Record<string, string> = {
+  hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠',
+};
+
+const LOG_SUIT_COLOR: Record<string, string> = {
+  hearts: 'text-red-400', diamonds: 'text-red-400',
+  clubs: 'text-white', spades: 'text-white',
+};
+
+// ─── Log formatting ─────────────────────────────────────────────────────────
 
 const ACTION_LOG_POWER_LABELS: Record<string, string> = {
   burn: 'Burn !',
@@ -25,7 +32,23 @@ const ACTION_LOG_POWER_LABELS: Record<string, string> = {
   superShifumi: 'Super Shifumi !',
 };
 
-function formatLogEntry(entry: LogEntry): string {
+/** Render card symbols (rank + colored suit) as JSX spans. */
+function renderCardSymbols(ranks: string[], suits: string[]): React.ReactNode {
+  return ranks.map((rank, ri) => {
+    const suit = suits[ri] ?? '';
+    const symbol = LOG_SUIT_SYMBOL[suit] ?? '';
+    const suitColor = LOG_SUIT_COLOR[suit] ?? 'text-white';
+    return (
+      <span key={ri}>
+        {ri > 0 && ' '}
+        <span className={`font-bold ${suitColor}`}>{rank}{symbol}</span>
+      </span>
+    );
+  });
+}
+
+/** Render a log entry as JSX — uses card symbols for play/darkPlay entries. */
+function renderLogEntry(entry: LogEntry): React.ReactNode {
   // Power entries: just the power label, no player name
   if (entry.entryType === 'power') {
     return ACTION_LOG_POWER_LABELS[entry.type] ?? entry.type;
@@ -42,18 +65,30 @@ function formatLogEntry(entry: LogEntry): string {
   switch (entry.type) {
     case 'play': {
       const ranks = (d.ranks as string[] | undefined) ?? [];
+      const suits = (d.suits as string[] | undefined) ?? [];
       const zone = d.zone as string | undefined;
       const zoneLabel = zone === 'faceUp' ? ' (flop)' : zone === 'faceDown' ? ' (dark)' : '';
-      return `${name} joue ${formatRanks(ranks)}${zoneLabel}`;
+      return (
+        <>
+          <span className="font-semibold">{name}</span>{' '}joue{' '}
+          {renderCardSymbols(ranks, suits)}{zoneLabel}
+        </>
+      );
     }
     case 'darkPlay': {
       const ranks = (d.ranks as string[] | undefined) ?? [];
-      return `${name} joue a l'aveugle ${formatRanks(ranks)}`;
+      const suits = (d.suits as string[] | undefined) ?? [];
+      return (
+        <>
+          <span className="font-semibold">{name}</span>{' '}joue a l&apos;aveugle{' '}
+          {renderCardSymbols(ranks, suits)}
+        </>
+      );
     }
     case 'darkPlayFail':
       return `${name} echoue (dark flop) et ramasse`;
     case 'pickUp':
-      return `${name} ramasse la pile (${d.cardCount ?? '?'} cartes)`;
+      return <><span className="font-semibold">{name}</span> ramasse ({d.cardCount ?? '?'})</>;
     case 'burn':
     case 'burnEffect':
       return `${name} brule la pile`;
@@ -135,14 +170,15 @@ function formatLogEntry(entry: LogEntry): string {
 // ─── Color mapping ──────────────────────────────────────────────────────────
 
 function getLogEntryColor(entry: LogEntry): string {
-  // entryType-based colors
+  // entryType-based colors — match MiniLog exactly
   if (entry.entryType === 'power') return 'text-amber-400';
   if (entry.entryType === 'effect') return 'text-emerald-400';
   // System events (gold)
   if (entry.type === 'playerFinished' || entry.type === 'gameStart' || entry.type === 'gameOver') {
     return 'text-[#c9a84c]';
   }
-  return 'text-gray-300';
+  // Action entries — match MiniLog's text-gray-200
+  return 'text-gray-200';
 }
 
 // ─── ActionLog ──────────────────────────────────────────────────────────────
@@ -192,7 +228,7 @@ export function ActionLog({ log, isOpen, onToggle, topBarOffset }: ActionLogProp
                 >
                   <span className="text-gray-500 mr-1.5 font-mono">{num}.</span>
                   <span className={getLogEntryColor(entry)}>
-                    {formatLogEntry(entry)}
+                    {renderLogEntry(entry)}
                   </span>
                 </div>
               ))}

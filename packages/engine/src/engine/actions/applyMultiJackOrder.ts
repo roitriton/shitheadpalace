@@ -155,7 +155,8 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
           playerId: launcherId,
           isSuper: false,
         },
-        lastPowerTriggered: null,
+        lastPowerTriggered: { type: 'revolution', playerId: launcherId, cardsPlayed: cardsInfo },
+        pendingActionDelayed: true,
         pendingCardsPlayed: cardsInfo,
       };
       return newState;
@@ -170,7 +171,8 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
           playerId: launcherId,
           isSuper: true,
         },
-        lastPowerTriggered: null,
+        lastPowerTriggered: { type: 'superRevolution', playerId: launcherId, cardsPlayed: cardsInfo },
+        pendingActionDelayed: true,
         pendingCardsPlayed: cardsInfo,
       };
       return newState;
@@ -182,7 +184,8 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
       newState = {
         ...newState,
         pendingAction: { type: power, launcherId },
-        lastPowerTriggered: null,
+        lastPowerTriggered: { type: power, playerId: launcherId, cardsPlayed: cardsInfo },
+        pendingActionDelayed: true,
         pendingCardsPlayed: cardsInfo,
       };
       newState = appendLog(newState, power, timestamp, launcherId, launcher.name, {}, 'power');
@@ -193,7 +196,8 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
       newState = {
         ...newState,
         pendingAction: { type: 'flopReverse', launcherId },
-        lastPowerTriggered: null,
+        lastPowerTriggered: { type: 'flopReverse', playerId: launcherId, cardsPlayed: cardsInfo },
+        pendingActionDelayed: true,
         pendingCardsPlayed: cardsInfo,
       };
       newState = appendLog(newState, 'flopReverse', timestamp, launcherId, launcher.name, {}, 'power');
@@ -204,7 +208,8 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
       newState = {
         ...newState,
         pendingAction: { type: 'flopRemake', launcherId },
-        lastPowerTriggered: null,
+        lastPowerTriggered: { type: 'flopRemake', playerId: launcherId, cardsPlayed: cardsInfo },
+        pendingActionDelayed: true,
         pendingCardsPlayed: cardsInfo,
       };
       newState = appendLog(newState, 'flopRemake', timestamp, launcherId, launcher.name, {}, 'power');
@@ -216,7 +221,8 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
       newState = {
         ...newState,
         pendingAction: { type: power, initiatorId: launcherId },
-        lastPowerTriggered: null,
+        lastPowerTriggered: { type: power, playerId: launcherId, cardsPlayed: cardsInfo },
+        pendingActionDelayed: true,
         pendingCardsPlayed: cardsInfo,
       };
       newState = appendLog(newState, power, timestamp, launcherId, launcher.name, {}, 'power');

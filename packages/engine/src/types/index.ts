@@ -329,6 +329,12 @@ export interface GameState {
    */
   pendingCemeteryTransit?: boolean;
   /**
+   * When true, the server should show the overlay animation (lastPowerTriggered)
+   * before revealing the popup for interactive jack powers.
+   * Set by resolvePowers/resolveNextMultiJack, cleared by the server after the delay.
+   */
+  pendingActionDelayed?: boolean;
+  /**
    * Tracks the in-progress multi-jack resolution sequence.
    * Set when multiple jacks are played together and the player has chosen the
    * resolution order. Consumed one jack at a time by resolveNextMultiJack.

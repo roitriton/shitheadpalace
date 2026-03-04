@@ -80,11 +80,34 @@ const CEMETERY_TRANSIT_DELAY_MS = 1500;
 /** Delay between each multi-jack step (revolution animation). */
 const MULTI_JACK_STEP_DELAY_MS = 1500;
 
+/** Delay for overlay animation before showing jack power popup. */
+const OVERLAY_DELAY_MS = 1500;
+
 /** Bot turn delay in milliseconds (solo mode). */
 const BOT_DELAY_MS = 1500;
 
 /** Delay before auto-resolving a shifumi result popup (3 seconds). */
 const SHIFUMI_RESULT_DELAY_MS = 3000;
+
+/** Returns true when state has a pending overlay delay (jack power animation before popup). */
+function needsOverlayDelay(state: GameState): boolean {
+  return !!state.pendingActionDelayed;
+}
+
+/**
+ * Clears the overlay delay flag from the session state, sends the updated state,
+ * and continues with the next step (bot, cemetery transit, multi-jack, etc.).
+ */
+function scheduleOverlayDelay(socket: Socket, session: SoloSession): void {
+  setTimeout(() => {
+    const current = soloSessions.get(socket.id);
+    if (!current || current !== session) return;
+    session.state = { ...session.state, pendingActionDelayed: undefined, lastPowerTriggered: null };
+    sendSoloState(socket, session);
+    // After overlay, the popup is now visible — bot may need to act on it
+    scheduleSoloBotIfNeeded(socket, session);
+  }, OVERLAY_DELAY_MS);
+}
 
 function sendSoloState(socket: Socket, session: SoloSession): void {
   socket.emit('game:state', {
@@ -129,8 +152,10 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
 
       sendSoloState(socket, session);
 
-      // Shifumi result popup, multi-jack continuation, cemetery transit, or next bot
-      if (session.state.pendingAction?.type === 'shifumiResult') {
+      // Overlay delay: show jack in pile + overlay animation before popup
+      if (needsOverlayDelay(session.state)) {
+        scheduleOverlayDelay(socket, session);
+      } else if (session.state.pendingAction?.type === 'shifumiResult') {
         scheduleSoloShifumiResultResolution(socket, session);
       } else if (needsMultiJackContinuation(session.state)) {
         scheduleSoloMultiJackContinuation(socket, session);
@@ -195,7 +220,9 @@ function scheduleSoloMultiJackContinuation(socket: Socket, session: SoloSession)
 
     sendSoloState(socket, session);
 
-    if (session.state.pendingAction?.type === 'shifumiResult') {
+    if (needsOverlayDelay(session.state)) {
+      scheduleOverlayDelay(socket, session);
+    } else if (session.state.pendingAction?.type === 'shifumiResult') {
       scheduleSoloShifumiResultResolution(socket, session);
     } else if (needsMultiJackContinuation(session.state)) {
       // Another immediate power in the sequence — continue
@@ -359,6 +386,12 @@ io.on('connection', (rawSocket) => {
 
       sendSoloState(socket, s);
 
+      // Overlay delay: show jack in pile + overlay animation before popup
+      if (needsOverlayDelay(s.state)) {
+        scheduleOverlayDelay(socket, s);
+        return;
+      }
+
       // Shifumi result popup: auto-resolve after 3s delay
       if (s.state.pendingAction?.type === 'shifumiResult') {
         scheduleSoloShifumiResultResolution(socket, s);
@@ -433,6 +466,12 @@ io.on('connection', (rawSocket) => {
       }
 
       sendSoloState(socket, s);
+
+      // Overlay delay: show jack in pile + overlay animation before popup
+      if (needsOverlayDelay(s.state)) {
+        scheduleOverlayDelay(socket, s);
+        return;
+      }
 
       // Shifumi result popup, multi-jack continuation, or cemetery transit
       if (s.state.pendingAction?.type === 'shifumiResult') {

@@ -540,7 +540,7 @@ describe('Manouche — full flow via applyPlay', () => {
     expect(next.currentPlayerIndex).toBe(0);
   });
 
-  it('playing J♠ without targetPlayerId throws', () => {
+  it('playing J♠ without targetPlayerId creates 2-step pending action', () => {
     const players = makeState().players.map((p, i) => {
       if (i === 0) return { ...p, hand: [jSpade, cK] };
       return { ...p, hand: [cK] };
@@ -549,7 +549,11 @@ describe('Manouche — full flow via applyPlay', () => {
       players,
       pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'p1', playerName: 'p1', timestamp: 0 }],
     });
-    expect(() => applyPlay(state, 'p0', [jSpade.id])).toThrow(/targetPlayerId is required/);
+    const next = applyPlay(state, 'p0', [jSpade.id]);
+    // Without targetPlayerId, sets a 2-step pending action (target chosen later via manoucheTarget)
+    expect(next.pendingAction).toMatchObject({ type: 'manouche', launcherId: 'p0' });
+    expect((next.pendingAction as { targetId?: string }).targetId).toBeUndefined();
+    expect(next.pendingActionDelayed).toBe(true);
   });
 
   it('playing J♠ targeting a finished player throws', () => {

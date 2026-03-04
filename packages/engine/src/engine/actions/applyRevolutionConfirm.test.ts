@@ -81,12 +81,15 @@ describe('applyRevolutionConfirm', () => {
     expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
     expect(result.pendingAction).toMatchObject({ playerId: 'p0', isSuper: false });
     expect(result.revolution).toBeFalsy();
-    expect(result.lastPowerTriggered).toBeNull();
+    // lastPowerTriggered is set early (for overlay before popup)
+    expect(result.lastPowerTriggered?.type).toBe('revolution');
+    expect(result.pendingActionDelayed).toBe(true);
 
     // Confirm applies the revolution
     result = applyRevolutionConfirm(result, 'p0');
     expect(result.revolution).toBe(true);
     expect(result.phase).toBe('revolution');
+    // lastPowerTriggered persists from initial play (not overwritten by confirm)
     expect(result.lastPowerTriggered?.type).toBe('revolution');
     expect(result.lastPowerTriggered?.playerId).toBe('p0');
     expect(result.pendingAction).toBeNull();

@@ -134,9 +134,10 @@ describe('lastPowerTriggered', () => {
     state.variant.powerAssignments = { revolution: 'J' };
 
     const next = applyPlay(state, 'p0', [jd.id]);
-    // Revolution is now deferred — overlay comes after confirmation
+    // Revolution is deferred — overlay set early (before popup)
     expect(next.pendingAction?.type).toBe('PendingRevolutionConfirm');
-    expect(next.lastPowerTriggered).toBeNull();
+    expect(next.lastPowerTriggered?.type).toBe('revolution');
+    expect(next.pendingActionDelayed).toBe(true);
   });
 
   it('mirror (9+10) sets lastPowerTriggered to burn (copies the accompanied power)', () => {

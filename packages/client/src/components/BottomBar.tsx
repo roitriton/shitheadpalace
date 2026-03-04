@@ -12,6 +12,8 @@ interface BottomBarProps {
   onClearSelection: () => void;
   onActionLogToggle: () => void;
   actionLogUnread: number;
+  /** When true, the current card selection is a legal play */
+  isSelectionLegal?: boolean;
   /** When true, an overlay animation is playing — disable action buttons */
   overlayActive?: boolean;
 }
@@ -27,6 +29,7 @@ export function BottomBar({
   onClearSelection,
   onActionLogToggle,
   actionLogUnread,
+  isSelectionLegal,
   overlayActive,
 }: BottomBarProps) {
   const effectiveCanPlay = canPlay && !overlayActive;
@@ -58,7 +61,9 @@ export function BottomBar({
           disabled={!effectiveCanPlay}
           className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
             effectiveCanPlay
-              ? 'bg-[#c9a84c] text-gray-900 hover:bg-yellow-400'
+              ? isSelectionLegal
+                ? 'bg-emerald-500 text-white hover:bg-emerald-400'
+                : 'bg-[#c9a84c] text-gray-900 hover:bg-yellow-400'
               : 'bg-gray-700 text-gray-500 cursor-not-allowed'
           }`}
         >

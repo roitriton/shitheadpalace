@@ -58,6 +58,9 @@ const CEMETERY_TRANSIT_DELAY_MS = 1500;
 /** Delay between each multi-jack step (revolution animation). */
 const MULTI_JACK_STEP_DELAY_MS = 1500;
 
+/** Delay for overlay animation before showing jack power popup. */
+const OVERLAY_DELAY_MS = 1500;
+
 /** Delay before auto-resolving a shifumi result popup (3 seconds). */
 const SHIFUMI_RESULT_DELAY_MS = 3000;
 
@@ -228,6 +231,12 @@ export class GameRoom {
       return;
     }
 
+    // Overlay delay: show jack in pile + overlay animation before popup
+    if (this.needsOverlayDelay()) {
+      this.scheduleOverlayDelay();
+      return;
+    }
+
     // Multi-jack continuation, cemetery transit, or bot scheduling
     if (this.needsMultiJackContinuation()) {
       this.scheduleMultiJackContinuation();
@@ -280,6 +289,20 @@ export class GameRoom {
     return this.players.filter((p) => !p.isBot).map((p) => p.playerId);
   }
 
+  private needsOverlayDelay(): boolean {
+    return !!this.state?.pendingActionDelayed;
+  }
+
+  private scheduleOverlayDelay(): void {
+    setTimeout(() => {
+      if (!this.state) return;
+      this.state = { ...this.state, pendingActionDelayed: undefined, lastPowerTriggered: null };
+      this.broadcast();
+      // After overlay, the popup is now visible — bot may need to act on it
+      this.scheduleBotIfNeeded();
+    }, OVERLAY_DELAY_MS);
+  }
+
   private needsMultiJackContinuation(): boolean {
     return (
       !!this.state?.multiJackSequence &&
@@ -314,7 +337,9 @@ export class GameRoom {
       }
       this.broadcast();
 
-      if (this.state.pendingAction?.type === 'shifumiResult') {
+      if (this.needsOverlayDelay()) {
+        this.scheduleOverlayDelay();
+      } else if (this.state.pendingAction?.type === 'shifumiResult') {
         this.scheduleShifumiResultResolution();
       } else if (this.needsMultiJackContinuation()) {
         this.scheduleMultiJackContinuation();
@@ -398,8 +423,10 @@ export class GameRoom {
         }
         this.broadcast();
 
-        // Shifumi result popup, multi-jack continuation, cemetery transit, or next bot
-        if (this.state.pendingAction?.type === 'shifumiResult') {
+        // Overlay delay, shifumi result popup, multi-jack continuation, cemetery transit, or next bot
+        if (this.needsOverlayDelay()) {
+          this.scheduleOverlayDelay();
+        } else if (this.state.pendingAction?.type === 'shifumiResult') {
           this.scheduleShifumiResultResolution();
         } else if (this.needsMultiJackContinuation()) {
           this.scheduleMultiJackContinuation();
