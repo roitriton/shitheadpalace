@@ -176,7 +176,7 @@ Session 28/02 — Phases 3-6 (1033 tests au total) :
   - Bot support : auto-résolution PendingMultiJackOrder + PendingRevolutionConfirm
   - Continuation step-by-step serveur
 
-Nombre total de tests : 1065 (929 engine + 123 server + 13 client)
+Nombre total de tests : 1070 (934 engine + 123 server + 13 client)
 
 Session 28/02 (suite) — Étape 11B : Uniformisation modals (1033 tests, pas de nouveaux tests) :
 - [x] Étape 11B-A — Composants ModalWrapper + ModalButton
@@ -209,6 +209,25 @@ Session 04/03 — Feedback visuel shifumi + log engine (1065 tests au total) :
   - LogEntry types enrichis avec données structurées (playerId, playerName, cards, etc.)
   - formatLogEntry extrait et centralisé dans ActionLog.tsx
   - PowerOverlay : textes de pouvoir contextuels (initiateur, cible, type)
+
+Session 04/03 (suite) — Fix 11D-ter-3 : corrections textes + animation flop reverse (1070 tests au total) :
+- [x] Fix 11D-ter-3A — Textes "Pas de coup légal" unifiés
+  - "Pas de coup légal — ramassez la pile." et "Vous ne pouvez pas jouer" → "Vous ne pouvez pas jouer de coup légal" (même texte pour les 2 cas)
+- [x] Fix 11D-ter-3B — Animation flop reverse phase 2 : two-face card flip
+  - Remplacement animation simple par deux faces superposées (Face A old card, Face B new card)
+  - Face A : rotateX 0°→180° (backfaceVisibility hidden), Face B : rotateX 180°→0° (backfaceVisibility hidden)
+  - Bots : Face A = card back (old state), Face B = card face (new state)
+  - Humain : Face A = old face-up card face, Face B = new face-up card face
+  - Plus de saut : émergence progressive depuis la tranche
+- [x] Fix 11D-ter-3C — skipTurn dans ActionLog
+  - Ajout case 'skipTurn' affichant entry.data.message ("[Joueur] ne peut pas jouer")
+- [x] Fix 11D-ter-3D — Format texte ramassage
+  - "[Joueur] ramasse (N)" → "[Joueur] ramasse N cartes" (singulier "carte" si 1)
+  - Modifié dans ActionLog.tsx et MiniLog (GameBoard.tsx)
+- [x] Fix 11D-ter-3E — Alignement log = minilog (minilog = référence)
+  - darkPlay : supprimé "a l'aveugle", fusionné avec case play → "joue {cartes}"
+  - darkPlayFail : "echoue (dark flop) et ramasse" → "échoue (dark)" (avec accent)
+  - Zone labels supprimés du log (play n'affiche plus "(flop)"/"(dark)")
 
 Étapes à venir :
 - [ ] Étape 11B (suite) — Client : UI pouvoirs et interactions spéciales

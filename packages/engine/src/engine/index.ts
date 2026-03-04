@@ -15,6 +15,7 @@ import { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiCh
 import { applyPickUpWithFlopCards } from './actions/pickUpFlop';
 import { applyMultiJackOrder } from './actions/applyMultiJackOrder';
 import { applyRevolutionConfirm } from './actions/applyRevolutionConfirm';
+import { applySkipTurn } from './actions/applySkipTurn';
 
 // Re-export everything so consumers can import from '@shit-head-palace/engine'
 export { applyPlay } from './actions/play';
@@ -33,6 +34,7 @@ export { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiCh
 export { applyPickUpWithFlopCards, getAvailableFlopPickUpGroups } from './actions/pickUpFlop';
 export { applyMultiJackOrder, continueMultiJackSequence, resolveNextMultiJack } from './actions/applyMultiJackOrder';
 export { applyRevolutionConfirm } from './actions/applyRevolutionConfirm';
+export { applySkipTurn } from './actions/applySkipTurn';
 export { filterGameStateForPlayer } from './filter';
 export { resolveCemeteryTransit } from './cemeteryTransit';
 export { resolvePowers } from './powers';
@@ -127,5 +129,8 @@ export function applyAction(
 
     case 'manoucheSkip':
       return applyManoucheSkip(state, playerId, timestamp);
+
+    case 'skipTurn':
+      return applySkipTurn(state, playerId, timestamp);
   }
 }

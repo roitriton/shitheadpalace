@@ -63,32 +63,24 @@ function renderLogEntry(entry: LogEntry): React.ReactNode {
   const d = entry.data;
 
   switch (entry.type) {
-    case 'play': {
-      const ranks = (d.ranks as string[] | undefined) ?? [];
-      const suits = (d.suits as string[] | undefined) ?? [];
-      const zone = d.zone as string | undefined;
-      const zoneLabel = zone === 'faceUp' ? ' (flop)' : zone === 'faceDown' ? ' (dark)' : '';
-      return (
-        <>
-          <span className="font-semibold">{name}</span>{' '}joue{' '}
-          {renderCardSymbols(ranks, suits)}{zoneLabel}
-        </>
-      );
-    }
+    case 'play':
     case 'darkPlay': {
       const ranks = (d.ranks as string[] | undefined) ?? [];
       const suits = (d.suits as string[] | undefined) ?? [];
       return (
         <>
-          <span className="font-semibold">{name}</span>{' '}joue a l&apos;aveugle{' '}
+          <span className="font-semibold">{name}</span>{' '}joue{' '}
           {renderCardSymbols(ranks, suits)}
         </>
       );
     }
     case 'darkPlayFail':
-      return `${name} echoue (dark flop) et ramasse`;
-    case 'pickUp':
-      return <><span className="font-semibold">{name}</span> ramasse ({d.cardCount ?? '?'})</>;
+      return <><span className="font-semibold">{name}</span> échoue (dark)</>;
+
+    case 'pickUp': {
+      const count = d.cardCount as number | undefined;
+      return <><span className="font-semibold">{name}</span> ramasse {count ?? '?'} {count === 1 ? 'carte' : 'cartes'}</>;
+    }
     case 'burn':
     case 'burnEffect':
       return `${name} brule la pile`;
@@ -150,6 +142,10 @@ function renderLogEntry(entry: LogEntry): React.ReactNode {
       return 'Partie lancee';
     case 'gameOver':
       return 'Partie terminee';
+    case 'skipTurn': {
+      const msg = d.message as string | undefined;
+      return msg ?? `${name} ne peut pas jouer`;
+    }
     case 'swap':
       return `${name} echange (swap)`;
     case 'firstPlayerShifumiStart':

@@ -292,6 +292,11 @@ function App() {
     emit('game:action', { type: 'manoucheSkip' });
   };
 
+  /** Skip turn when blocked on empty pile (only mirrors/jacks in hand) */
+  const handleSkipTurn = () => {
+    emit('game:action', { type: 'skipTurn' });
+  };
+
   /** J♠ + Mirror (Super Manouche): free 1-for-1 card exchange */
   const handleSuperManouchePick = (giveCardIds: string[], takeCardIds: string[]) => {
     emit('game:action', { type: 'superManouchePick', giveCardIds, takeCardIds });
@@ -422,6 +427,15 @@ function App() {
     gameState.pile.length > 0
   );
 
+  // Empty pile blocked: player has only mirrors/jacks and pile is empty
+  const emptyPileBlocked = !!(
+    human && isMyTurn &&
+    humanActiveZone === 'hand' &&
+    !canPlayerPlayAnything(gameState, humanIdx) &&
+    gameState.pendingAction === null &&
+    gameState.pile.length === 0
+  );
+
   // Combo flags: enable selecting cards from the next zone
   // Hand+flop combo only allowed when deck is empty (last hand cards + flop same value)
   const comboHandFlopEnabled = !!(human && isMyTurn && humanActiveZone === 'hand' &&
@@ -526,6 +540,8 @@ function App() {
           onFlopPickUpOnly={handleFlopPickUpOnly}
           onFlopPickUpWithFlop={handleFlopPickUpWithFlop}
           noLegalMove={noLegalMove}
+          emptyPileBlocked={emptyPileBlocked}
+          onSkipTurn={handleSkipTurn}
           onPickUp={handlePickUp}
         />
         <ChatPanel
@@ -554,6 +570,8 @@ function App() {
           actionLogUnread={actionLogUnread}
           isSelectionLegal={isSelectionLegal}
           overlayActive={currentPower !== null}
+          emptyPileBlocked={emptyPileBlocked}
+          onSkipTurn={handleSkipTurn}
         />
         {isDev && debugInspectZone && (
           <ZoneInspectorModal

@@ -16,6 +16,10 @@ interface BottomBarProps {
   isSelectionLegal?: boolean;
   /** When true, an overlay animation is playing — disable action buttons */
   overlayActive?: boolean;
+  /** When true, player is blocked on empty pile — show skip turn button */
+  emptyPileBlocked?: boolean;
+  /** Skip turn callback */
+  onSkipTurn?: () => void;
 }
 
 export function BottomBar({
@@ -31,6 +35,8 @@ export function BottomBar({
   actionLogUnread,
   isSelectionLegal,
   overlayActive,
+  emptyPileBlocked,
+  onSkipTurn,
 }: BottomBarProps) {
   const effectiveCanPlay = canPlay && !overlayActive && isSelectionLegal;
   const effectiveCanPickUp = canPickUp && !overlayActive;
@@ -54,49 +60,62 @@ export function BottomBar({
 
       {/* Centre : Actions */}
       <div className="flex-1 flex items-center justify-center gap-2">
-        <motion.button
-          whileHover={effectiveCanPlay ? { scale: 1.05 } : {}}
-          whileTap={effectiveCanPlay ? { scale: 0.95 } : {}}
-          onClick={onPlay}
-          disabled={!effectiveCanPlay}
-          className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
-            effectiveCanPlay
-              ? 'bg-emerald-500 text-white hover:bg-emerald-400'
-              : 'bg-gray-600 text-gray-500 opacity-50 cursor-not-allowed'
-          }`}
-        >
-          Jouer{selectedCount > 0 ? ` (${selectedCount})` : ''}
-        </motion.button>
-
-        <AnimatePresence>
-          {selectedCount > 0 && (
+        {emptyPileBlocked && onSkipTurn ? (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onSkipTurn}
+            className="px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors bg-amber-400 text-gray-900 hover:bg-amber-300"
+          >
+            Passer son tour
+          </motion.button>
+        ) : (
+          <>
             <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onClearSelection}
-              className="px-2.5 py-1.5 rounded-full text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
+              whileHover={effectiveCanPlay ? { scale: 1.05 } : {}}
+              whileTap={effectiveCanPlay ? { scale: 0.95 } : {}}
+              onClick={onPlay}
+              disabled={!effectiveCanPlay}
+              className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
+                effectiveCanPlay
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-400'
+                  : 'bg-gray-600 text-gray-500 opacity-50 cursor-not-allowed'
+              }`}
             >
-              ✕
+              Jouer{selectedCount > 0 ? ` (${selectedCount})` : ''}
             </motion.button>
-          )}
-        </AnimatePresence>
 
-        <motion.button
-          whileHover={effectiveCanPickUp ? { scale: 1.05 } : {}}
-          whileTap={effectiveCanPickUp ? { scale: 0.95 } : {}}
-          onClick={onPickUp}
-          disabled={!effectiveCanPickUp}
-          className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
-            effectiveCanPickUp
-              ? 'bg-red-800 text-white hover:bg-red-700'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Ramasser
-        </motion.button>
+            <AnimatePresence>
+              {selectedCount > 0 && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onClearSelection}
+                  className="px-2.5 py-1.5 rounded-full text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
+                >
+                  ✕
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            <motion.button
+              whileHover={effectiveCanPickUp ? { scale: 1.05 } : {}}
+              whileTap={effectiveCanPickUp ? { scale: 0.95 } : {}}
+              onClick={onPickUp}
+              disabled={!effectiveCanPickUp}
+              className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
+                effectiveCanPickUp
+                  ? 'bg-red-800 text-white hover:bg-red-700'
+                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              Ramasser
+            </motion.button>
+          </>
+        )}
       </div>
 
       {/* Droite : Log */}

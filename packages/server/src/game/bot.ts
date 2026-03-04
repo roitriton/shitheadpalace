@@ -14,7 +14,9 @@ import {
   applyMultiJackOrder,
   applyRevolutionConfirm,
   resolveShifumiResult,
+  applySkipTurn,
   canPlayCards,
+  canPlayerPlayAnything,
   getActiveZone,
   getZoneCards,
   matchesPowerRank,
@@ -38,6 +40,11 @@ export function botAct(state: GameState, botId: string): GameState {
 
   const cards = getZoneCards(bot, zone);
   const opponents = state.players.filter((p) => !p.isFinished && p.id !== botId);
+
+  // Empty pile + no legal play → skip turn
+  if (state.pile.length === 0 && !canPlayerPlayAnything(state, botIdx)) {
+    return applySkipTurn(state, botId, Date.now());
+  }
 
   // Essaie chaque carte non-Mirror seule
   for (const card of cards) {

@@ -12,3 +12,28 @@
     font-family: 'Playfair Display', serif;
   }
 }
+
+/* Flop Reverse: card flip animations (vertical rotation) */
+@keyframes flopFlipOut {
+  0% {
+    transform: rotateX(0deg);
+  }
+  50% {
+    transform: rotateX(90deg);
+  }
+  100% {
+    transform: rotateX(180deg);
+  }
+}
+
+@keyframes flopFlipIn {
+  0% {
+    transform: rotateX(180deg);
+  }
+  50% {
+    transform: rotateX(90deg);
+  }
+  100% {
+    transform: rotateX(0deg);
+  }
+}

@@ -36,6 +36,8 @@ interface PlayerZoneProps {
   comboFlopDarkEnabled?: boolean;
   /** When true, selected cards will trigger a burn — show red highlight */
   isBurnSelection?: boolean;
+  /** When true, animate flop cards flipping (flop reverse power) */
+  flopFlipAnimating?: boolean;
 }
 
 function PlayerZone({
@@ -52,6 +54,7 @@ function PlayerZone({
   comboHandFlopEnabled,
   comboFlopDarkEnabled,
   isBurnSelection,
+  flopFlipAnimating,
 }: PlayerZoneProps) {
   const canClickHand = isActive && activeZone === 'hand' && !isBot;
   const canClickFaceUp = isActive && activeZone === 'faceUp' && !isBot;
@@ -117,7 +120,12 @@ function PlayerZone({
 
   // ── Flop section ──
   const flopSection = (
-    <div className="flex" style={{ gap: isBot ? 4 : (compact ? 4 : 8) }}>
+    <div
+      className="flex"
+      style={{
+        gap: isBot ? 4 : (compact ? 4 : 8),
+      }}
+    >
       {(player.faceDown.length > 0 || player.faceUp.length > 0) ? (
         Array.from({ length: Math.max(player.faceDown.length, player.faceUp.length) }).map(
           (_, i) => {
@@ -127,8 +135,49 @@ function PlayerZone({
             const w = isBot ? botCardW : 44;
             const showDarkInStack = !!fdCard && !(!isBot && comboFlopDarkEnabled);
             const h = isBot ? botCardH + 12 : (showDarkInStack ? 76 : 64);
+
+            // During flop reverse animation: two-face card flip
+            if (flopFlipAnimating && fdCard && fuCard) {
+              const flipTop = showDarkInStack ? 12 : 0;
+              return (
+                <div key={i} className="relative" style={{ width: w, height: h, perspective: '600px' }}>
+                  {/* Face A: old face-up card (now in faceDown after swap) — flips out */}
+                  <div
+                    className="absolute left-0 right-0"
+                    style={{
+                      top: flipTop,
+                      animation: 'flopFlipOut 1.5s ease-in-out forwards',
+                      backfaceVisibility: 'hidden' as const,
+                    }}
+                  >
+                    {isBot ? (
+                      <Card card={fuCard} faceDown={true} size={cardSize} noLayout />
+                    ) : (
+                      <Card card={fdCard} faceDown={false} size={cardSize} noLayout />
+                    )}
+                  </div>
+                  {/* Face B: new face-up card (now in faceUp after swap) — flips in */}
+                  <div
+                    className="absolute left-0 right-0"
+                    style={{
+                      top: flipTop,
+                      animation: 'flopFlipIn 1.5s ease-in-out forwards',
+                      backfaceVisibility: 'hidden' as const,
+                    }}
+                  >
+                    <Card card={fuCard} faceDown={false} size={cardSize} noLayout />
+                  </div>
+                </div>
+              );
+            }
+
+            // Normal rendering (no animation)
             return (
-              <div key={i} className="relative" style={{ width: w, height: h }}>
+              <div
+                key={i}
+                className="relative"
+                style={{ width: w, height: h }}
+              >
                 {showDarkInStack && (
                   <div className="absolute top-0 z-0">
                     <Card
@@ -144,7 +193,9 @@ function PlayerZone({
                   </div>
                 )}
                 {fuCard && (
-                  <div className={`absolute z-10 ${showDarkInStack ? 'top-3' : 'top-0'}`}>
+                  <div
+                    className={`absolute z-10 ${showDarkInStack ? 'top-3' : 'top-0'}`}
+                  >
                     <Card
                       card={fuCard}
                       size={cardSize}
@@ -511,6 +562,7 @@ function MiniLog({ log, visible = true, maxEntries = 8 }: MiniLogProps) {
   const relevantEntries = log.filter(
     (e) =>
       e.type === 'play' || e.type === 'darkPlay' || e.type === 'darkPlayFail' || e.type === 'pickUp'
+      || e.type === 'skipTurn'
       || e.entryType === 'power' || e.entryType === 'effect',
   );
   const lastN = relevantEntries.slice(-maxEntries);
@@ -590,7 +642,16 @@ function MiniLog({ log, visible = true, maxEntries = 8 }: MiniLogProps) {
           const count = entry.data.cardCount as number | undefined;
           return (
             <div key={entry.id} className="text-[10px] leading-snug text-gray-200 truncate" style={{ opacity }}>
-              <span className="font-semibold">{name}</span> ramasse{count ? ` (${count})` : ''}
+              <span className="font-semibold">{name}</span> ramasse {count ?? '?'} {count === 1 ? 'carte' : 'cartes'}
+            </div>
+          );
+        }
+
+        if (entry.type === 'skipTurn') {
+          const message = (entry.data.message as string) ?? `${name} ne peut pas jouer`;
+          return (
+            <div key={entry.id} className="text-[10px] leading-snug text-gray-200 truncate" style={{ opacity }}>
+              {message}
             </div>
           );
         }
@@ -1305,6 +1366,10 @@ interface GameBoardProps {
   onFlopPickUpWithFlop?: (flopCardIds: string[]) => void;
   /** When true, player has no legal move available — show pickup prompt */
   noLegalMove?: boolean;
+  /** When true, player is blocked on empty pile (only mirrors/jacks) — show skip button */
+  emptyPileBlocked?: boolean;
+  /** Skip turn when blocked on empty pile */
+  onSkipTurn?: () => void;
   /** Pick up the pile (used by no-legal-move banner) */
   onPickUp?: () => void;
 }
@@ -1339,9 +1404,36 @@ export function GameBoard({
   onFlopPickUpOnly,
   onFlopPickUpWithFlop,
   noLegalMove,
+  emptyPileBlocked,
+  onSkipTurn,
   onPickUp,
 }: GameBoardProps) {
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
+
+  // Flop reverse animation: track which player is being flipped
+  const [flopFlipPlayerId, setFlopFlipPlayerId] = React.useState<string | null>(null);
+  const flopFlipTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevLogLenRef = React.useRef(state.log.length);
+  React.useEffect(() => {
+    if (state.log.length > prevLogLenRef.current) {
+      for (let i = prevLogLenRef.current; i < state.log.length; i++) {
+        const entry = state.log[i]!;
+        if (entry.type === 'flopReverseTarget' && entry.data.targetPlayerId) {
+          if (flopFlipTimerRef.current) clearTimeout(flopFlipTimerRef.current);
+          setFlopFlipPlayerId(entry.data.targetPlayerId as string);
+          flopFlipTimerRef.current = setTimeout(() => {
+            setFlopFlipPlayerId(null);
+            flopFlipTimerRef.current = null;
+          }, 1500);
+          break;
+        }
+      }
+    }
+    prevLogLenRef.current = state.log.length;
+  }, [state.log.length]);
+  React.useEffect(() => {
+    return () => { if (flopFlipTimerRef.current) clearTimeout(flopFlipTimerRef.current); };
+  }, []);
 
   // Mobile/landscape detection for compact rendering
   const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
@@ -1462,6 +1554,7 @@ export function GameBoard({
   // Message de statut
   let status = '';
   let statusIsIllegal = false;
+  let statusIsNoLegal = false;
   if (state.phase === 'finished') {
     status = 'Partie terminée';
   } else if (pendingTargetForHuman) {
@@ -1501,7 +1594,11 @@ export function GameBoard({
     );
     status = `${activeBot?.name ?? 'Le bot'} réfléchit…`;
   } else if (noLegalMove) {
-    status = 'Pas de coup légal — ramassez la pile.';
+    status = 'Vous ne pouvez pas jouer de coup légal';
+    statusIsNoLegal = true;
+  } else if (emptyPileBlocked) {
+    status = 'Vous ne pouvez pas jouer de coup légal';
+    statusIsNoLegal = true;
   } else if (isMyTurn) {
     if (humanActiveZone === 'faceDown') {
       status = 'Cliquez une carte à l\'aveugle pour jouer.';
@@ -1548,6 +1645,7 @@ export function GameBoard({
                 selectedCards={[]}
                 playerIndex={botGlobalIdx}
                 debugRevealHands={debugRevealHands}
+                flopFlipAnimating={flopFlipPlayerId === bot.id}
               />
             </div>
           );
@@ -1633,13 +1731,20 @@ export function GameBoard({
           comboHandFlopEnabled={comboHandFlopEnabled}
           comboFlopDarkEnabled={comboFlopDarkEnabled}
           isBurnSelection={isBurnSelection}
+          flopFlipAnimating={flopFlipPlayerId === humanId}
         />
       </div>
 
       {/* ── Status (sous la main du héros) — fixed height to avoid layout shift ── */}
       <div className="flex-none h-5 text-center px-2 pb-1">
         {status && (
-          <p className={`text-[10px] sm:text-xs leading-tight truncate ${statusIsIllegal ? 'text-orange-400' : 'text-gray-300/80'}`}>{status}</p>
+          <p className={`text-[10px] sm:text-xs leading-tight truncate ${
+            statusIsNoLegal
+              ? 'text-red-500 font-bold animate-pulse'
+              : statusIsIllegal
+                ? 'text-orange-400'
+                : 'text-gray-300/80'
+          }`}>{status}</p>
         )}
       </div>
 

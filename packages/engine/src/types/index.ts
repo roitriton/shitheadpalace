@@ -375,7 +375,8 @@ export type GameAction =
   | { type: 'manoucheTarget'; targetPlayerId: string }
   | { type: 'revolutionConfirm' }
   | { type: 'resolveShifumiResult' }
-  | { type: 'manoucheSkip' };
+  | { type: 'manoucheSkip' }
+  | { type: 'skipTurn' };
 
 // ─── Bot Strategy Interface ───────────────────────────────────────────────────
 
