@@ -30,7 +30,7 @@ function setPendingFlop(
     ...state,
     pendingAction: { type: flopType, launcherId },
   };
-  newState = appendLog(newState, flopType, timestamp, launcherId, launcherName, {});
+  newState = appendLog(newState, flopType, timestamp, launcherId, launcherName, {}, 'power');
   return newState;
 }
 
@@ -52,7 +52,7 @@ function setPendingShifumi(
     ...state,
     pendingAction: { type: shifumiType, initiatorId: launcherId },
   };
-  newState = appendLog(newState, shifumiType, timestamp, launcherId, launcherName, {});
+  newState = appendLog(newState, shifumiType, timestamp, launcherId, launcherName, {}, 'power');
   return newState;
 }
 
@@ -136,7 +136,7 @@ function setPendingManouche(
   };
   newState = appendLog(newState, manoucheType, timestamp, launcherId, launcherName, {
     targetId: targetPlayerId,
-  });
+  }, 'power');
   return newState;
 }
 

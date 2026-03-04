@@ -3,7 +3,7 @@ import type { Card, GameState, GameVariant, MultiJackSequenceEntry, Player } fro
 import { applyPlay } from './play';
 import { applyMultiJackOrder, continueMultiJackSequence } from './applyMultiJackOrder';
 import { applyRevolutionConfirm } from './applyRevolutionConfirm';
-import { applyShifumiTarget, applyShifumiChoice } from './applyShifumiChoice';
+import { applyShifumiTarget, applyShifumiChoice, resolveShifumiResult } from './applyShifumiChoice';
 import { applyManoucheTarget, applyManouchePick, applySuperManouchePick } from './applyManoucheChoice';
 import { applyFlopReverseTarget, applyFlopRemake, applyFlopRemakeTarget } from './applyFlopReverseChoice';
 
@@ -646,6 +646,7 @@ describe('Multi-Jack Resolution J+J+J', () => {
     // Both submit choices
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors'); // p1 wins
+    result = resolveShifumiResult(result);
 
     // After shifumi, intermediate state
     expect(result.pendingAction).toBeNull();
@@ -700,6 +701,7 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiTarget(result, 'p0', 'p0', 'p1');
     result = applyShifumiChoice(result, 'p0', 'scissors');
     result = applyShifumiChoice(result, 'p1', 'rock'); // p0 loses
+    result = resolveShifumiResult(result);
 
     // Intermediate state: jack visible on pile, pickup deferred
     expect(result.pendingAction).toBeNull();
@@ -754,6 +756,7 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors'); // p2 loses
+    result = resolveShifumiResult(result);
 
     // Intermediate state: jack visible on pile, pickup deferred
     expect(result.pendingAction).toBeNull();
@@ -794,6 +797,7 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiTarget(result, 'p0', 'p0', 'p1');
     result = applyShifumiChoice(result, 'p0', 'scissors');
     result = applyShifumiChoice(result, 'p1', 'rock'); // p0 loses
+    result = resolveShifumiResult(result);
 
     // After shifumi, intermediate state: lastPowerTriggered set, pendingAction null
     expect(result.pendingAction).toBeNull();
@@ -836,6 +840,7 @@ describe('Revolution + Shifumi interaction (critical)', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors'); // p2 loses
+    result = resolveShifumiResult(result);
 
     // After shifumi, intermediate state: lastPowerTriggered set, pendingAction null
     expect(result.pendingAction).toBeNull();
@@ -881,6 +886,7 @@ describe('Manouche after shifumi in sequence', () => {
     result = applyShifumiTarget(result, 'p0', 'p0', 'p1');
     result = applyShifumiChoice(result, 'p0', 'scissors');
     result = applyShifumiChoice(result, 'p1', 'rock'); // p0 loses, picks up pile
+    result = resolveShifumiResult(result);
 
     // After shifumi, intermediate state
     expect(result.pendingAction).toBeNull();
@@ -994,6 +1000,7 @@ describe('Pending intermediaries', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
+    result = resolveShifumiResult(result);
 
     // After shifumi, intermediate state: lastPowerTriggered set, pendingAction null
     expect(result.pendingAction).toBeNull();
@@ -1334,6 +1341,7 @@ describe('Super shifumi in multi-jack sequence', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
+    result = resolveShifumiResult(result);
 
     // Game ends immediately
     expect(result.phase).toBe('finished');
@@ -1366,9 +1374,10 @@ describe('Shifumi tie during multi-jack', () => {
     // Shifumi pending
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
 
-    // Tie
+    // Tie → PendingShifumiResult with result=tie
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'rock');
+    result = resolveShifumiResult(result);
 
     // Still pending shifumi (tie reset)
     expect(result.pendingAction?.type).toBe('shifumi');
@@ -1379,6 +1388,7 @@ describe('Shifumi tie during multi-jack', () => {
     // Replay and resolve
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
+    result = resolveShifumiResult(result);
 
     // After shifumi, intermediate state: lastPowerTriggered set, pendingAction null
     expect(result.pendingAction).toBeNull();
@@ -1486,6 +1496,7 @@ describe('Edge cases', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
+    result = resolveShifumiResult(result);
 
     // After first shifumi, intermediate state
     expect(result.pendingAction).toBeNull();
@@ -1499,6 +1510,7 @@ describe('Edge cases', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p3');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p3', 'scissors');
+    result = resolveShifumiResult(result);
 
     // After second shifumi, intermediate state
     expect(result.pendingAction).toBeNull();
@@ -1569,6 +1581,7 @@ describe('Edge cases', () => {
     result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
     result = applyShifumiChoice(result, 'p1', 'rock');
     result = applyShifumiChoice(result, 'p2', 'scissors');
+    result = resolveShifumiResult(result);
 
     // Intermediate state: jack visible on pile, pickup deferred
     expect(result.pendingAction).toBeNull();

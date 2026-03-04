@@ -39,7 +39,10 @@ export function applyReset(state: GameState, playerId: string, timestamp: number
   const player = state.players.find((p) => p.id === playerId)!;
 
   let newState: GameState = { ...state, pileResetActive: true };
-  newState = appendLog(newState, 'reset', timestamp, playerId, player.name);
+  newState = appendLog(newState, 'reset', timestamp, playerId, player.name, {}, 'power');
+  newState = appendLog(newState, 'resetEffect', timestamp, playerId, player.name, {
+    message: 'La pile est remise à zéro',
+  }, 'effect');
 
   return newState;
 }

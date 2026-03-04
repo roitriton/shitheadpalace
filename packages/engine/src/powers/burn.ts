@@ -94,7 +94,10 @@ export function applyBurn(state: GameState, playerId: string, timestamp: number)
 
   newState = appendLog(newState, 'burn', timestamp, playerId, player.name, {
     burnedCount: burned.length,
-  });
+  }, 'power');
+  newState = appendLog(newState, 'burnEffect', timestamp, playerId, player.name, {
+    message: `${player.name} brûle la pile`,
+  }, 'effect');
 
   return newState;
 }

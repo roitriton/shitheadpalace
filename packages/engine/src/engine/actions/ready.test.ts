@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyReady, applyFirstPlayerShifumiChoice } from './ready';
+import { resolveShifumiResult } from './applyShifumiChoice';
 import type { Card, GameState, Player } from '../../types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -233,30 +234,41 @@ describe('applyFirstPlayerShifumiChoice — 2 players', () => {
     expect(next.phase).toBe('swapping');
   });
 
+  it('produces PendingShifumiResult when both choices are in', () => {
+    const state = shifumiState2();
+    const after0 = applyFirstPlayerShifumiChoice(state, 'p0', 'rock');
+    const after1 = applyFirstPlayerShifumiChoice(after0, 'p1', 'scissors');
+    expect(after1.pendingAction!.type).toBe('shifumiResult');
+  });
+
   it('resolves and starts the game when p0 wins (rock beats scissors)', () => {
     const state = shifumiState2();
     const after0 = applyFirstPlayerShifumiChoice(state, 'p0', 'rock');
     const after1 = applyFirstPlayerShifumiChoice(after0, 'p1', 'scissors');
-    expect(after1.phase).toBe('playing');
-    expect(after1.pendingAction).toBeNull();
-    expect(after1.currentPlayerIndex).toBe(0);
+    const resolved = resolveShifumiResult(after1);
+    expect(resolved.phase).toBe('playing');
+    expect(resolved.pendingAction).toBeNull();
+    expect(resolved.currentPlayerIndex).toBe(0);
   });
 
   it('resolves and starts the game when p1 wins (paper beats rock)', () => {
     const state = shifumiState2();
     const after0 = applyFirstPlayerShifumiChoice(state, 'p0', 'rock');
     const after1 = applyFirstPlayerShifumiChoice(after0, 'p1', 'paper');
-    expect(after1.phase).toBe('playing');
-    expect(after1.currentPlayerIndex).toBe(1);
+    const resolved = resolveShifumiResult(after1);
+    expect(resolved.phase).toBe('playing');
+    expect(resolved.currentPlayerIndex).toBe(1);
   });
 
-  it('resets choices on a draw and keeps phase = swapping', () => {
+  it('resets choices on a draw after resolving the result', () => {
     const state = shifumiState2();
     const after0 = applyFirstPlayerShifumiChoice(state, 'p0', 'rock');
     const after1 = applyFirstPlayerShifumiChoice(after0, 'p1', 'rock');
-    expect(after1.phase).toBe('swapping');
-    if (after1.pendingAction?.type === 'firstPlayerShifumi') {
-      expect(Object.keys(after1.pendingAction.choices)).toHaveLength(0);
+    expect(after1.pendingAction!.type).toBe('shifumiResult');
+    const resolved = resolveShifumiResult(after1);
+    expect(resolved.phase).toBe('swapping');
+    if (resolved.pendingAction?.type === 'firstPlayerShifumi') {
+      expect(Object.keys(resolved.pendingAction.choices)).toHaveLength(0);
     }
   });
 
@@ -282,19 +294,21 @@ describe('applyFirstPlayerShifumiChoice — 2 players', () => {
     expect(next.log.some((e) => e.type === 'firstPlayerShifumiChoice' && e.playerId === 'p0')).toBe(true);
   });
 
-  it('appends a firstPlayerShifumiDraw log entry on draw', () => {
+  it('appends a firstPlayerShifumiDraw log entry on draw after resolving', () => {
     const state = shifumiState2();
     const after0 = applyFirstPlayerShifumiChoice(state, 'p0', 'rock');
     const after1 = applyFirstPlayerShifumiChoice(after0, 'p1', 'rock');
-    expect(after1.log.some((e) => e.type === 'firstPlayerShifumiDraw')).toBe(true);
+    const resolved = resolveShifumiResult(after1);
+    expect(resolved.log.some((e) => e.type === 'firstPlayerShifumiDraw')).toBe(true);
   });
 
-  it('appends firstPlayerShifumiWin and gameStart log entries on win', () => {
+  it('appends firstPlayerShifumiWin and gameStart log entries on win after resolving', () => {
     const state = shifumiState2();
     const after0 = applyFirstPlayerShifumiChoice(state, 'p0', 'rock');
     const after1 = applyFirstPlayerShifumiChoice(after0, 'p1', 'scissors');
-    expect(after1.log.some((e) => e.type === 'firstPlayerShifumiWin')).toBe(true);
-    expect(after1.log.some((e) => e.type === 'gameStart')).toBe(true);
+    const resolved = resolveShifumiResult(after1);
+    expect(resolved.log.some((e) => e.type === 'firstPlayerShifumiWin')).toBe(true);
+    expect(resolved.log.some((e) => e.type === 'gameStart')).toBe(true);
   });
 });
 
@@ -369,9 +383,11 @@ describe('applyFirstPlayerShifumiChoice — 3+ players (elimination)', () => {
     state = applyFirstPlayerShifumiChoice(state, 'p1', 'rock');
     state = applyFirstPlayerShifumiChoice(state, 'p2', 'scissors');
 
-    // Round 2: p0=paper, p1=rock → p0 wins (paper beats rock)
+    // Round 2: p0=paper, p1=rock → PendingShifumiResult (2-player path)
     state = applyFirstPlayerShifumiChoice(state, 'p0', 'paper');
     state = applyFirstPlayerShifumiChoice(state, 'p1', 'rock');
+    expect(state.pendingAction!.type).toBe('shifumiResult');
+    state = resolveShifumiResult(state);
 
     expect(state.phase).toBe('playing');
     expect(state.pendingAction).toBeNull();
@@ -385,9 +401,11 @@ describe('applyFirstPlayerShifumiChoice — 3+ players (elimination)', () => {
     state = applyFirstPlayerShifumiChoice(state, 'p1', 'rock');
     state = applyFirstPlayerShifumiChoice(state, 'p2', 'scissors');
 
-    // Round 2: draw
+    // Round 2: draw → PendingShifumiResult with tie (2-player path)
     state = applyFirstPlayerShifumiChoice(state, 'p0', 'rock');
     state = applyFirstPlayerShifumiChoice(state, 'p1', 'rock');
+    expect(state.pendingAction!.type).toBe('shifumiResult');
+    state = resolveShifumiResult(state);
 
     expect(state.phase).toBe('swapping');
     if (state.pendingAction?.type === 'firstPlayerShifumi') {
@@ -395,9 +413,10 @@ describe('applyFirstPlayerShifumiChoice — 3+ players (elimination)', () => {
       expect(state.pendingAction.playerIds).toHaveLength(2);
     }
 
-    // Round 3: p1 wins
+    // Round 3: p1 wins → PendingShifumiResult (2-player path)
     state = applyFirstPlayerShifumiChoice(state, 'p0', 'rock');
     state = applyFirstPlayerShifumiChoice(state, 'p1', 'paper');
+    state = resolveShifumiResult(state);
 
     expect(state.phase).toBe('playing');
     expect(state.currentPlayerIndex).toBe(1); // p1 wins

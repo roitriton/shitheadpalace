@@ -10,7 +10,7 @@ import {
   applyFlopRemakeTarget,
   applyFlopRemake,
 } from './actions/applyFlopReverseChoice';
-import { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiChoice';
+import { applyShifumiTarget, applyShifumiChoice, resolveShifumiResult } from './actions/applyShifumiChoice';
 import { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
 import { applyPickUpWithFlopCards } from './actions/pickUpFlop';
 import { applyMultiJackOrder } from './actions/applyMultiJackOrder';
@@ -28,7 +28,7 @@ export {
   applyFlopRemakeTarget,
   applyFlopRemake,
 } from './actions/applyFlopReverseChoice';
-export { applyShifumiTarget, applyShifumiChoice } from './actions/applyShifumiChoice';
+export { applyShifumiTarget, applyShifumiChoice, resolveShifumiResult } from './actions/applyShifumiChoice';
 export { applyAllBlockedShifumiChoice } from './actions/applyAllBlockedShifumiChoice';
 export { applyPickUpWithFlopCards, getAvailableFlopPickUpGroups } from './actions/pickUpFlop';
 export { applyMultiJackOrder, continueMultiJackSequence, resolveNextMultiJack } from './actions/applyMultiJackOrder';
@@ -121,5 +121,8 @@ export function applyAction(
 
     case 'revolutionConfirm':
       return applyRevolutionConfirm(state, playerId, timestamp);
+
+    case 'resolveShifumiResult':
+      return resolveShifumiResult(state, timestamp);
   }
 }

@@ -78,7 +78,8 @@ export function applyTargetChoice(
     timestamp,
     playerId,
     launcherName,
-    { targetPlayerId, targetPlayerName: targetName },
+    { targetPlayerId, targetPlayerName: targetName, message: `${launcherName} désigne ${targetName}` },
+    'effect',
   );
 
   return resolveAutoSkip(newState);

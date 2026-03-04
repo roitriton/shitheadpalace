@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
-import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, PendingMultiJackOrder, PendingRevolutionConfirm, MultiJackSequenceEntry, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingShifumiResult, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, PendingMultiJackOrder, PendingRevolutionConfirm, MultiJackSequenceEntry, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
 import { getActiveZone } from '@shit-head-palace/engine';
 import { getIllegalPlayReason } from '../utils/illegalPlayReason';
 import type { InspectZone } from './DebugPanel';
@@ -14,6 +14,7 @@ import { FlopPickUpModal } from './FlopPickUpModal';
 import { MultiJackOrderModal } from './MultiJackOrderModal';
 import { ModalWrapper } from './ModalWrapper';
 import { ModalButton } from './ModalButton';
+import { ShifumiResultModal } from './ShifumiResultModal';
 
 // ─── Zone de joueur (bot ou humain) ───────────────────────────────────────────
 
@@ -114,183 +115,193 @@ function PlayerZone({
     [onCardClick],
   );
 
-  // ── Bloc de cartes (main + flop) ──
-  const cardBlock = (
-    <div className="flex flex-col items-center gap-3">
-      {/* Main (visible pour bot) — chevauchement + éventail */}
-      {isBot ? (
-        <div className="flex items-end" style={{ paddingBottom: botFanArc }}>
-          {player.hand.map((card, i) => {
-            const { rotate, y } = fanStyle(i, player.hand.length, botFanAngle, botFanArc);
+  // ── Flop section ──
+  const flopSection = (
+    <div className="flex" style={{ gap: isBot ? 4 : (compact ? 4 : 8) }}>
+      {(player.faceDown.length > 0 || player.faceUp.length > 0) ? (
+        Array.from({ length: Math.max(player.faceDown.length, player.faceUp.length) }).map(
+          (_, i) => {
+            const fdCard = player.faceDown[i];
+            const fuCard = player.faceUp[i];
+            const cardSize = isBot ? botCardSize : 'sm';
+            const w = isBot ? botCardW : 44;
+            const showDarkInStack = !!fdCard && !(!isBot && comboFlopDarkEnabled);
+            const h = isBot ? botCardH + 12 : (showDarkInStack ? 76 : 64);
             return (
-              <div
-                key={card.id}
-                style={{
-                  marginLeft: i === 0 ? 0 : -botOverlap(player.hand.length),
-                  zIndex: i,
-                  transform: `rotate(${rotate}deg) translateY(${y}px)`,
-                }}
-              >
-                <Card card={card} faceDown={!debugRevealHands} size={botCardSize} />
+              <div key={i} className="relative" style={{ width: w, height: h }}>
+                {showDarkInStack && (
+                  <div className="absolute top-0 z-0">
+                    <Card
+                      card={fdCard!}
+                      faceDown={isBot ? !debugRevealHands : true}
+                      size={cardSize}
+                      onClick={
+                        canClickFaceDown ? () => onFaceDownClick?.(fdCard!) :
+                        undefined
+                      }
+                      noLayout
+                    />
+                  </div>
+                )}
+                {fuCard && (
+                  <div className={`absolute z-10 ${showDarkInStack ? 'top-3' : 'top-0'}`}>
+                    <Card
+                      card={fuCard}
+                      size={cardSize}
+                      selected={!isBot && selectedCards.includes(fuCard.id)}
+                      burnHighlight={isBurnSelection}
+                      onClick={(canClickFaceUp || canClickFlopCombo) ? () => onCardClick?.(fuCard) : undefined}
+                      noLayout
+                    />
+                  </div>
+                )}
               </div>
             );
-          })}
-          {player.hand.length === 0 && (
-            <span className="text-gray-500 text-xs italic">main vide</span>
-          )}
-        </div>
-      ) : null}
-
-      {/* Flop empilé sur dark flop */}
-      <div className="flex" style={{ gap: isBot ? 4 : (compact ? 4 : 8) }}>
-        {(player.faceDown.length > 0 || player.faceUp.length > 0) ? (
-          Array.from({ length: Math.max(player.faceDown.length, player.faceUp.length) }).map(
-            (_, i) => {
-              const fdCard = player.faceDown[i];
-              const fuCard = player.faceUp[i];
-              const cardSize = isBot ? botCardSize : 'sm';
-              const w = isBot ? botCardW : 44; // w-11 = 44px
-              // When combo flop+dark is active for human, dark flop cards move to separate row below
-              const showDarkInStack = !!fdCard && !(!isBot && comboFlopDarkEnabled);
-              const h = isBot ? botCardH + 12 : (showDarkInStack ? 76 : 64);
-              return (
-                <div key={i} className="relative" style={{ width: w, height: h }}>
-                  {showDarkInStack && (
-                    <div className="absolute top-0 z-0">
-                      <Card
-                        card={fdCard!}
-                        faceDown={isBot ? !debugRevealHands : true}
-                        size={cardSize}
-                        onClick={
-                          canClickFaceDown ? () => onFaceDownClick?.(fdCard!) :
-                          undefined
-                        }
-                        noLayout
-                      />
-                    </div>
-                  )}
-                  {fuCard && (
-                    <div className={`absolute z-10 ${showDarkInStack ? 'top-3' : 'top-0'}`}>
-                      <Card
-                        card={fuCard}
-                        size={cardSize}
-                        selected={!isBot && selectedCards.includes(fuCard.id)}
-                        burnHighlight={isBurnSelection}
-                        onClick={(canClickFaceUp || canClickFlopCombo) ? () => onCardClick?.(fuCard) : undefined}
-                        noLayout
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            },
-          )
-        ) : (
-          <div style={{ width: isBot ? botCardW : 44, height: isBot ? botCardH + 12 : 76 }} className="opacity-0" />
-        )}
-      </div>
-
-      {/* Dark flop — separate row when combo flop+dark enabled */}
-      {!isBot && comboFlopDarkEnabled && player.faceDown.length > 0 && (
-        <div className="flex justify-center mt-1" style={{ gap: compact ? 4 : 8 }}>
-          {player.faceDown.map((fdCard) => (
-            <Card
-              key={fdCard.id}
-              card={fdCard}
-              faceDown={true}
-              size="sm"
-              selected={selectedCards.includes(fdCard.id)}
-              burnHighlight={isBurnSelection}
-              onClick={() => onCardClick?.(fdCard)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Main humain — éventail avec drag and drop (Reorder, opacity locked) */}
-      {!isBot && (
-        <Reorder.Group
-          as="div"
-          axis="x"
-          values={handOrder}
-          onReorder={setHandOrder}
-          className="flex justify-center mt-2"
-          style={{ paddingBottom: humanFanArc }}
-        >
-          {orderedHand.map((card, i) => {
-            const { rotate, y } = fanStyle(i, orderedHand.length, humanFanAngle, humanFanArc);
-            const isSelected = selectedCards.includes(card.id);
-            const isDragging = draggingCardId === card.id;
-            return (
-              <Reorder.Item
-                as="div"
-                key={card.id}
-                value={card.id}
-                className="relative"
-                style={{
-                  marginLeft: i === 0 ? 0 : -4,
-                  zIndex: isDragging ? 50 : isSelected ? 20 : i,
-                  opacity: 1,
-                }}
-                initial={false}
-                animate={{
-                  rotate: isSelected ? 0 : rotate,
-                  y: isSelected ? -18 : y,
-                }}
-                whileHover={canClickHand && !isSelected && !isDragging ? { y: y - 10, rotate: 0, scale: 1.06 } : {}}
-                whileDrag={{ scale: 1.08, rotate: 0, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
-                transition={{ layout: { duration: 0.15 }, opacity: { duration: 0 } }}
-                onDragStart={() => {
-                  setDraggingCardId(card.id);
-                  didDragRef.current = true;
-                  if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
-                }}
-                onDragEnd={() => {
-                  setDraggingCardId(null);
-                  dragTimerRef.current = setTimeout(() => { didDragRef.current = false; }, 300);
-                }}
-              >
-                <Card
-                  card={card}
-                  size={humanCardSize}
-                  selected={isSelected}
-                  burnHighlight={isBurnSelection}
-                  onClick={canClickHand ? () => handleCardClickNoDrag(card) : undefined}
-                  disabled={false}
-                  noMotion
-                  noLayout
-                />
-              </Reorder.Item>
-            );
-          })}
-        </Reorder.Group>
-      )}
-
-      {/* Combo hint text */}
-      {!isBot && comboHandFlopEnabled && (
-        <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
-          Vous pouvez aussi sélectionner des cartes du flop de même valeur
-        </p>
-      )}
-      {!isBot && comboFlopDarkEnabled && (
-        <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
-          Vous pouvez aussi sélectionner des cartes du dark flop (attention : combo invalide = ramasser)
-        </p>
+          },
+        )
+      ) : (
+        <div style={{ width: isBot ? botCardW : 44, height: isBot ? botCardH + 12 : 76 }} className="opacity-0" />
       )}
     </div>
   );
 
   return (
-    <div className="flex flex-row items-center gap-1.5 sm:gap-2 md:gap-3">
-      {/* Avatar + nom à gauche */}
-      <div className="flex flex-col items-center gap-0.5 sm:gap-1 shrink-0">
-        <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} />
-        <span className={`text-[10px] sm:text-xs font-semibold max-w-[40px] sm:max-w-[56px] truncate text-center ${isActive ? 'text-gold' : 'text-gray-400'}`}>
+    <div className="grid items-center gap-x-2 sm:gap-x-3" style={{ gridTemplateColumns: 'auto 1fr' }}>
+      {/* Bot hand — column 2 only, aligned with flop */}
+      {isBot && (
+        <>
+          <div />
+          <div className="flex items-end justify-center mb-1" style={{ paddingBottom: botFanArc }}>
+            {player.hand.map((card, i) => {
+              const { rotate, y } = fanStyle(i, player.hand.length, botFanAngle, botFanArc);
+              return (
+                <div
+                  key={card.id}
+                  style={{
+                    marginLeft: i === 0 ? 0 : -botOverlap(player.hand.length),
+                    zIndex: i,
+                    transform: `rotate(${rotate}deg) translateY(${y}px)`,
+                  }}
+                >
+                  <Card card={card} faceDown={!debugRevealHands} size={botCardSize} />
+                </div>
+              );
+            })}
+            {player.hand.length === 0 && (
+              <span className="text-gray-500 text-xs italic">main vide</span>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Avatar + Name — column 1 */}
+      <div className="flex flex-col items-center gap-0.5 shrink-0">
+        <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} />
+        <span className={`${isBot ? 'text-[10px] max-w-[48px]' : 'text-sm max-w-[64px]'} font-semibold truncate text-center ${isActive ? 'text-gold' : 'text-gray-400'}`}>
           {player.name}
         </span>
       </div>
-      {/* Cartes à droite */}
-      {cardBlock}
+
+      {/* Flop — column 2 */}
+      <div className="flex flex-col items-center gap-1">
+        {flopSection}
+        {/* Dark flop — separate row when combo flop+dark enabled */}
+        {!isBot && comboFlopDarkEnabled && player.faceDown.length > 0 && (
+          <div className="flex justify-center" style={{ gap: compact ? 4 : 8 }}>
+            {player.faceDown.map((fdCard) => (
+              <Card
+                key={fdCard.id}
+                card={fdCard}
+                faceDown={true}
+                size="sm"
+                selected={selectedCards.includes(fdCard.id)}
+                burnHighlight={isBurnSelection}
+                onClick={() => onCardClick?.(fdCard)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Human hand — column 2 only, aligned with flop */}
+      {!isBot && (
+        <>
+          <div />
+          <Reorder.Group
+            as="div"
+            axis="x"
+            values={handOrder}
+            onReorder={setHandOrder}
+            className="flex justify-center mt-4"
+            style={{ paddingBottom: humanFanArc }}
+          >
+            {orderedHand.map((card, i) => {
+              const { rotate, y } = fanStyle(i, orderedHand.length, humanFanAngle, humanFanArc);
+              const isSelected = selectedCards.includes(card.id);
+              const isDragging = draggingCardId === card.id;
+              return (
+                <Reorder.Item
+                  as="div"
+                  key={card.id}
+                  value={card.id}
+                  className="relative"
+                  style={{
+                    marginLeft: i === 0 ? 0 : -4,
+                    zIndex: isDragging ? 50 : isSelected ? 20 : i,
+                    opacity: 1,
+                  }}
+                  initial={false}
+                  animate={{
+                    rotate: isSelected ? 0 : rotate,
+                    y: isSelected ? -18 : y,
+                  }}
+                  whileHover={canClickHand && !isSelected && !isDragging ? { y: y - 10, rotate: 0, scale: 1.06 } : {}}
+                  whileDrag={{ scale: 1.08, rotate: 0, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                  transition={{ layout: { duration: 0.15 }, opacity: { duration: 0 } }}
+                  onDragStart={() => {
+                    setDraggingCardId(card.id);
+                    didDragRef.current = true;
+                    if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingCardId(null);
+                    dragTimerRef.current = setTimeout(() => { didDragRef.current = false; }, 300);
+                  }}
+                >
+                  <Card
+                    card={card}
+                    size={humanCardSize}
+                    selected={isSelected}
+                    burnHighlight={isBurnSelection}
+                    onClick={canClickHand ? () => handleCardClickNoDrag(card) : undefined}
+                    disabled={false}
+                    noMotion
+                    noLayout
+                  />
+                </Reorder.Item>
+              );
+            })}
+          </Reorder.Group>
+        </>
+      )}
+
+      {/* Combo hint text — column 2 only */}
+      {!isBot && comboHandFlopEnabled && (
+        <>
+          <div />
+          <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
+            Vous pouvez aussi sélectionner des cartes du flop de même valeur
+          </p>
+        </>
+      )}
+      {!isBot && comboFlopDarkEnabled && (
+        <>
+          <div />
+          <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
+            Vous pouvez aussi sélectionner des cartes du dark flop (attention : combo invalide = ramasser)
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -455,7 +466,7 @@ function GraveyardDisplay({ graveyard }: GraveyardDisplayProps) {
   );
 }
 
-// ─── MiniLog (last 5 actions) ──────────────────────────────────────────────
+// ─── MiniLog (last 8 actions/powers/effects) ──────────────────────────────
 
 const LOG_SUIT_SYMBOL: Record<string, string> = {
   hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠',
@@ -466,18 +477,43 @@ const LOG_SUIT_COLOR: Record<string, string> = {
   clubs: 'text-white', spades: 'text-white',
 };
 
+const POWER_LABELS: Record<string, string> = {
+  burn: 'Burn !',
+  reset: 'Reset !',
+  skip: 'Skip !',
+  under: 'Under !',
+  target: 'Target !',
+  mirror: 'Mirror !',
+  revolution: 'Révolution !',
+  superRevolution: 'Super Révolution !',
+  manouche: 'Manouche !',
+  superManouche: 'Super Manouche !',
+  flopReverse: 'Flop Reverse !',
+  flopRemake: 'Flop Remake !',
+  shifumi: 'Shifumi !',
+  superShifumi: 'Super Shifumi !',
+};
+
+function getMiniLogColor(entry: LogEntry): string {
+  if (entry.entryType === 'power') return 'text-amber-400';
+  if (entry.entryType === 'effect') return 'text-emerald-400';
+  return 'text-gray-200';
+}
+
 interface MiniLogProps {
   log: LogEntry[];
   visible?: boolean;
   maxEntries?: number;
 }
 
-/** Compact log showing the last N game actions with fading opacity. */
-function MiniLog({ log, visible = true, maxEntries = 5 }: MiniLogProps) {
-  const actionEntries = log.filter(
-    (e) => e.type === 'play' || e.type === 'darkPlay' || e.type === 'darkPlayFail' || e.type === 'pickUp',
+/** Compact log showing the last N game actions/powers/effects with fading opacity. */
+function MiniLog({ log, visible = true, maxEntries = 8 }: MiniLogProps) {
+  const relevantEntries = log.filter(
+    (e) =>
+      e.type === 'play' || e.type === 'darkPlay' || e.type === 'darkPlayFail' || e.type === 'pickUp'
+      || e.entryType === 'power' || e.entryType === 'effect',
   );
-  const lastN = actionEntries.slice(-maxEntries);
+  const lastN = relevantEntries.slice(-maxEntries);
   const display = [...lastN].reverse();
   // Generate fading opacities dynamically based on entry count
   const opacities = display.map((_, i) => {
@@ -498,7 +534,29 @@ function MiniLog({ log, visible = true, maxEntries = 5 }: MiniLogProps) {
       {display.map((entry, idx) => {
         const opacity = opacities[idx] ?? 0.2;
         const name = entry.playerName ?? '?';
+        const color = getMiniLogColor(entry);
 
+        // Power entries: show power label only (no player name)
+        if (entry.entryType === 'power') {
+          const label = POWER_LABELS[entry.type] ?? entry.type;
+          return (
+            <div key={entry.id} className={`text-[10px] leading-snug ${color} truncate font-semibold`} style={{ opacity }}>
+              {label}
+            </div>
+          );
+        }
+
+        // Effect entries: show pre-formatted message
+        if (entry.entryType === 'effect') {
+          const message = (entry.data.message as string) ?? entry.type;
+          return (
+            <div key={entry.id} className={`text-[10px] leading-snug ${color} truncate`} style={{ opacity }}>
+              {message}
+            </div>
+          );
+        }
+
+        // Action entries: existing display logic
         if (entry.type === 'play' || entry.type === 'darkPlay') {
           const ranks = (entry.data.ranks as string[] | undefined) ?? [];
           const suits = (entry.data.suits as string[] | undefined) ?? [];
@@ -508,11 +566,11 @@ function MiniLog({ log, visible = true, maxEntries = 5 }: MiniLogProps) {
               {ranks.map((rank, ri) => {
                 const suit = suits[ri] ?? '';
                 const symbol = LOG_SUIT_SYMBOL[suit] ?? '';
-                const color = LOG_SUIT_COLOR[suit] ?? 'text-white';
+                const suitColor = LOG_SUIT_COLOR[suit] ?? 'text-white';
                 return (
                   <span key={ri}>
                     {ri > 0 && ' '}
-                    <span className={`font-bold ${color}`}>{rank}{symbol}</span>
+                    <span className={`font-bold ${suitColor}`}>{rank}{symbol}</span>
                   </span>
                 );
               })}
@@ -606,11 +664,9 @@ function CardsColumn({ state, humanId }: CardsColumnProps) {
 
   return (
     <div className="flex flex-col h-full items-center justify-center">
-      {turnMessage && (
-        <p className="text-[10px] sm:text-xs text-gray-300/70 leading-tight mb-1 truncate max-w-full px-2">
-          {turnMessage}
-        </p>
-      )}
+      <p className={`text-[10px] sm:text-xs leading-tight mb-1 truncate max-w-full px-2 ${turnMessage ? 'text-gray-300/70' : 'invisible'}`}>
+        {turnMessage || '\u00A0'}
+      </p>
       <PileHorizontal pile={displayPile} />
       <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
         Pile : {totalPileCards} cartes
@@ -1372,6 +1428,12 @@ export function GameBoard({
       allBlockedShifumiPending.playerIds.includes(humanId) &&
       !allBlockedShifumiPending.choices[humanId]);
 
+  // ShifumiResult: visible to ALL players (public popup)
+  const pendingShifumiResult =
+    pending?.type === 'shifumiResult'
+      ? (pending as PendingShifumiResult)
+      : null;
+
   // Flop Reverse: human is launcher and needs to pick target
   const pendingFlopReverseForHuman =
     pending?.type === 'flopReverse' && pending.launcherId === humanId;
@@ -1409,6 +1471,8 @@ export function GameBoard({
     status = 'Choisissez 2 joueurs pour le Shifumi.';
   } else if (pendingShifumiChoiceForHuman) {
     status = 'Pierre-papier-ciseaux !';
+  } else if (pendingShifumiResult) {
+    status = 'Résultat du shifumi…';
   } else if (pendingShifumiWaiting) {
     status = 'En attente du choix de l\'adversaire…';
   } else if (pendingGenericShifumiForHuman) {
@@ -1570,8 +1634,8 @@ export function GameBoard({
         {/* Colonne centre (50%) — Pile + Overlay absolu */}
         <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg relative">
           <CardsColumn state={state} humanId={humanId} />
-          {/* Power Overlay — floats below pile, absolute positioned, no layout shift */}
-          <div className="absolute bottom-2 inset-x-0 flex justify-center pointer-events-none z-10">
+          {/* Power Overlay — centered absolute, no layout shift */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <PowerOverlay power={currentPower ?? null} players={state.players} />
           </div>
         </div>
@@ -1584,7 +1648,7 @@ export function GameBoard({
           </div>
           {/* MiniLog étendu (50%) */}
           <div className="flex-1 min-h-0 overflow-hidden">
-            <MiniLog log={state.log} maxEntries={12} />
+            <MiniLog log={state.log} maxEntries={8} />
           </div>
         </div>
       </div>
@@ -1730,6 +1794,13 @@ export function GameBoard({
             isSuper={false}
             onChoice={onShifumiChoice}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── Shifumi result popup (visible to all) ── */}
+      <AnimatePresence>
+        {pendingShifumiResult && (
+          <ShifumiResultModal pending={pendingShifumiResult} />
         )}
       </AnimatePresence>
 

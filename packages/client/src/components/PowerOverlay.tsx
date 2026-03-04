@@ -103,35 +103,27 @@ export function PowerOverlay({ power, players }: PowerOverlayProps) {
   prevPowerRef.current = power;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {power && (
         <motion.div
           key={counterRef.current}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="w-full flex items-center justify-center py-1"
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 1.15 }}
+          transition={{
+            duration: 0.4,
+            ease: 'easeOut',
+            exit: { duration: 0.5, ease: 'easeIn' },
+          }}
+          style={{ transformOrigin: 'center center', willChange: 'transform, opacity' }}
+          className="flex flex-col items-center gap-1"
         >
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.15, opacity: 0 }}
-            transition={{
-              duration: 0.4,
-              ease: 'easeOut',
-              exit: { duration: 0.5, ease: 'easeIn' },
-            }}
-            style={{ transformOrigin: 'center center', willChange: 'transform, opacity' }}
-            className="flex flex-col items-center gap-1"
-          >
-            <span className="text-3xl drop-shadow-lg">
-              {POWER_DISPLAY[power.type].icon}
-            </span>
-            <span className="font-serif text-xs font-bold text-white drop-shadow-lg text-center px-1 leading-tight">
-              {POWER_DISPLAY[power.type].label(power, players)}
-            </span>
-          </motion.div>
+          <span className="text-3xl drop-shadow-lg">
+            {POWER_DISPLAY[power.type].icon}
+          </span>
+          <span className="font-serif text-xs font-bold text-white drop-shadow-lg text-center px-1 leading-tight">
+            {POWER_DISPLAY[power.type].label(power, players)}
+          </span>
         </motion.div>
       )}
     </AnimatePresence>

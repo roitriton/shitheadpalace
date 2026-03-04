@@ -6,6 +6,7 @@ import {
   applyReady,
   resolveCemeteryTransit,
   continueMultiJackSequence,
+  resolveShifumiResult,
 } from '@shit-head-palace/engine';
 import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './bot';
@@ -56,6 +57,9 @@ const CEMETERY_TRANSIT_DELAY_MS = 1500;
 
 /** Delay between each multi-jack step (revolution animation). */
 const MULTI_JACK_STEP_DELAY_MS = 1500;
+
+/** Delay before auto-resolving a shifumi result popup (3 seconds). */
+const SHIFUMI_RESULT_DELAY_MS = 3000;
 
 const MAX_CHAT_MESSAGE_LENGTH = 200;
 const MAX_CHAT_HISTORY = 100;
@@ -218,6 +222,12 @@ export class GameRoom {
 
     this.broadcast();
 
+    // Shifumi result popup: auto-resolve after 3s delay
+    if (this.state.pendingAction?.type === 'shifumiResult') {
+      this.scheduleShifumiResultResolution();
+      return;
+    }
+
     // Multi-jack continuation, cemetery transit, or bot scheduling
     if (this.needsMultiJackContinuation()) {
       this.scheduleMultiJackContinuation();
@@ -304,7 +314,9 @@ export class GameRoom {
       }
       this.broadcast();
 
-      if (this.needsMultiJackContinuation()) {
+      if (this.state.pendingAction?.type === 'shifumiResult') {
+        this.scheduleShifumiResultResolution();
+      } else if (this.needsMultiJackContinuation()) {
         this.scheduleMultiJackContinuation();
       } else if (this.state.pendingCemeteryTransit) {
         setTimeout(() => {
@@ -320,6 +332,39 @@ export class GameRoom {
         this.scheduleBotIfNeeded();
       }
     }, MULTI_JACK_STEP_DELAY_MS);
+  }
+
+  private scheduleShifumiResultResolution(): void {
+    setTimeout(() => {
+      if (!this.state) return;
+      if (this.state.pendingAction?.type !== 'shifumiResult') return;
+
+      this.state = resolveShifumiResult(this.state, Date.now());
+
+      if (this.state.phase === 'finished') {
+        this.status = 'finished';
+      }
+      this.broadcast();
+
+      // After resolution, check if another shifumiResult was produced (tie → new round → new result)
+      if (this.state.pendingAction?.type === 'shifumiResult') {
+        this.scheduleShifumiResultResolution();
+      } else if (this.needsMultiJackContinuation()) {
+        this.scheduleMultiJackContinuation();
+      } else if (this.state.pendingCemeteryTransit) {
+        setTimeout(() => {
+          if (!this.state) return;
+          this.state = resolveCemeteryTransit(this.state);
+          if (this.state.phase === 'finished') {
+            this.status = 'finished';
+          }
+          this.broadcast();
+          this.scheduleBotIfNeeded();
+        }, CEMETERY_TRANSIT_DELAY_MS);
+      } else {
+        this.scheduleBotIfNeeded();
+      }
+    }, SHIFUMI_RESULT_DELAY_MS);
   }
 
   private scheduleBotIfNeeded(): void {
@@ -353,8 +398,10 @@ export class GameRoom {
         }
         this.broadcast();
 
-        // Multi-jack continuation, cemetery transit, or next bot
-        if (this.needsMultiJackContinuation()) {
+        // Shifumi result popup, multi-jack continuation, cemetery transit, or next bot
+        if (this.state.pendingAction?.type === 'shifumiResult') {
+          this.scheduleShifumiResultResolution();
+        } else if (this.needsMultiJackContinuation()) {
           this.scheduleMultiJackContinuation();
         } else if (this.state.pendingCemeteryTransit) {
           setTimeout(() => {

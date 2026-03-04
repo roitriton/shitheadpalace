@@ -12,6 +12,7 @@ import type { GameState } from '../types';
  * @param playerId   - ID of the acting player, if applicable.
  * @param playerName - Display name of the acting player, if applicable.
  * @param data       - Arbitrary event payload (defaults to empty object).
+ * @param entryType  - Entry category: 'action' (default), 'power', or 'effect'.
  */
 export function appendLog(
   state: GameState,
@@ -20,6 +21,7 @@ export function appendLog(
   playerId?: string,
   playerName?: string,
   data: Record<string, unknown> = {},
+  entryType?: 'action' | 'power' | 'effect',
 ): GameState {
   const entry = {
     id: `${state.log.length}-${timestamp}-${type}`,
@@ -28,6 +30,7 @@ export function appendLog(
     playerId,
     playerName,
     data,
+    ...(entryType ? { entryType } : {}),
   };
   return { ...state, log: [...state.log, entry] };
 }

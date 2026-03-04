@@ -47,6 +47,6 @@ export function applyTarget(
     ...state,
     pendingAction: { type: 'target', launcherId: playerId },
   };
-  newState = appendLog(newState, 'target', timestamp, playerId, player.name, {});
+  newState = appendLog(newState, 'target', timestamp, playerId, player.name, {}, 'power');
   return newState;
 }

@@ -194,6 +194,28 @@ export interface PendingRevolutionConfirm {
   isSuper: boolean;
 }
 
+/**
+ * Intermediate state after a shifumi round resolves, before the effect is applied.
+ * Displayed as a popup to all players showing both choices and the outcome.
+ * Auto-resolved by the server after a 3-second delay.
+ */
+export interface PendingShifumiResult {
+  type: 'shifumiResult';
+  player1Id: string;
+  player1Name: string;
+  player1Choice: ShifumiChoice;
+  player2Id: string;
+  player2Name: string;
+  player2Choice: ShifumiChoice;
+  /** Who won: 'tie', 'player1', or 'player2' */
+  result: 'tie' | 'player1' | 'player2';
+  /** Context: normal J♣, super J♣+mirror, or first-player tiebreak */
+  shifumiType: 'normal' | 'super' | 'firstPlayer';
+  /** Preserved state needed by resolveShifumiResult to apply the actual effect */
+  _savedPendingAction?: PendingShifumi;
+  _savedInitiatorId?: string;
+}
+
 export type PendingAction =
   | PendingShifumi
   | PendingManouche
@@ -203,7 +225,8 @@ export type PendingAction =
   | PendingFirstPlayerShifumi
   | PendingAllBlockedShifumi
   | PendingMultiJackOrder
-  | PendingRevolutionConfirm;
+  | PendingRevolutionConfirm
+  | PendingShifumiResult;
 
 // ─── Log ──────────────────────────────────────────────────────────────────────
 
@@ -214,6 +237,8 @@ export interface LogEntry {
   playerId?: string;
   playerName?: string;
   data: Record<string, unknown>;
+  /** Entry category for display: action (default), power trigger, or effect/consequence */
+  entryType?: 'action' | 'power' | 'effect';
 }
 
 // ─── Last Power Triggered ────────────────────────────────────────────────────
@@ -342,7 +367,8 @@ export type GameAction =
   | { type: 'pickUpWithFlop'; flopCardIds: string[] }
   | { type: 'multiJackOrder'; sequence: MultiJackSequenceEntry[] }
   | { type: 'manoucheTarget'; targetPlayerId: string }
-  | { type: 'revolutionConfirm' };
+  | { type: 'revolutionConfirm' }
+  | { type: 'resolveShifumiResult' };
 
 // ─── Bot Strategy Interface ───────────────────────────────────────────────────
 

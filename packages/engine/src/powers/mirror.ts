@@ -59,7 +59,7 @@ export function applyMirror(
   newPile[newPile.length - 1] = { ...newPile[newPile.length - 1]!, effectiveRank };
 
   let newState: GameState = { ...state, pile: newPile };
-  newState = appendLog(newState, 'mirror', timestamp, playerId, player.name, { effectiveRank });
+  newState = appendLog(newState, 'mirror', timestamp, playerId, player.name, { effectiveRank }, 'power');
 
   return newState;
 }

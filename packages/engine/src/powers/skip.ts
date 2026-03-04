@@ -52,5 +52,10 @@ export function logSkip(
   timestamp: number,
 ): GameState {
   const player = state.players.find((p) => p.id === playerId)!;
-  return appendLog(state, 'skip', timestamp, playerId, player.name, { skipCount });
+  let newState = appendLog(state, 'skip', timestamp, playerId, player.name, { skipCount }, 'power');
+  newState = appendLog(newState, 'skipEffect', timestamp, playerId, player.name, {
+    message: skipCount > 1 ? `${skipCount} joueurs passés` : 'Joueur suivant passé',
+    skipCount,
+  }, 'effect');
+  return newState;
 }

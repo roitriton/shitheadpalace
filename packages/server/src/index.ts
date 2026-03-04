@@ -19,6 +19,7 @@ import {
   resolveCemeteryTransit,
   continueMultiJackSequence,
   applyRevolutionConfirm,
+  resolveShifumiResult,
 } from '@shit-head-palace/engine';
 import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './game/bot';
@@ -82,6 +83,9 @@ const MULTI_JACK_STEP_DELAY_MS = 1500;
 /** Bot turn delay in milliseconds (solo mode). */
 const BOT_DELAY_MS = 1500;
 
+/** Delay before auto-resolving a shifumi result popup (3 seconds). */
+const SHIFUMI_RESULT_DELAY_MS = 3000;
+
 function sendSoloState(socket: Socket, session: SoloSession): void {
   socket.emit('game:state', {
     state: IS_DEV
@@ -125,8 +129,10 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
 
       sendSoloState(socket, session);
 
-      // Multi-jack continuation, cemetery transit, or next bot
-      if (needsMultiJackContinuation(session.state)) {
+      // Shifumi result popup, multi-jack continuation, cemetery transit, or next bot
+      if (session.state.pendingAction?.type === 'shifumiResult') {
+        scheduleSoloShifumiResultResolution(socket, session);
+      } else if (needsMultiJackContinuation(session.state)) {
         scheduleSoloMultiJackContinuation(socket, session);
       } else if (session.state.pendingCemeteryTransit) {
         setTimeout(() => {
@@ -189,7 +195,9 @@ function scheduleSoloMultiJackContinuation(socket: Socket, session: SoloSession)
 
     sendSoloState(socket, session);
 
-    if (needsMultiJackContinuation(session.state)) {
+    if (session.state.pendingAction?.type === 'shifumiResult') {
+      scheduleSoloShifumiResultResolution(socket, session);
+    } else if (needsMultiJackContinuation(session.state)) {
       // Another immediate power in the sequence — continue
       scheduleSoloMultiJackContinuation(socket, session);
     } else if (session.state.pendingCemeteryTransit) {
@@ -204,6 +212,38 @@ function scheduleSoloMultiJackContinuation(socket: Socket, session: SoloSession)
       scheduleSoloBotIfNeeded(socket, session);
     }
   }, MULTI_JACK_STEP_DELAY_MS);
+}
+
+/**
+ * Schedules auto-resolution of a PendingShifumiResult in solo mode.
+ * Waits 3 seconds, then resolves the result and continues the game.
+ */
+function scheduleSoloShifumiResultResolution(socket: Socket, session: SoloSession): void {
+  setTimeout(() => {
+    const current = soloSessions.get(socket.id);
+    if (!current || current !== session) return;
+    if (session.state.pendingAction?.type !== 'shifumiResult') return;
+
+    session.state = resolveShifumiResult(session.state, Date.now());
+    sendSoloState(socket, session);
+
+    // After resolution, check what to do next
+    if (session.state.pendingAction?.type === 'shifumiResult') {
+      scheduleSoloShifumiResultResolution(socket, session);
+    } else if (needsMultiJackContinuation(session.state)) {
+      scheduleSoloMultiJackContinuation(socket, session);
+    } else if (session.state.pendingCemeteryTransit) {
+      setTimeout(() => {
+        const c = soloSessions.get(socket.id);
+        if (!c || c !== session) return;
+        session.state = resolveCemeteryTransit(session.state);
+        sendSoloState(socket, session);
+        scheduleSoloBotIfNeeded(socket, session);
+      }, CEMETERY_TRANSIT_DELAY_MS);
+    } else {
+      scheduleSoloBotIfNeeded(socket, session);
+    }
+  }, SHIFUMI_RESULT_DELAY_MS);
 }
 
 /** Emit a system chat message to a solo socket. */
@@ -319,8 +359,11 @@ io.on('connection', (rawSocket) => {
 
       sendSoloState(socket, s);
 
-      // Multi-jack continuation: revolution/superRevolution needs server-driven step
-      if (needsMultiJackContinuation(s.state)) {
+      // Shifumi result popup: auto-resolve after 3s delay
+      if (s.state.pendingAction?.type === 'shifumiResult') {
+        scheduleSoloShifumiResultResolution(socket, s);
+      } else if (needsMultiJackContinuation(s.state)) {
+        // Multi-jack continuation: revolution/superRevolution needs server-driven step
         scheduleSoloMultiJackContinuation(socket, s);
       } else if (s.state.pendingCemeteryTransit) {
         // Two-step cemetery transit: intermediate state already sent, resolve after delay
@@ -391,8 +434,10 @@ io.on('connection', (rawSocket) => {
 
       sendSoloState(socket, s);
 
-      // Multi-jack continuation or cemetery transit
-      if (needsMultiJackContinuation(s.state)) {
+      // Shifumi result popup, multi-jack continuation, or cemetery transit
+      if (s.state.pendingAction?.type === 'shifumiResult') {
+        scheduleSoloShifumiResultResolution(socket, s);
+      } else if (needsMultiJackContinuation(s.state)) {
         scheduleSoloMultiJackContinuation(socket, s);
       } else if (s.state.pendingCemeteryTransit) {
         setTimeout(() => {

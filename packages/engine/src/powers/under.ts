@@ -56,7 +56,11 @@ export function applyUnder(
   const player = state.players.find((p) => p.id === playerId)!;
 
   let newState: GameState = { ...state, activeUnder: underValue };
-  newState = appendLog(newState, 'under', timestamp, playerId, player.name, { underValue });
+  newState = appendLog(newState, 'under', timestamp, playerId, player.name, { underValue }, 'power');
+  newState = appendLog(newState, 'underEffect', timestamp, playerId, player.name, {
+    message: 'Le prochain joueur doit jouer en dessous.',
+    underValue,
+  }, 'effect');
 
   return newState;
 }

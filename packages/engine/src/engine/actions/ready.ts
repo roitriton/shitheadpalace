@@ -1,4 +1,4 @@
-import type { GameState, ShifumiChoice } from '../../types';
+import type { GameState, PendingShifumiResult, ShifumiChoice } from '../../types';
 import { findFirstPlayer } from '../../utils/firstPlayer';
 import { buildTurnQueue } from '../turn';
 import { appendLog } from '../../utils/log';
@@ -164,7 +164,44 @@ export function applyFirstPlayerShifumiChoice(
   const allChosen = pending.playerIds.every((id) => newChoices[id] !== undefined);
   if (!allChosen) return newState;
 
-  // All choices received — resolve
+  // ── 2-player case: produce PendingShifumiResult for popup ────────────────
+  if (pending.playerIds.length === 2) {
+    const [p1Id, p2Id] = pending.playerIds as [string, string];
+    const p1 = state.players.find((p) => p.id === p1Id)!;
+    const p2 = state.players.find((p) => p.id === p2Id)!;
+    const c1 = newChoices[p1Id]!;
+    const c2 = newChoices[p2Id]!;
+
+    // Determine winner using same logic as getShifumiWinner
+    let result: 'tie' | 'player1' | 'player2';
+    if (c1 === c2) {
+      result = 'tie';
+    } else if (
+      (c1 === 'rock' && c2 === 'scissors') ||
+      (c1 === 'scissors' && c2 === 'paper') ||
+      (c1 === 'paper' && c2 === 'rock')
+    ) {
+      result = 'player1';
+    } else {
+      result = 'player2';
+    }
+
+    const shifumiResult: PendingShifumiResult = {
+      type: 'shifumiResult',
+      player1Id: p1Id,
+      player1Name: p1.name,
+      player1Choice: c1,
+      player2Id: p2Id,
+      player2Name: p2.name,
+      player2Choice: c2,
+      result,
+      shifumiType: 'firstPlayer',
+    };
+
+    return { ...newState, pendingAction: shifumiResult };
+  }
+
+  // ── 3+ player case: resolve immediately (N-player elimination) ───────────
   const result = resolveNPlayerShifumi(
     pending.playerIds,
     newChoices as Record<string, ShifumiChoice>,

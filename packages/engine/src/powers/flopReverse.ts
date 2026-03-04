@@ -82,7 +82,7 @@ export function applyFlopReversePower(
     ...state,
     pendingAction: { type: 'flopReverse', launcherId },
   };
-  newState = appendLog(newState, 'flopReverse', timestamp, launcherId, launcher.name, {});
+  newState = appendLog(newState, 'flopReverse', timestamp, launcherId, launcher.name, {}, 'power');
   return newState;
 }
 
@@ -105,6 +105,6 @@ export function applyFlopRemakePower(
     ...state,
     pendingAction: { type: 'flopRemake', launcherId },
   };
-  newState = appendLog(newState, 'flopRemake', timestamp, launcherId, launcher.name, {});
+  newState = appendLog(newState, 'flopRemake', timestamp, launcherId, launcher.name, {}, 'power');
   return newState;
 }

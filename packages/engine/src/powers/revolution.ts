@@ -85,7 +85,10 @@ export function applyRevolution(
     phase: 'revolution',
     revolution: true,
   };
-  newState = appendLog(newState, 'revolution', timestamp, playerId, player.name, {});
+  newState = appendLog(newState, 'revolution', timestamp, playerId, player.name, {}, 'power');
+  newState = appendLog(newState, 'revolutionEffect', timestamp, playerId, player.name, {
+    message: 'Les valeurs sont inversées',
+  }, 'effect');
   return newState;
 }
 
@@ -111,6 +114,9 @@ export function applySuperRevolution(
     revolution: true,
     superRevolution: true,
   };
-  newState = appendLog(newState, 'superRevolution', timestamp, playerId, player.name, {});
+  newState = appendLog(newState, 'superRevolution', timestamp, playerId, player.name, {}, 'power');
+  newState = appendLog(newState, 'superRevolutionEffect', timestamp, playerId, player.name, {
+    message: 'Les valeurs sont inversées définitivement',
+  }, 'effect');
   return newState;
 }

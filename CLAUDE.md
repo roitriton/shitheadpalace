@@ -176,7 +176,7 @@ Session 28/02 — Phases 3-6 (1033 tests au total) :
   - Bot support : auto-résolution PendingMultiJackOrder + PendingRevolutionConfirm
   - Continuation step-by-step serveur
 
-Nombre total de tests : 1033 (910 engine + 123 server)
+Nombre total de tests : 1065 (929 engine + 123 server + 13 client)
 
 Session 28/02 (suite) — Étape 11B : Uniformisation modals (1033 tests, pas de nouveaux tests) :
 - [x] Étape 11B-A — Composants ModalWrapper + ModalButton
@@ -193,6 +193,22 @@ Session 28/02 (suite) — Étape 11B : Uniformisation modals (1033 tests, pas de
   - Prop targetPickerIsSuper ajoutée (App.tsx → GameBoard.tsx)
   - Détection J♠ + mirror via matchesPowerRank sur les cartes sélectionnées
   - Titre dynamique "Super Manouche ♠" / "Manouche ♠" selon la présence d'un mirror
+
+Session 04/03 — Feedback visuel shifumi + log engine (1065 tests au total) :
+- [x] Fix 7C-2 — Minilog : noms de joueurs retirés des entrées pouvoirs, "!" supprimé des messages d'effet
+- [x] Étape 7D — PendingShifumiResult : état intermédiaire shifumi (1065 tests, +32 engine, +13 client)
+  - Nouveau type PendingShifumiResult (player1/2 choices, result, shifumiType: normal/super/firstPlayer)
+  - Flow 2 étapes : applyShifumiChoice → PendingShifumiResult (3s) → resolveShifumiResult
+  - ShifumiResultModal.tsx : popup résultat avec icônes pierre/papier/ciseaux, gagnant/perdant/égalité
+  - Serveur : scheduleShifumiResultResolution (GameRoom) + scheduleSoloShifumiResultResolution (solo mode)
+  - Tous les tests engine mis à jour (shifumi.test, ready.test, multiJack.test, shifumiResult.test)
+- [x] Fix 7D-2 — Popup shifumi result bloquée en solo (solo mode handlers dans index.ts n'avaient pas de détection PendingShifumiResult)
+  - scheduleSoloShifumiResultResolution() ajouté avec chaînage complet (multi-jack, cemeteryTransit, bot)
+  - 4 points de détection ajoutés : solo:action, game:action fallback, scheduleSoloBotIfNeeded, scheduleSoloMultiJackContinuation
+- [x] Engine : refonte log — ActionLog enrichi, PowerOverlay simplifié, PlayerAvatar amélioré
+  - LogEntry types enrichis avec données structurées (playerId, playerName, cards, etc.)
+  - formatLogEntry extrait et centralisé dans ActionLog.tsx
+  - PowerOverlay : textes de pouvoir contextuels (initiateur, cible, type)
 
 Étapes à venir :
 - [ ] Étape 11B (suite) — Client : UI pouvoirs et interactions spéciales

@@ -8,7 +8,34 @@ function formatRanks(ranks: string[]): string {
   return ranks.join(', ');
 }
 
+const ACTION_LOG_POWER_LABELS: Record<string, string> = {
+  burn: 'Burn !',
+  reset: 'Reset !',
+  skip: 'Skip !',
+  under: 'Under !',
+  target: 'Target !',
+  mirror: 'Mirror !',
+  revolution: 'Révolution !',
+  superRevolution: 'Super Révolution !',
+  manouche: 'Manouche !',
+  superManouche: 'Super Manouche !',
+  flopReverse: 'Flop Reverse !',
+  flopRemake: 'Flop Remake !',
+  shifumi: 'Shifumi !',
+  superShifumi: 'Super Shifumi !',
+};
+
 function formatLogEntry(entry: LogEntry): string {
+  // Power entries: just the power label, no player name
+  if (entry.entryType === 'power') {
+    return ACTION_LOG_POWER_LABELS[entry.type] ?? entry.type;
+  }
+
+  // Effect entries with pre-formatted message
+  if (entry.entryType === 'effect' && entry.data.message) {
+    return entry.data.message as string;
+  }
+
   const name = entry.playerName ?? 'Systeme';
   const d = entry.data;
 
@@ -28,12 +55,16 @@ function formatLogEntry(entry: LogEntry): string {
     case 'pickUp':
       return `${name} ramasse la pile (${d.cardCount ?? '?'} cartes)`;
     case 'burn':
+    case 'burnEffect':
       return `${name} brule la pile`;
     case 'reset':
+    case 'resetEffect':
       return `${name} reset (pile a zero)`;
     case 'skip':
+    case 'skipEffect':
       return `${name} skip (${d.skipCount ?? 1}x)`;
     case 'under':
+    case 'underEffect':
       return `${name} pose Under (max ${d.underValue ?? '?'})`;
     case 'target':
       return `${name} pose un As (Target)`;
@@ -44,9 +75,11 @@ function formatLogEntry(entry: LogEntry): string {
     case 'mirror':
       return `${name} Mirror → valeur ${d.effectiveRank ?? '?'}`;
     case 'revolution':
-      return `${name} Revolution !`;
+    case 'revolutionEffect':
+      return `${name} Revolution`;
     case 'superRevolution':
-      return `${name} Super Revolution !`;
+    case 'superRevolutionEffect':
+      return `${name} Super Revolution`;
     case 'manouche':
     case 'superManouche':
       return `${name} ${entry.type === 'superManouche' ? 'Super ' : ''}Manouche`;
@@ -61,9 +94,9 @@ function formatLogEntry(entry: LogEntry): string {
     case 'shifumiResolved':
       return `${name} perd le Shifumi, ramasse la pile`;
     case 'shifumiTie':
-      return `Shifumi : egalite !`;
+      return `Shifumi : egalite`;
     case 'superShifumiResolved':
-      return `${name} perd le Super Shifumi — Shit Head !`;
+      return `${name} perd le Super Shifumi — Shit Head`;
     case 'flopReverse':
       return `${name} Flop Reverse`;
     case 'flopReverseTarget':
@@ -101,50 +134,15 @@ function formatLogEntry(entry: LogEntry): string {
 
 // ─── Color mapping ──────────────────────────────────────────────────────────
 
-function getLogEntryColor(type: string): string {
-  switch (type) {
-    case 'burn':
-      return 'text-red-400';
-    case 'skip':
-      return 'text-orange-400';
-    case 'reset':
-      return 'text-cyan-400';
-    case 'under':
-      return 'text-amber-300';
-    case 'target':
-    case 'targetChoice':
-      return 'text-yellow-300';
-    case 'mirror':
-      return 'text-purple-300';
-    case 'revolution':
-    case 'superRevolution':
-      return 'text-violet-400';
-    case 'manouche':
-    case 'superManouche':
-    case 'manouchePick':
-    case 'superManouchePick':
-      return 'text-emerald-400';
-    case 'flopReverse':
-    case 'flopReverseTarget':
-    case 'flopRemake':
-    case 'flopRemakeTarget':
-    case 'flopRemakeDone':
-      return 'text-teal-400';
-    case 'shifumiTarget':
-    case 'shifumiChoice':
-    case 'shifumiResolved':
-    case 'shifumiTie':
-    case 'superShifumiResolved':
-      return 'text-pink-400';
-    case 'playerFinished':
-    case 'gameStart':
-    case 'gameOver':
-      return 'text-[#c9a84c]';
-    case 'darkPlayFail':
-      return 'text-red-300';
-    default:
-      return 'text-gray-300';
+function getLogEntryColor(entry: LogEntry): string {
+  // entryType-based colors
+  if (entry.entryType === 'power') return 'text-amber-400';
+  if (entry.entryType === 'effect') return 'text-emerald-400';
+  // System events (gold)
+  if (entry.type === 'playerFinished' || entry.type === 'gameStart' || entry.type === 'gameOver') {
+    return 'text-[#c9a84c]';
   }
+  return 'text-gray-300';
 }
 
 // ─── ActionLog ──────────────────────────────────────────────────────────────
@@ -193,7 +191,7 @@ export function ActionLog({ log, isOpen, onToggle, topBarOffset }: ActionLogProp
                   className="py-1.5 px-3 text-xs border-b border-gray-800/50"
                 >
                   <span className="text-gray-500 mr-1.5 font-mono">{num}.</span>
-                  <span className={getLogEntryColor(entry.type)}>
+                  <span className={getLogEntryColor(entry)}>
                     {formatLogEntry(entry)}
                   </span>
                 </div>

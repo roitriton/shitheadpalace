@@ -129,7 +129,10 @@ export function resolvePowers(
   if (isBurnTriggered(cardsForBurnCheck, newState.pile, newState.variant, newState.phase, playedCards.length)) {
     const burnPlayer = newState.players.find((p) => p.id === playerId)!;
     const burnedCount = newState.pile.flatMap((e) => e.cards).length;
-    newState = appendLog(newState, 'burn', timestamp, playerId, burnPlayer.name, { burnedCount });
+    newState = appendLog(newState, 'burn', timestamp, playerId, burnPlayer.name, { burnedCount }, 'power');
+    newState = appendLog(newState, 'burnEffect', timestamp, playerId, burnPlayer.name, {
+      message: `${burnPlayer.name} brûle la pile`,
+    }, 'effect');
     newState = {
       ...newState,
       lastPowerTriggered: { type: 'burn', playerId, cardsPlayed: cardsInfo },

@@ -141,7 +141,8 @@ export function applyManouchePick(
     takeCardId,
     giveCardIds,
     targetId,
-  });
+    message: `${launcher.name} vole une carte à ${target.name}`,
+  }, 'effect');
 
   if (state.multiJackSequence) {
     return newState; // Server calls continueMultiJackSequence after animation delay
@@ -242,7 +243,8 @@ export function applySuperManouchePick(
     giveCardIds,
     takeCardIds,
     targetId,
-  });
+    message: `${launcher.name} échange des cartes avec ${target.name}`,
+  }, 'effect');
 
   if (state.multiJackSequence) {
     return newState; // Server calls continueMultiJackSequence after animation delay

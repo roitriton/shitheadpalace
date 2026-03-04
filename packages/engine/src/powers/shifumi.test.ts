@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { isShifumiCard, isShifumiTriggered, isSuperShifumiTriggered } from './shifumi';
-import { applyShifumiTarget, applyShifumiChoice } from '../engine/actions/applyShifumiChoice';
+import { applyShifumiTarget, applyShifumiChoice, resolveShifumiResult } from '../engine/actions/applyShifumiChoice';
 import { applyPlay } from '../engine/actions/play';
-import type { Card, GameState, GameVariant, PendingShifumi, Player } from '../types';
+import type { Card, GameState, GameVariant, PendingShifumi, PendingShifumiResult, Player } from '../types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -335,10 +335,13 @@ describe('applyShifumiChoice', () => {
   });
 
   describe('tie resolution', () => {
-    it('resets choices and keeps same combatants when both pick the same option', () => {
+    it('produces PendingShifumiResult with result=tie, then resolveShifumiResult resets choices', () => {
       const s1 = applyShifumiChoice(stateReadyForChoices(), 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'rock');
-      const pending = s2.pendingAction as PendingShifumi;
+      expect(s2.pendingAction!.type).toBe('shifumiResult');
+      expect((s2.pendingAction as PendingShifumiResult).result).toBe('tie');
+      const s3 = resolveShifumiResult(s2);
+      const pending = s3.pendingAction as PendingShifumi;
       // Participants still set, choices cleared
       expect(pending.player1Id).toBe('p1');
       expect(pending.player2Id).toBe('p2');
@@ -346,21 +349,24 @@ describe('applyShifumiChoice', () => {
       expect(pending.player2Choice).toBeUndefined();
     });
 
-    it('logs a shifumiTie entry', () => {
+    it('logs a shifumiTie entry after resolving the result', () => {
       const s1 = applyShifumiChoice(stateReadyForChoices(), 'p1', 'scissors');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
-      expect(s2.log.some((l) => l.type === 'shifumiTie')).toBe(true);
+      const s3 = resolveShifumiResult(s2);
+      expect(s3.log.some((l) => l.type === 'shifumiTie')).toBe(true);
     });
 
     it('participants can submit new choices after a tie and resolve correctly', () => {
       const s1 = applyShifumiChoice(stateReadyForChoices(), 'p1', 'rock');
-      const s2 = applyShifumiChoice(s1, 'p2', 'rock'); // tie
+      const s2 = applyShifumiChoice(s1, 'p2', 'rock'); // tie → PendingShifumiResult
+      const s2r = resolveShifumiResult(s2); // resolve tie → back to PendingShifumi
       // New round: p1=paper, p2=scissors → scissors beats paper → p2 wins → p1 loses
-      const s3 = applyShifumiChoice(s2, 'p1', 'paper');
+      const s3 = applyShifumiChoice(s2r, 'p1', 'paper');
       const s4 = applyShifumiChoice(s3, 'p2', 'scissors');
-      const p1 = s4.players.find((p) => p.id === 'p1')!;
+      const s5 = resolveShifumiResult(s4); // resolve win
+      const p1 = s5.players.find((p) => p.id === 'p1')!;
       expect(p1.hand).toContain(cK); // p1 picked up pile
-      expect(s4.pile).toHaveLength(0);
+      expect(s5.pile).toHaveLength(0);
     });
   });
 
@@ -368,30 +374,34 @@ describe('applyShifumiChoice', () => {
     it('loser picks up the pile when player1 wins (rock beats scissors)', () => {
       const s1 = applyShifumiChoice(stateReadyForChoices(), 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
+      const s3 = resolveShifumiResult(s2);
       // p1 wins → p2 loses → p2 picks up pile
-      const p2 = s2.players.find((p) => p.id === 'p2')!;
+      const p2 = s3.players.find((p) => p.id === 'p2')!;
       expect(p2.hand).toContain(cK);
-      expect(s2.pile).toHaveLength(0);
+      expect(s3.pile).toHaveLength(0);
     });
 
     it('loser picks up the pile when player2 wins (paper beats rock)', () => {
       const s1 = applyShifumiChoice(stateReadyForChoices(), 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'paper');
+      const s3 = resolveShifumiResult(s2);
       // p2 wins → p1 loses → p1 picks up pile
-      const p1 = s2.players.find((p) => p.id === 'p1')!;
+      const p1 = s3.players.find((p) => p.id === 'p1')!;
       expect(p1.hand).toContain(cK);
     });
 
     it('clears pendingAction after resolution', () => {
       const s1 = applyShifumiChoice(stateReadyForChoices(), 'p1', 'scissors');
       const s2 = applyShifumiChoice(s1, 'p2', 'rock');
-      expect(s2.pendingAction).toBeNull();
+      const s3 = resolveShifumiResult(s2);
+      expect(s3.pendingAction).toBeNull();
     });
 
     it('logs a shifumiResolved entry', () => {
       const s1 = applyShifumiChoice(stateReadyForChoices(), 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
-      expect(s2.log.some((l) => l.type === 'shifumiResolved')).toBe(true);
+      const s3 = resolveShifumiResult(s2);
+      expect(s3.log.some((l) => l.type === 'shifumiResolved')).toBe(true);
     });
 
     it('advances the turn from the initiator position after resolution', () => {
@@ -405,19 +415,22 @@ describe('applyShifumiChoice', () => {
       };
       const s1 = applyShifumiChoice(withHands, 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
+      const s3 = resolveShifumiResult(s2);
       // advanceTurn from index 0 → next player is index 1
-      expect(s2.currentPlayerIndex).toBe(1);
+      expect(s3.currentPlayerIndex).toBe(1);
     });
   });
 
   describe('Super Shifumi resolution', () => {
-    it('declares the loser as Shit Head and ends the game immediately', () => {
+    it('declares the loser as Shit Head and ends the game after resolving', () => {
       const state = stateReadyForChoices('superShifumi');
       const s1 = applyShifumiChoice(state, 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
+      expect(s2.pendingAction!.type).toBe('shifumiResult');
+      const s3 = resolveShifumiResult(s2);
       // p1 wins → p2 is shit head
-      expect(s2.phase).toBe('finished');
-      const p2 = s2.players.find((p) => p.id === 'p2')!;
+      expect(s3.phase).toBe('finished');
+      const p2 = s3.players.find((p) => p.id === 'p2')!;
       expect(p2.isShitHead).toBe(true);
       expect(p2.isFinished).toBe(true);
     });
@@ -426,7 +439,8 @@ describe('applyShifumiChoice', () => {
       const state = stateReadyForChoices('superShifumi');
       const s1 = applyShifumiChoice(state, 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
-      const last = s2.finishOrder[s2.finishOrder.length - 1];
+      const s3 = resolveShifumiResult(s2);
+      const last = s3.finishOrder[s3.finishOrder.length - 1];
       expect(last).toBe('p2');
     });
 
@@ -434,8 +448,9 @@ describe('applyShifumiChoice', () => {
       const state = stateReadyForChoices('superShifumi');
       const s1 = applyShifumiChoice(state, 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
-      expect(s2.log.some((l) => l.type === 'superShifumiResolved')).toBe(true);
-      expect(s2.log.some((l) => l.type === 'gameOver')).toBe(true);
+      const s3 = resolveShifumiResult(s2);
+      expect(s3.log.some((l) => l.type === 'superShifumiResolved')).toBe(true);
+      expect(s3.log.some((l) => l.type === 'gameOver')).toBe(true);
     });
   });
 });
@@ -523,12 +538,16 @@ describe('Shifumi — full flow via applyPlay', () => {
     const s3 = applyShifumiChoice(s2, 'p1', 'rock');
     expect(s3.pendingAction).not.toBeNull();
 
-    // p2 submits choice → rock beats scissors → p2 loses → picks up pile
+    // p2 submits choice → PendingShifumiResult
     const s4 = applyShifumiChoice(s3, 'p2', 'scissors');
-    expect(s4.pendingAction).toBeNull();
-    const p2 = s4.players.find((p) => p.id === 'p2')!;
+    expect(s4.pendingAction!.type).toBe('shifumiResult');
+
+    // Resolve: rock beats scissors → p2 loses → picks up pile
+    const s5 = resolveShifumiResult(s4);
+    expect(s5.pendingAction).toBeNull();
+    const p2 = s5.players.find((p) => p.id === 'p2')!;
     expect(p2.hand).toContain(pileCard);
-    expect(s4.pile).toHaveLength(0);
+    expect(s5.pile).toHaveLength(0);
   });
 
   it('full Super Shifumi flow: play → target → choices → game over', () => {
@@ -548,9 +567,12 @@ describe('Shifumi — full flow via applyPlay', () => {
     const s2 = applyShifumiTarget(s1, 'p0', 'p1', 'p2');
     const s3 = applyShifumiChoice(s2, 'p1', 'paper');
     const s4 = applyShifumiChoice(s3, 'p2', 'rock');
-    // paper beats rock → p1 wins → p2 is shit head
-    expect(s4.phase).toBe('finished');
-    const p2 = s4.players.find((p) => p.id === 'p2')!;
+    expect(s4.pendingAction!.type).toBe('shifumiResult');
+
+    // Resolve: paper beats rock → p1 wins → p2 is shit head
+    const s5 = resolveShifumiResult(s4);
+    expect(s5.phase).toBe('finished');
+    const p2 = s5.players.find((p) => p.id === 'p2')!;
     expect(p2.isShitHead).toBe(true);
   });
 });

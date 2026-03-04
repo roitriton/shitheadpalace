@@ -16,11 +16,17 @@ interface PlayerAvatarProps {
   name: string;
   playerIndex: number;
   isActive: boolean;
+  /** Avatar size: 'bot' = w-12 h-12, 'human' = w-16 h-16 */
+  size?: 'bot' | 'human';
 }
 
-export function PlayerAvatar({ name, playerIndex, isActive }: PlayerAvatarProps) {
+export function PlayerAvatar({ name, playerIndex, isActive, size = 'bot' }: PlayerAvatarProps) {
   const [from, to] = AVATAR_GRADIENTS[playerIndex % AVATAR_GRADIENTS.length];
   const initial = name.charAt(0).toUpperCase();
+
+  const sizeClasses = size === 'human'
+    ? 'w-16 h-16 text-xl'
+    : 'w-12 h-12 text-lg';
 
   return (
     <div className="relative flex items-center justify-center">
@@ -36,7 +42,7 @@ export function PlayerAvatar({ name, playerIndex, isActive }: PlayerAvatarProps)
         />
       )}
       <div
-        className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-[10px] sm:text-sm md:text-base
+        className={`${sizeClasses} rounded-full flex items-center justify-center text-white font-bold
           border-2 ${isActive ? 'border-gold' : 'border-gold/40'}`}
         style={{
           background: `linear-gradient(135deg, ${from}, ${to})`,

@@ -13,6 +13,7 @@ import {
   applyShifumiChoice,
   applyMultiJackOrder,
   applyRevolutionConfirm,
+  resolveShifumiResult,
   canPlayCards,
   getActiveZone,
   getZoneCards,
@@ -92,6 +93,10 @@ export function canBotActOnPendingAction(state: GameState, botIds: string[]): bo
   if (pending.type === 'PendingRevolutionConfirm') {
     return botIds.includes(pending.playerId);
   }
+
+  // shifumiResult is auto-resolved by the server via scheduleShifumiResultResolution,
+  // not by bots. Return false so bots don't try to resolve it.
+  if (pending.type === 'shifumiResult') return false;
 
   return false;
 }
@@ -223,7 +228,16 @@ export function tryResolveBotPendingAction(state: GameState, botIds: string[]): 
 export function resolveFirstPlayerShifumi(state: GameState): GameState {
   let s = state;
   let safety = 0;
-  while (s.pendingAction?.type === 'firstPlayerShifumi' && safety++ < 100) {
+  while (
+    (s.pendingAction?.type === 'firstPlayerShifumi' ||
+      (s.pendingAction?.type === 'shifumiResult' && (s.pendingAction as any).shifumiType === 'firstPlayer')) &&
+    safety++ < 100
+  ) {
+    if (s.pendingAction.type === 'shifumiResult') {
+      // Auto-resolve the result popup for first-player shifumi (no human to see it)
+      s = resolveShifumiResult(s, Date.now());
+      continue;
+    }
     const pending = s.pendingAction;
     const choices: ShifumiChoice[] = ['rock', 'paper', 'scissors'];
     const next = pending.playerIds.find((pid) => !pending.choices[pid]);

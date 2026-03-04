@@ -65,7 +65,8 @@ export function applyFlopReverseTarget(
   newState = appendLog(newState, 'flopReverseTarget', timestamp, playerId, launcherName, {
     targetPlayerId,
     targetPlayerName: target.name,
-  });
+    message: `${target.name} échange son flop et son dark flop`,
+  }, 'effect');
 
   if (state.multiJackSequence) {
     return newState; // Server calls continueMultiJackSequence after animation delay
@@ -122,7 +123,7 @@ export function applyFlopRemakeTarget(
   newState = appendLog(newState, 'flopRemakeTarget', timestamp, playerId, launcherName, {
     targetPlayerId,
     targetPlayerName: targetName,
-  });
+  }, 'effect');
 
   return newState;
 }
@@ -217,7 +218,8 @@ export function applyFlopRemake(
   newState = appendLog(newState, 'flopRemakeDone', timestamp, playerId, launcherName, {
     faceUpIds,
     faceDownIds,
-  });
+    message: `${target.name} redistribue son flop et dark flop`,
+  }, 'effect');
 
   if (state.multiJackSequence) {
     return newState; // Server calls continueMultiJackSequence after animation delay

@@ -1,5 +1,5 @@
-import type { GameState, PendingShifumi, ShifumiChoice } from '../../types';
-import { advanceTurn, resolveAutoSkip } from '../turn';
+import type { GameState, PendingShifumi, PendingShifumiResult, ShifumiChoice } from '../../types';
+import { advanceTurn, resolveAutoSkip, buildTurnQueue } from '../turn';
 import { appendLog } from '../../utils/log';
 
 
@@ -67,7 +67,8 @@ function finalizeGameWithShitHead(
   newState = appendLog(newState, 'superShifumiResolved', timestamp, shitHeadId, shitHead.name, {
     shitHeadId,
     winnerId,
-  });
+    message: `${shitHead.name} perd le Super Shifumi — Shit Head`,
+  }, 'effect');
   newState = appendLog(newState, 'gameOver', timestamp, undefined, undefined, {
     finishOrder: newState.finishOrder,
   });
@@ -78,9 +79,9 @@ function finalizeGameWithShitHead(
 /**
  * Resolves the Shifumi confrontation once both choices are known.
  *
- * On a tie: choices are reset so the same participants play again.
- * On a winner: the loser picks up the pile (regular Shifumi) or is declared
- * Shit Head and the game ends immediately (Super Shifumi).
+ * Instead of applying the effect immediately, creates a PendingShifumiResult
+ * so the client can display the result popup before the effect is applied.
+ * The server auto-resolves the PendingShifumiResult after a 3-second delay.
  */
 function resolveShifumi(state: GameState, timestamp: number): GameState {
   const pending = state.pendingAction as PendingShifumi;
@@ -88,45 +89,90 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
 
   const result = getShifumiWinner(player1Choice!, player2Choice!);
 
+  const p1 = state.players.find((p) => p.id === player1Id)!;
+  const p2 = state.players.find((p) => p.id === player2Id)!;
+
+  const shifumiResult: PendingShifumiResult = {
+    type: 'shifumiResult',
+    player1Id: player1Id!,
+    player1Name: p1.name,
+    player1Choice: player1Choice!,
+    player2Id: player2Id!,
+    player2Name: p2.name,
+    player2Choice: player2Choice!,
+    result,
+    shifumiType: type === 'superShifumi' ? 'super' : 'normal',
+    _savedPendingAction: pending,
+    _savedInitiatorId: initiatorId,
+  };
+
+  return { ...state, pendingAction: shifumiResult };
+}
+
+/**
+ * Applies the actual effect of a resolved Shifumi after the result popup has been shown.
+ *
+ * Called by the server after a 3-second delay, or directly in tests.
+ *
+ * @param state     - Current game state with pendingAction.type === 'shifumiResult'.
+ * @param timestamp - Wall-clock ms for log entries (default 0 for tests).
+ */
+export function resolveShifumiResult(state: GameState, timestamp = 0): GameState {
+  if (state.pendingAction?.type !== 'shifumiResult') {
+    throw new Error('No pending shifumiResult action');
+  }
+
+  const pending = state.pendingAction as PendingShifumiResult;
+  const { player1Id, player1Choice, player2Id, player2Choice, result, shifumiType } = pending;
+  const savedPending = pending._savedPendingAction;
+  const initiatorId = pending._savedInitiatorId ?? player1Id;
+
+  // ── First-player shifumi result ─────────────────────────────────────────
+  if (shifumiType === 'firstPlayer') {
+    return resolveFirstPlayerShifumiResultEffect(state, pending, timestamp);
+  }
+
+  // ── Tie: reset choices, same participants play again ─────────────────────
   if (result === 'tie') {
-    // Reset choices — same participants will have to play again
-    const newPending: PendingShifumi = { type, initiatorId, player1Id, player2Id };
+    const originalType = savedPending?.type ?? 'shifumi';
+    const newPending: PendingShifumi = { type: originalType as 'shifumi' | 'superShifumi', initiatorId, player1Id, player2Id };
     let newState: GameState = { ...state, pendingAction: newPending };
     newState = appendLog(newState, 'shifumiTie', timestamp, undefined, undefined, {
       player1Id,
       player2Id,
       player1Choice,
       player2Choice,
-    });
+      message: 'Shifumi : égalité',
+    }, 'effect');
     return newState;
   }
 
-  const loserId = result === 'player1' ? player2Id! : player1Id!;
-  const winnerId = result === 'player1' ? player1Id! : player2Id!;
-
+  // ── Winner determined ────────────────────────────────────────────────────
+  const loserId = result === 'player1' ? player2Id : player1Id;
+  const winnerId = result === 'player1' ? player1Id : player2Id;
   const isMultiJack = !!state.multiJackSequence;
+  const originalType = savedPending?.type ?? 'shifumi';
 
-  if (type === 'superShifumi') {
-    let finalState = finalizeGameWithShitHead(state, loserId, winnerId, timestamp);
-    finalState = { ...finalState, lastPowerTriggered: { type: 'superShifumi', playerId: pending.initiatorId, players: [player1Id!, player2Id!], cardsPlayed: state.pendingCardsPlayed }, pendingCardsPlayed: undefined };
+  // ── Super Shifumi: loser = shit head ─────────────────────────────────────
+  if (originalType === 'superShifumi') {
+    let finalState: GameState = { ...state, pendingAction: null };
+    finalState = finalizeGameWithShitHead(finalState, loserId, winnerId, timestamp);
+    finalState = { ...finalState, lastPowerTriggered: { type: 'superShifumi', playerId: initiatorId, players: [player1Id, player2Id], cardsPlayed: state.pendingCardsPlayed }, pendingCardsPlayed: undefined };
     return finalState;
   }
 
-  // Regular Shifumi: loser picks up the pile
+  // ── Regular Shifumi: loser picks up the pile ─────────────────────────────
   const loserIdx = state.players.findIndex((p) => p.id === loserId);
   const loser = state.players[loserIdx]!;
 
   if (isMultiJack) {
-    // Deferred pickup: keep the jack visible on the pile for animation.
-    // The actual pile-to-hand transfer and jack-to-graveyard happen in
-    // continueMultiJackSequence after the server animation delay (~1500ms).
     let newState: GameState = {
       ...state,
       pendingAction: null,
       lastPowerTriggered: {
         type: 'shifumi',
-        playerId: pending.initiatorId,
-        players: [player1Id!, player2Id!],
+        playerId: initiatorId,
+        players: [player1Id, player2Id],
         cardsPlayed: state.pendingCardsPlayed,
       },
       pendingCardsPlayed: undefined,
@@ -141,7 +187,8 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
       winnerId,
       player1Choice,
       player2Choice,
-    });
+      message: `${loser.name} perd le Shifumi, ramasse la pile`,
+    }, 'effect');
 
     return newState;
   }
@@ -159,7 +206,7 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
     pendingAction: null,
     activeUnder: null,
     pileResetActive: false,
-    lastPowerTriggered: { type: 'shifumi', playerId: pending.initiatorId, players: [player1Id!, player2Id!], cardsPlayed: state.pendingCardsPlayed },
+    lastPowerTriggered: { type: 'shifumi', playerId: initiatorId, players: [player1Id, player2Id], cardsPlayed: state.pendingCardsPlayed },
     pendingCardsPlayed: undefined,
   };
 
@@ -168,10 +215,55 @@ function resolveShifumi(state: GameState, timestamp: number): GameState {
     winnerId,
     player1Choice,
     player2Choice,
-  });
+    message: `${loser.name} perd le Shifumi, ramasse la pile`,
+  }, 'effect');
 
-  // Turn advances from the initiator's position (currentPlayerIndex)
   return resolveAutoSkip(advanceTurn(newState, false));
+}
+
+/**
+ * Resolves the effect of a first-player shifumi result.
+ * Called internally by resolveShifumiResult when shifumiType === 'firstPlayer'.
+ */
+function resolveFirstPlayerShifumiResultEffect(
+  state: GameState,
+  pending: PendingShifumiResult,
+  timestamp: number,
+): GameState {
+  const { player1Id, player1Choice, player2Id, player2Choice, result } = pending;
+
+  if (result === 'tie') {
+    // Reset: new PendingFirstPlayerShifumi with same players
+    let newState: GameState = {
+      ...state,
+      pendingAction: {
+        type: 'firstPlayerShifumi' as const,
+        playerIds: [player1Id, player2Id],
+        choices: {},
+      },
+    };
+    newState = appendLog(newState, 'firstPlayerShifumiDraw', timestamp);
+    return newState;
+  }
+
+  // Winner starts the game
+  const winnerId = result === 'player1' ? player1Id : player2Id;
+  const firstIdx = state.players.findIndex((p) => p.id === winnerId);
+
+  let newState: GameState = {
+    ...state,
+    phase: 'playing',
+    currentPlayerIndex: firstIdx,
+    turnOrder: buildTurnQueue(state.players, firstIdx, state.direction),
+    pendingAction: null,
+  };
+  newState = appendLog(newState, 'firstPlayerShifumiWin', timestamp, undefined, undefined, {
+    winnerId,
+  });
+  newState = appendLog(newState, 'gameStart', timestamp, undefined, undefined, {
+    firstPlayerId: winnerId,
+  });
+  return newState;
 }
 
 // ─── Public action handlers ───────────────────────────────────────────────────
@@ -227,6 +319,9 @@ export function applyShifumiTarget(
   }
 
   const initiatorName = state.players.find((p) => p.id === initiatorId)!.name;
+  const p1Name = state.players[p1Idx]!.name;
+  const p2Name = state.players[p2Idx]!.name;
+  const shifumiLabel = type === 'superShifumi' ? 'un shifumi mortel' : 'à shifumi';
 
   let newState: GameState = {
     ...state,
@@ -236,7 +331,8 @@ export function applyShifumiTarget(
   newState = appendLog(newState, 'shifumiTarget', timestamp, playerId, initiatorName, {
     player1Id,
     player2Id,
-  });
+    message: `${p1Name} et ${p2Name} jouent ${shifumiLabel}`,
+  }, 'effect');
 
   return newState;
 }
