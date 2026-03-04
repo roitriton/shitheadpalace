@@ -4,7 +4,7 @@ import { applyPickUpPile } from './actions/pickUp';
 import { applySwap } from './actions/swap';
 import { applyReady, applyFirstPlayerShifumiChoice } from './actions/ready';
 import { applyTargetChoice } from './actions/applyTargetChoice';
-import { applyManouchePick, applySuperManouchePick, applyManoucheTarget } from './actions/applyManoucheChoice';
+import { applyManouchePick, applySuperManouchePick, applyManoucheTarget, applyManoucheSkip } from './actions/applyManoucheChoice';
 import {
   applyFlopReverseTarget,
   applyFlopRemakeTarget,
@@ -22,7 +22,7 @@ export { applyPickUpPile } from './actions/pickUp';
 export { applySwap } from './actions/swap';
 export { applyReady, applyFirstPlayerShifumiChoice } from './actions/ready';
 export { applyTargetChoice } from './actions/applyTargetChoice';
-export { applyManouchePick, applySuperManouchePick, applyManoucheTarget } from './actions/applyManoucheChoice';
+export { applyManouchePick, applySuperManouchePick, applyManoucheTarget, applyManoucheSkip } from './actions/applyManoucheChoice';
 export {
   applyFlopReverseTarget,
   applyFlopRemakeTarget,
@@ -124,5 +124,8 @@ export function applyAction(
 
     case 'resolveShifumiResult':
       return resolveShifumiResult(state, timestamp);
+
+    case 'manoucheSkip':
+      return applyManoucheSkip(state, playerId, timestamp);
   }
 }

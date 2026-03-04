@@ -287,6 +287,11 @@ function App() {
     emit('game:action', { type: 'manouchePick', takeCardId, giveCardIds });
   };
 
+  /** J♠ Manouche: skip the exchange (no cards traded) */
+  const handleManoucheSkip = () => {
+    emit('game:action', { type: 'manoucheSkip' });
+  };
+
   /** J♠ + Mirror (Super Manouche): free 1-for-1 card exchange */
   const handleSuperManouchePick = (giveCardIds: string[], takeCardIds: string[]) => {
     emit('game:action', { type: 'superManouchePick', giveCardIds, takeCardIds });
@@ -502,6 +507,7 @@ function App() {
           onTargetChoice={handleTargetChoice}
           onManoucheTarget={handleManoucheTarget}
           onManouchePick={handleManouchePick}
+          onManoucheSkip={handleManoucheSkip}
           onSuperManouchePick={handleSuperManouchePick}
           onShifumiTarget={handleShifumiTarget}
           onShifumiChoice={handleShifumiChoice}

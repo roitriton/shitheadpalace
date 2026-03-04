@@ -32,7 +32,7 @@ export function BottomBar({
   isSelectionLegal,
   overlayActive,
 }: BottomBarProps) {
-  const effectiveCanPlay = canPlay && !overlayActive;
+  const effectiveCanPlay = canPlay && !overlayActive && isSelectionLegal;
   const effectiveCanPickUp = canPickUp && !overlayActive;
   return (
     <div className="fixed bottom-0 left-0 right-0 h-14 z-50 bg-gray-900/95 backdrop-blur border-t border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
@@ -61,10 +61,8 @@ export function BottomBar({
           disabled={!effectiveCanPlay}
           className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
             effectiveCanPlay
-              ? isSelectionLegal
-                ? 'bg-emerald-500 text-white hover:bg-emerald-400'
-                : 'bg-[#c9a84c] text-gray-900 hover:bg-yellow-400'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              ? 'bg-emerald-500 text-white hover:bg-emerald-400'
+              : 'bg-gray-600 text-gray-500 opacity-50 cursor-not-allowed'
           }`}
         >
           Jouer{selectedCount > 0 ? ` (${selectedCount})` : ''}

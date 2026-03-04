@@ -54,6 +54,50 @@ export function applyManoucheTarget(
 }
 
 /**
+ * Skips the Manouche exchange — the launcher chooses not to exchange any cards.
+ * The pending action is resolved, the jack still goes to the cemetery, and the
+ * turn advances normally.
+ *
+ * @param state     - Current game state; must have pendingAction.type === 'manouche' with targetId set.
+ * @param playerId  - ID of the acting player (must be the launcher).
+ * @param timestamp - Wall-clock ms for log records (pass 0 in tests).
+ */
+export function applyManoucheSkip(
+  state: GameState,
+  playerId: string,
+  timestamp = 0,
+): GameState {
+  if (state.pendingAction?.type !== 'manouche') {
+    throw new Error('No pending manouche action');
+  }
+  const { launcherId, targetId } = state.pendingAction;
+  if (!targetId) {
+    throw new Error('Manouche target has not been selected yet');
+  }
+  if (playerId !== launcherId) {
+    throw new Error('Only the Manouche launcher can skip the exchange');
+  }
+
+  const launcher = state.players.find((p) => p.id === launcherId);
+
+  let newState: GameState = {
+    ...state,
+    pendingAction: null,
+    pendingCardsPlayed: undefined,
+  };
+
+  newState = appendLog(newState, 'manouchePick', timestamp, launcherId, launcher?.name ?? launcherId, {
+    targetId,
+    message: `${launcher?.name ?? launcherId} renonce à l'échange Manouche`,
+  }, 'effect');
+
+  if (state.multiJackSequence) {
+    return newState;
+  }
+  return resolveAutoSkip(advanceTurn(newState, false));
+}
+
+/**
  * Applies a Manouche exchange:
  *   - Launcher takes `takeCardId` from the target's hand.
  *   - Launcher gives all `giveCardIds` (from launcher's hand, all of the same

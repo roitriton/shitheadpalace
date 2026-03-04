@@ -714,9 +714,10 @@ interface ManouchePickModalProps {
   state: GameState;
   humanId: string;
   onPick: (takeCardId: string, giveCardIds: string[]) => void;
+  onSkip: () => void;
 }
 
-function ManouchePickModal({ state, humanId, onPick }: ManouchePickModalProps) {
+function ManouchePickModal({ state, humanId, onPick, onSkip }: ManouchePickModalProps) {
   const [selectedTakeId, setSelectedTakeId] = React.useState<string | null>(null);
   const [selectedGiveIds, setSelectedGiveIds] = React.useState<string[]>([]);
 
@@ -725,6 +726,9 @@ function ManouchePickModal({ state, humanId, onPick }: ManouchePickModalProps) {
 
   const humanPlayer = state.players.find((p) => p.id === humanId)!;
   const target = state.players.find((p) => p.id === pending.targetId)!;
+
+  // Selected take card object (for rank matching)
+  const selectedTakeCard = selectedTakeId ? target.hand.find((c) => c.id === selectedTakeId) : null;
 
   // After selecting a give card, only cards of the same rank can be added
   const selectedGiveRank = selectedGiveIds.length > 0
@@ -760,11 +764,11 @@ function ManouchePickModal({ state, humanId, onPick }: ManouchePickModalProps) {
 
   return (
     <ModalWrapper title="Manouche ♠">
-      {/* Étape 1 : prendre une carte chez l'adversaire */}
+      {/* Haut : main de l'adversaire */}
       <div className="w-full">
         <p className="text-xs text-gray-400 mb-2">
-          Prenez une carte chez{' '}
-          <span className="font-semibold text-white">{target.name}</span> :
+          Main de{' '}
+          <span className="font-semibold text-white">{target.name}</span>
         </p>
         <div className="flex gap-2 flex-wrap justify-center">
           {target.hand.map((card) => {
@@ -787,41 +791,50 @@ function ManouchePickModal({ state, humanId, onPick }: ManouchePickModalProps) {
         </div>
       </div>
 
-      {/* Étape 2 : choisir les cartes à donner (même valeur entre elles) */}
-      {selectedTakeId && humanPlayer.hand.length > 0 && (
-        <div className="w-full mt-4">
-          <p className="text-xs text-gray-400 mb-2">
-            Donnez une ou plusieurs cartes de même valeur :
-          </p>
-          <div className="flex gap-2 flex-wrap justify-center">
-            {humanPlayer.hand.map((card) => {
-              const isSelected = selectedGiveIds.includes(card.id);
-              // Once a give card is selected, only same-rank cards can be added
-              const canGive = selectedGiveRank === null || card.rank === selectedGiveRank;
-              return (
-                <div
-                  key={card.id}
-                  className={`transition-transform ${
-                    canGive
+      {/* Bas : main du joueur */}
+      <div className="w-full mt-4">
+        <p className="text-xs text-gray-400 mb-2">
+          Votre main
+          {selectedTakeCard && (
+            <span className="text-gray-500"> — sélectionnez carte(s) de même valeur que {selectedTakeCard.rank}</span>
+          )}
+        </p>
+        <div className="flex gap-2 flex-wrap justify-center">
+          {humanPlayer.hand.map((card) => {
+            const isSelected = selectedGiveIds.includes(card.id);
+            // Cards are only selectable if a take card is selected, and must match same rank constraint
+            const canGive = selectedTakeId !== null && (selectedGiveRank === null || card.rank === selectedGiveRank);
+            const isDisabled = selectedTakeId === null;
+            return (
+              <div
+                key={card.id}
+                className={`transition-transform ${
+                  isDisabled
+                    ? 'opacity-40 cursor-not-allowed'
+                    : canGive
                       ? `cursor-pointer hover:scale-105 ${isSelected ? 'ring-2 ring-gold rounded-lg' : ''}`
                       : `opacity-30 ${isSelected ? '' : 'cursor-not-allowed'}`
-                  }`}
-                  onClick={() => (canGive || isSelected) && handleToggleGive(card.id)}
-                >
-                  <Card card={card} size="md" />
-                </div>
-              );
-            })}
-          </div>
+                }`}
+                onClick={() => !isDisabled && (canGive || isSelected) && handleToggleGive(card.id)}
+              >
+                <Card card={card} size="md" />
+              </div>
+            );
+          })}
+        </div>
+        {selectedTakeId && (
           <p className="text-xs text-gray-500 text-center mt-1">
             {selectedGiveIds.length} carte(s) sélectionnée(s) (min. 1)
           </p>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className="mt-4">
+      <div className="mt-4 flex gap-3 justify-center">
+        <ModalButton variant="cancel" onClick={onSkip}>
+          Ne pas échanger
+        </ModalButton>
         <ModalButton variant="confirm" disabled={!canConfirm} onClick={handleConfirm}>
-          Confirmer l&apos;échange
+          Procéder à l&apos;échange
         </ModalButton>
       </div>
     </ModalWrapper>
@@ -1262,6 +1275,7 @@ interface GameBoardProps {
   // Manouche / Super Manouche pick
   onManoucheTarget?: (targetId: string) => void;
   onManouchePick?: (takeCardId: string, giveCardIds: string[]) => void;
+  onManoucheSkip?: () => void;
   onSuperManouchePick?: (giveCardIds: string[], takeCardIds: string[]) => void;
   // Shifumi (J♣)
   onShifumiTarget?: (player1Id: string, player2Id: string) => void;
@@ -1306,6 +1320,7 @@ export function GameBoard({
   onTargetChoice,
   onManoucheTarget,
   onManouchePick,
+  onManoucheSkip,
   onSuperManouchePick,
   onShifumiTarget,
   onShifumiChoice,
@@ -1519,21 +1534,6 @@ export function GameBoard({
       {/* Bordure dorée intérieure */}
       <div className="absolute inset-0 rounded-lg sm:rounded-[1.5rem] md:rounded-[2rem] border border-gold/30 pointer-events-none" />
 
-      {/* Erreur */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            key="err"
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }}
-            className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-red-800/90 text-white px-4 py-2 rounded-full text-sm shadow-lg"
-          >
-            {error}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── 1. Zone adversaires (25%) ── */}
       <div className="flex-[25] min-h-0 flex items-start justify-evenly px-2 sm:px-3 md:px-4">
         {bots.map((bot) => {
@@ -1683,11 +1683,12 @@ export function GameBoard({
 
       {/* ── Manouche pick ── */}
       <AnimatePresence>
-        {pendingManoucheForHuman && !state.pendingActionDelayed && onManouchePick && (
+        {pendingManoucheForHuman && !state.pendingActionDelayed && onManouchePick && onManoucheSkip && (
           <ManouchePickModal
             state={state}
             humanId={humanId}
             onPick={onManouchePick}
+            onSkip={onManoucheSkip}
           />
         )}
       </AnimatePresence>

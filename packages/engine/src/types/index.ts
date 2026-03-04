@@ -374,7 +374,8 @@ export type GameAction =
   | { type: 'multiJackOrder'; sequence: MultiJackSequenceEntry[] }
   | { type: 'manoucheTarget'; targetPlayerId: string }
   | { type: 'revolutionConfirm' }
-  | { type: 'resolveShifumiResult' };
+  | { type: 'resolveShifumiResult' }
+  | { type: 'manoucheSkip' };
 
 // ─── Bot Strategy Interface ───────────────────────────────────────────────────
 
