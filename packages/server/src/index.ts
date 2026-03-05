@@ -89,9 +89,19 @@ const BOT_DELAY_MS = 1500;
 /** Delay before auto-resolving a shifumi result popup (3 seconds). */
 const SHIFUMI_RESULT_DELAY_MS = 3000;
 
+/** Delay for the flop remake rainbow animation on the client (2.5 seconds). */
+const FLOP_REMAKE_ANIM_MS = 2500;
+
 /** Returns true when state has a pending overlay delay (jack power animation before popup). */
 function needsOverlayDelay(state: GameState): boolean {
   return !!state.pendingActionDelayed;
+}
+
+/** Returns true when the latest log entry is a flopRemakeDone (rainbow animation on client). */
+function hasFlopRemakeJustCompleted(prev: GameState, next: GameState): boolean {
+  if (next.log.length <= prev.log.length) return false;
+  const lastEntry = next.log[next.log.length - 1];
+  return lastEntry?.type === 'flopRemakeDone';
 }
 
 /**
@@ -158,6 +168,17 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
       // Overlay delay: show jack in pile + overlay animation before popup
       if (needsOverlayDelay(session.state)) {
         scheduleOverlayDelay(socket, session);
+      } else if (hasFlopRemakeJustCompleted(prev, session.state)) {
+        // Flop remake animation: wait 2.5s before scheduling next action
+        setTimeout(() => {
+          const stillCurrent = soloSessions.get(socket.id);
+          if (!stillCurrent || stillCurrent !== session) return;
+          if (needsMultiJackContinuation(session.state)) {
+            scheduleSoloMultiJackContinuation(socket, session);
+          } else {
+            scheduleSoloBotIfNeeded(socket, session);
+          }
+        }, FLOP_REMAKE_ANIM_MS);
       } else if (session.state.pendingAction?.type === 'shifumiResult') {
         scheduleSoloShifumiResultResolution(socket, session);
       } else if (needsMultiJackContinuation(session.state)) {
@@ -368,6 +389,7 @@ io.on('connection', (rawSocket) => {
     if (!s) return;
 
     try {
+      const prevState = s.state;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       s.state = applyAction(s.state, s.humanId, rawAction as any, Date.now());
 
@@ -392,6 +414,20 @@ io.on('connection', (rawSocket) => {
       // Overlay delay: show jack in pile + overlay animation before popup
       if (needsOverlayDelay(s.state)) {
         scheduleOverlayDelay(socket, s);
+        return;
+      }
+
+      // Flop remake animation: wait 2.5s before scheduling next bot
+      if (hasFlopRemakeJustCompleted(prevState, s.state)) {
+        setTimeout(() => {
+          const current = soloSessions.get(socket.id);
+          if (!current || current !== s) return;
+          if (needsMultiJackContinuation(s.state)) {
+            scheduleSoloMultiJackContinuation(socket, s);
+          } else {
+            scheduleSoloBotIfNeeded(socket, s);
+          }
+        }, FLOP_REMAKE_ANIM_MS);
         return;
       }
 
@@ -450,6 +486,7 @@ io.on('connection', (rawSocket) => {
     if (!s) return;
 
     try {
+      const prevState = s.state;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       s.state = applyAction(s.state, s.humanId, rawAction as any, Date.now());
 
@@ -473,6 +510,20 @@ io.on('connection', (rawSocket) => {
       // Overlay delay: show jack in pile + overlay animation before popup
       if (needsOverlayDelay(s.state)) {
         scheduleOverlayDelay(socket, s);
+        return;
+      }
+
+      // Flop remake animation: wait 2.5s before scheduling next bot
+      if (hasFlopRemakeJustCompleted(prevState, s.state)) {
+        setTimeout(() => {
+          const current = soloSessions.get(socket.id);
+          if (!current || current !== s) return;
+          if (needsMultiJackContinuation(s.state)) {
+            scheduleSoloMultiJackContinuation(socket, s);
+          } else {
+            scheduleSoloBotIfNeeded(socket, s);
+          }
+        }, FLOP_REMAKE_ANIM_MS);
         return;
       }
 

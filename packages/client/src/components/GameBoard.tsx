@@ -16,6 +16,7 @@ import { MultiJackOrderModal } from './MultiJackOrderModal';
 import { ModalWrapper } from './ModalWrapper';
 import { ModalButton } from './ModalButton';
 import { ShifumiResultModal } from './ShifumiResultModal';
+import { FlopRemakeCardOverlay } from './FlopRemakeAnimation';
 
 // ─── Zone de joueur (bot ou humain) ───────────────────────────────────────────
 
@@ -39,6 +40,10 @@ interface PlayerZoneProps {
   isBurnSelection?: boolean;
   /** When true, animate flop cards flipping (flop reverse power) */
   flopFlipAnimating?: boolean;
+  /** When true, animate rainbow overlay on flop cards (flop remake power) */
+  flopRemakeAnimating?: boolean;
+  /** Callback when flop remake animation completes */
+  onFlopRemakeAnimComplete?: () => void;
 }
 
 function PlayerZone({
@@ -56,6 +61,8 @@ function PlayerZone({
   comboFlopDarkEnabled,
   isBurnSelection,
   flopFlipAnimating,
+  flopRemakeAnimating,
+  onFlopRemakeAnimComplete,
 }: PlayerZoneProps) {
   const canClickHand = isActive && activeZone === 'hand' && !isBot;
   const canClickFaceUp = isActive && activeZone === 'faceUp' && !isBot;
@@ -157,6 +164,7 @@ function PlayerZone({
 
   const flopSlots = assignSlots(player.faceUp, fuSlotRef.current, maxSlots);
   const darkFlopSlots = assignSlots(player.faceDown, fdSlotRef.current, maxSlots);
+  const firstFuSlotIdx = flopSlots.findIndex((c) => c !== null);
 
   // ── Flop section ──
   const flopSection = (
@@ -240,7 +248,7 @@ function PlayerZone({
                   </div>
                 )}
                 {fuCard && (
-                  <div className="absolute z-10 top-3">
+                  <div className="absolute z-10 top-3 overflow-hidden rounded-lg">
                     <Card
                       card={fuCard}
                       size={cardSize}
@@ -249,6 +257,11 @@ function PlayerZone({
                       onClick={(canClickFaceUp || canClickFlopCombo) ? () => onCardClick?.(fuCard) : undefined}
                       noLayout
                     />
+                    {flopRemakeAnimating && (
+                      <FlopRemakeCardOverlay
+                        onComplete={i === firstFuSlotIdx ? onFlopRemakeAnimComplete : undefined}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -1397,6 +1410,10 @@ interface GameBoardProps {
   onSkipTurn?: () => void;
   /** Pick up the pile (used by no-legal-move banner) */
   onPickUp?: () => void;
+  /** Player ID whose flop is currently being rainbow-animated (flop remake) */
+  flopRemakePlayerId?: string | null;
+  /** Callback when flop remake animation completes */
+  onFlopRemakeAnimComplete?: () => void;
 }
 
 export function GameBoard({
@@ -1432,6 +1449,8 @@ export function GameBoard({
   emptyPileBlocked,
   onSkipTurn,
   onPickUp,
+  flopRemakePlayerId,
+  onFlopRemakeAnimComplete,
 }: GameBoardProps) {
   const { background, cardBack } = useTheme();
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
@@ -1676,6 +1695,8 @@ export function GameBoard({
                 playerIndex={botGlobalIdx}
                 debugRevealHands={debugRevealHands}
                 flopFlipAnimating={flopFlipPlayerId === bot.id}
+                flopRemakeAnimating={flopRemakePlayerId === bot.id}
+                onFlopRemakeAnimComplete={onFlopRemakeAnimComplete}
               />
             </div>
           );
@@ -1760,6 +1781,8 @@ export function GameBoard({
           comboFlopDarkEnabled={comboFlopDarkEnabled}
           isBurnSelection={isBurnSelection}
           flopFlipAnimating={flopFlipPlayerId === humanId}
+          flopRemakeAnimating={flopRemakePlayerId === humanId}
+          onFlopRemakeAnimComplete={onFlopRemakeAnimComplete}
         />
       </div>
 

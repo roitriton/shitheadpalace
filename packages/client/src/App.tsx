@@ -45,6 +45,10 @@ function App() {
   const powerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevPowerTypeRef = useRef<string | null>(null);
 
+  // Flop remake animation state
+  const [flopRemakePlayerId, setFlopRemakePlayerId] = useState<string | null>(null);
+  const prevLogLenForRemakeRef = useRef(0);
+
   // Debug state (dev mode only)
   const [debugRevealHands, setDebugRevealHands] = useState(false);
   const [debugInspectZone, setDebugInspectZone] = useState<InspectZone | null>(null);
@@ -102,6 +106,19 @@ function App() {
           }, overlayDelay);
         }
         prevPowerTypeRef.current = lptKey;
+
+        // Detect flopRemakeDone in new log entries → trigger rainbow animation
+        const remakeOldLen = prevLogLenForRemakeRef.current;
+        prevLogLenForRemakeRef.current = state.log.length;
+        if (state.log.length > remakeOldLen) {
+          for (let i = remakeOldLen; i < state.log.length; i++) {
+            const entry = state.log[i]!;
+            if (entry.type === 'flopRemakeDone' && entry.playerId) {
+              setFlopRemakePlayerId(entry.playerId as string);
+              break;
+            }
+          }
+        }
       },
     );
 
@@ -160,6 +177,7 @@ function App() {
   const handleCardClick = (card: CardType) => {
     if (!gameState) return;
     if (currentPower !== null) return; // Block selection during overlay animation
+    if (flopRemakePlayerId !== null) return; // Block selection during flop remake animation
     const human = gameState.players.find((p) => p.id === humanId);
     if (!human) return;
 
@@ -290,8 +308,14 @@ function App() {
     prevLogLengthRef.current = 0;
     setCurrentPower(null);
     prevPowerTypeRef.current = null;
+    setFlopRemakePlayerId(null);
+    prevLogLenForRemakeRef.current = 0;
     if (powerTimerRef.current) { clearTimeout(powerTimerRef.current); powerTimerRef.current = null; }
     emit('game:restart');
+  };
+
+  const handleFlopRemakeAnimComplete = () => {
+    setFlopRemakePlayerId(null);
   };
 
   // ── Post-play pending action callbacks ─────────────────────────────────────
@@ -568,6 +592,8 @@ function App() {
           emptyPileBlocked={emptyPileBlocked}
           onSkipTurn={handleSkipTurn}
           onPickUp={handlePickUp}
+          flopRemakePlayerId={flopRemakePlayerId}
+          onFlopRemakeAnimComplete={handleFlopRemakeAnimComplete}
         />
         <ChatPanel
           messages={chatMessages}
@@ -594,7 +620,7 @@ function App() {
           onActionLogToggle={handleActionLogToggle}
           actionLogUnread={actionLogUnread}
           isSelectionLegal={isSelectionLegal}
-          overlayActive={currentPower !== null}
+          overlayActive={currentPower !== null || flopRemakePlayerId !== null}
           emptyPileBlocked={emptyPileBlocked}
           onSkipTurn={handleSkipTurn}
         />
