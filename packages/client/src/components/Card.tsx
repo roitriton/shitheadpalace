@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import type { Card as CardType } from '@shit-head-palace/engine';
 import { CardAnimationContext } from '../hooks/useCardAnimations';
+import { useTheme } from '../themes/ThemeContext';
 
 // ─── Constantes visuelles ──────────────────────────────────────────────────────
 
@@ -40,15 +41,11 @@ interface CardProps {
 // ─── Dos de carte ──────────────────────────────────────────────────────────────
 
 function CardBack({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
+  const { cardBack } = useTheme();
   const dims = size === 'xs' ? 'w-9 h-[52px]' : size === 'sm' ? 'w-11 h-16' : 'w-14 h-20';
-  const symbolSize = size === 'xs' ? 'text-[10px]' : 'text-base';
   return (
-    <div
-      className={`${dims} rounded-lg border-2 border-blue-900 bg-gradient-to-br from-blue-800 to-blue-950 shadow-md flex items-center justify-center`}
-    >
-      <div className="w-[85%] h-[85%] rounded border border-blue-600 flex items-center justify-center">
-        <span className={`text-gold ${symbolSize} select-none`}>✦</span>
-      </div>
+    <div className={`${dims} rounded-lg overflow-hidden shadow-md`}>
+      <img src={cardBack.image} alt="card back" className="w-full h-full object-cover" draggable={false} />
     </div>
   );
 }

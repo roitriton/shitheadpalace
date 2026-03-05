@@ -2,6 +2,7 @@ import React from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
 import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingShifumiResult, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, PendingMultiJackOrder, PendingRevolutionConfirm, MultiJackSequenceEntry, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
 import { getActiveZone } from '@shit-head-palace/engine';
+import { useTheme } from '../themes/ThemeContext';
 import { getIllegalPlayReason } from '../utils/illegalPlayReason';
 import type { InspectZone } from './DebugPanel';
 import { Card } from './Card';
@@ -1432,6 +1433,7 @@ export function GameBoard({
   onSkipTurn,
   onPickUp,
 }: GameBoardProps) {
+  const { background, cardBack } = useTheme();
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
 
   // Flop reverse animation: track which player is being flipped
@@ -1649,7 +1651,11 @@ export function GameBoard({
       border-4 sm:border-[5px] md:border-[6px] border-casino-wood
       shadow-[inset_0_0_40px_rgba(0,0,0,0.4),0_4px_16px_rgba(0,0,0,0.7)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.7)]"
       style={{
-        background: 'radial-gradient(ellipse at 50% 50%, #0d5e2e 0%, #0a4a24 60%, #073d1c 100%)',
+        backgroundColor: background.bgColor,
+        backgroundImage: `url(${background.image})`,
+        backgroundRepeat: 'repeat',
+        backgroundPosition: '0 0',
+        backgroundSize: '512px 512px',
       }}
     >
       {/* Bordure dorée intérieure */}
@@ -1699,7 +1705,9 @@ export function GameBoard({
                 {state.deck.length > 0 ? (
                   <>
                     {state.deck.length > 1 && (
-                      <div className="absolute top-0.5 left-0.5 w-11 h-16 rounded-lg bg-blue-900 border-2 border-blue-800" />
+                      <div className="absolute top-0.5 left-0.5 w-11 h-16 rounded-lg overflow-hidden opacity-80">
+                        <img src={cardBack.image} alt="" className="w-full h-full object-cover" draggable={false} />
+                      </div>
                     )}
                     <div className="relative">
                       <Card card={{ id: 'deck', suit: 'spades', rank: '2' }} faceDown size="sm" />
