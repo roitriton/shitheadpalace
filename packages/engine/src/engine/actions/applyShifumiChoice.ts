@@ -193,6 +193,9 @@ export function resolveShifumiResult(state: GameState, timestamp = 0): GameState
   const newPlayers = [...state.players];
   newPlayers[loserIdx] = { ...loser, hand: [...loser.hand, ...pileCards] };
 
+  // Rebuild turnOrder from loser's position so advanceTurn goes to the player AFTER the loser
+  const newTurnOrder = buildTurnQueue(newPlayers, loserIdx, state.direction);
+
   let newState: GameState = {
     ...state,
     players: newPlayers,
@@ -201,6 +204,9 @@ export function resolveShifumiResult(state: GameState, timestamp = 0): GameState
     activeUnder: null,
     pileResetActive: false,
     pendingCardsPlayed: undefined,
+    pendingCemeteryTransit: false,
+    currentPlayerIndex: loserIdx,
+    turnOrder: newTurnOrder,
   };
 
   newState = appendLog(newState, 'shifumiResolved', timestamp, loserId, loser.name, {

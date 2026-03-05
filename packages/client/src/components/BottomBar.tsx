@@ -60,7 +60,7 @@ export function BottomBar({
 
       {/* Centre : Actions */}
       <div className="flex-1 flex items-center justify-center gap-2">
-        {emptyPileBlocked && onSkipTurn ? (
+        {emptyPileBlocked && onSkipTurn && !overlayActive ? (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}

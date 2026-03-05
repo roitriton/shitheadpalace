@@ -194,7 +194,7 @@ Session 28/02 (suite) — Étape 11B : Uniformisation modals (1033 tests, pas de
   - Détection J♠ + mirror via matchesPowerRank sur les cartes sélectionnées
   - Titre dynamique "Super Manouche ♠" / "Manouche ♠" selon la présence d'un mirror
 
-Session 04/03 — Feedback visuel shifumi + log engine (1065 tests au total) :
+Session 04/03 — Phases 11C-11D + feedback shifumi + log engine (1070 tests au total) :
 - [x] Fix 7C-2 — Minilog : noms de joueurs retirés des entrées pouvoirs, "!" supprimé des messages d'effet
 - [x] Étape 7D — PendingShifumiResult : état intermédiaire shifumi (1065 tests, +32 engine, +13 client)
   - Nouveau type PendingShifumiResult (player1/2 choices, result, shifumiType: normal/super/firstPlayer)
@@ -209,28 +209,65 @@ Session 04/03 — Feedback visuel shifumi + log engine (1065 tests au total) :
   - LogEntry types enrichis avec données structurées (playerId, playerName, cards, etc.)
   - formatLogEntry extrait et centralisé dans ActionLog.tsx
   - PowerOverlay : textes de pouvoir contextuels (initiateur, cible, type)
+- [x] Phase 11C — Quick fixes UI (1070 tests, pas de nouveaux tests)
+  - PowerOverlay : position corrigée, centrage dans la colonne centrale
+  - Bouton Jouer : fix affichage et état actif/inactif
+  - Symboles couleur (♠♦♥♣) dans les entrées log pour les pouvoirs valets
+  - lastPowerTriggered simplifié : suppression des champs redondants dans le type
+  - pendingActionDelayed : flag engine pour séquencer overlay AVANT popup
+  - Serveur : scheduleOverlayDelay() (1500ms) + early return avant cemeteryTransit
+  - Solo mode : même séquençage overlayDelay dans index.ts
+- [x] Phase 11D — Valets visibles dans la pile avec overlay avant popup (1070 tests, pas de nouveaux tests)
+  - Quand un valet est joué, la carte apparaît dans la pile IMMÉDIATEMENT
+  - Overlay animation joue pendant 1500ms AVANT que la popup pouvoir ne s'affiche
+  - POPUP_PENDING_TYPES : certains types de pendingAction masquent la dernière entrée pile (MultiJackOrder)
+  - Séquence complète : carte dans pile → overlay 1.5s → popup → résolution → cimetière
+- [x] Phase 11D-bis — Refonte popup manouche + bouton jouer désactivé (1070 tests, pas de nouveaux tests)
+  - ManouchePickModal : popup unique avec section échange intégrée
+  - handleManoucheSkip() : action pour passer l'échange (aucune carte échangée)
+  - applyManoucheSkip dans engine : résolution sans échange
+  - Bouton Jouer désactivé si sélection illégale : prop isSelectionLegal (App.tsx → BottomBar)
+  - canPlayCards() utilisé pour valider la sélection en temps réel
+- [x] Phase 11D-ter — Skip tour pile vide + polish UI (1070 tests, +5 engine)
+  - applySkipTurn : nouvelle action engine pour joueurs bloqués sur pile vide (valets/mirrors uniquement)
+  - 117 tests skipTurn.test.ts : skip basique, détection blocage, log, allBlockedShifumi
+  - emptyPileBlocked : détection côté client, bouton "Passer" dans BottomBar
+  - Message rouge clignotant (animate-pulse) "Vous ne pouvez pas jouer de coup légal"
+  - Bot support : auto-détection emptyPileBlocked dans bot.ts
+  - Animation flop reverse : two-face card flip (backfaceVisibility hidden, rotateX 0°↔180°)
+  - Alignement log = minilog (format unifié, darkPlay fusionné avec play, accents corrigés)
+  - CSS @keyframes fadeInSlide pour apparition fluide des entrées log/minilog
 
-Session 04/03 (suite) — Fix 11D-ter-3 : corrections textes + animation flop reverse (1070 tests au total) :
-- [x] Fix 11D-ter-3A — Textes "Pas de coup légal" unifiés
-  - "Pas de coup légal — ramassez la pile." et "Vous ne pouvez pas jouer" → "Vous ne pouvez pas jouer de coup légal" (même texte pour les 2 cas)
-- [x] Fix 11D-ter-3B — Animation flop reverse phase 2 : two-face card flip
-  - Remplacement animation simple par deux faces superposées (Face A old card, Face B new card)
-  - Face A : rotateX 0°→180° (backfaceVisibility hidden), Face B : rotateX 180°→0° (backfaceVisibility hidden)
-  - Bots : Face A = card back (old state), Face B = card face (new state)
-  - Humain : Face A = old face-up card face, Face B = new face-up card face
-  - Plus de saut : émergence progressive depuis la tranche
-- [x] Fix 11D-ter-3C — skipTurn dans ActionLog
-  - Ajout case 'skipTurn' affichant entry.data.message ("[Joueur] ne peut pas jouer")
-- [x] Fix 11D-ter-3D — Format texte ramassage
-  - "[Joueur] ramasse (N)" → "[Joueur] ramasse N cartes" (singulier "carte" si 1)
-  - Modifié dans ActionLog.tsx et MiniLog (GameBoard.tsx)
-- [x] Fix 11D-ter-3E — Alignement log = minilog (minilog = référence)
-  - darkPlay : supprimé "a l'aveugle", fusionné avec case play → "joue {cartes}"
-  - darkPlayFail : "echoue (dark flop) et ramasse" → "échoue (dark)" (avec accent)
-  - Zone labels supprimés du log (play n'affiche plus "(flop)"/"(dark)")
+Session 05/03 — Étape 11E : Animations de déplacement des cartes (EN COURS, 1070 tests) :
+- [x] Fix 11E-2 — Système d'animation ghost card (cartes volantes)
+  - Nouveaux fichiers : CardAnimationLayer.tsx, hooks/useCardAnimations.ts
+  - useCardAnimations hook : compare GameState consécutifs, détecte play/pickup/burn/draw, crée FlyingCardAnim
+  - CardAnimationLayer : overlay fixed z-100, ghost cards Framer Motion AnimatePresence
+  - GhostCard : motion.div avec cubic bezier easing, flip-during-flight pour dark play
+  - CardAnimationContext : context React pour cacher les cartes destination pendant le vol (opacity: 0)
+  - Card.tsx : prop ghost (pas de hover/click), intégration CardAnimationContext (hiddenCardIds)
+  - Ciblage précis pile : attributs data-card-id sur cartes pile, getCardPos(cardId) pour position exacte
+  - Séquençage pioche après jeu : playPhaseEndTime tracking, draw delay = playPhaseEndTime + i*100ms
+  - Slots flop stables : fuSlotRef, fdSlotRef, maxFlopSlotsRef (Map<cardId, slotIndex>), hauteurs fixes
+  - Durées : play 800ms (stagger 50ms/carte), draw 600ms, pickup 1000ms (stagger 80ms), burn 800ms (stagger 40ms)
+  - zoneScale() : facteur d'échelle par zone et bot/humain (md=1, xs=36/56, sm=44/56)
+- [x] Fix 11E-3 — Overlay timing + ciblage As/Target + positionnement overlay
+  - Fix 1 : 'target' retiré de POPUP_PENDING_TYPES → carte As reste dans le DOM pour getCardPos()
+  - Fix 2 : overlay timer-based delay (remplace useEffect cassé par race condition React 18 batching)
+    - Calcul durée vol depuis log entries : 800ms + (n-1)*50ms stagger + 100ms buffer
+    - setTimeout dans socket handler au lieu de useEffect([isAnimating, gameState])
+  - Fix 3 : PowerOverlay déplacé dans CardsColumn (centré sur la pile, pas sur toute la colonne 50%)
+  - Fix 4 (investigation) : transit cimetière valets — PAS DE BUG, pendingActionDelayed bloque correctement
+  - Fix 5 (investigation) : tour après shifumi — PAS DE BUG confirmé dans advanceTurn/resolveAutoSkip
+
+Bugs restants 11E :
+- Animations à vérifier visuellement sur toutes les actions (play, dark play, pickup, burn, draw)
+- Synchronisation overlay : valider que le timer-based delay est correct dans tous les cas (multi-jack, burn, etc.)
+
+Nombre total de tests : 1070 (934 engine + 123 server + 13 client)
 
 Étapes à venir :
-- [ ] Étape 11B (suite) — Client : UI pouvoirs et interactions spéciales
+- [ ] Étape 11E (suite) — Validation visuelle animations + polish
 - [ ] Étape 12 — Lobby, profil, variantes (client)
 - [ ] Étape 13 — IA (bots intermédiaire et expert)
 - [ ] Étape 14 — Son et polish

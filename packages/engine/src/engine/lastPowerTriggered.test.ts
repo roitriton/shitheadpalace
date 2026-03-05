@@ -112,7 +112,7 @@ describe('lastPowerTriggered', () => {
     expect(next.lastPowerTriggered!.cardsPlayed).toEqual([{ rank: '8', suit: 'hearts' }]);
   });
 
-  it('play of target card (A) does NOT set lastPowerTriggered (deferred to applyTargetChoice)', () => {
+  it('play of target card (A) sets lastPowerTriggered with pendingActionDelayed', () => {
     const cA = card('A');
     const state = makeState(
       { hand: [cA, card('K'), card('Q')] },
@@ -121,8 +121,9 @@ describe('lastPowerTriggered', () => {
     state.variant.powerAssignments = { target: 'A' };
 
     const next = applyPlay(state, 'p0', [cA.id]);
-    // Target overlay is deferred until the choice is made
-    expect(next.lastPowerTriggered).toBeNull();
+    // Target overlay shows during card flight, then popup appears after delay
+    expect(next.lastPowerTriggered).toMatchObject({ type: 'target', playerId: 'p0' });
+    expect(next.pendingActionDelayed).toBe(true);
   });
 
   it('play of revolution card (J diamonds) sets PendingRevolutionConfirm (deferred)', () => {

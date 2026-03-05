@@ -118,34 +118,80 @@ function PlayerZone({
     [onCardClick],
   );
 
+  // ── Stable flop slot tracking (cards keep their position when others are played) ──
+  const fuSlotRef = React.useRef<Map<string, number>>(new Map());
+  const fdSlotRef = React.useRef<Map<string, number>>(new Map());
+  const maxFlopSlotsRef = React.useRef(0);
+
+  const currentMaxSlots = Math.max(player.faceUp.length, player.faceDown.length);
+  if (currentMaxSlots > maxFlopSlotsRef.current) {
+    maxFlopSlotsRef.current = currentMaxSlots;
+  }
+  const maxSlots = maxFlopSlotsRef.current;
+
+  const assignSlots = (cards: CardType[], slotMap: Map<string, number>, max: number): (CardType | null)[] => {
+    const currentIds = new Set(cards.map((c) => c.id));
+    for (const [id] of slotMap) {
+      if (!currentIds.has(id)) slotMap.delete(id);
+    }
+    const usedSlots = new Set(slotMap.values());
+    for (const card of cards) {
+      if (!slotMap.has(card.id)) {
+        for (let s = 0; s < max; s++) {
+          if (!usedSlots.has(s)) {
+            slotMap.set(card.id, s);
+            usedSlots.add(s);
+            break;
+          }
+        }
+      }
+    }
+    const result = new Array(max).fill(null) as (CardType | null)[];
+    for (const card of cards) {
+      const s = slotMap.get(card.id);
+      if (s !== undefined) result[s] = card;
+    }
+    return result;
+  };
+
+  const flopSlots = assignSlots(player.faceUp, fuSlotRef.current, maxSlots);
+  const darkFlopSlots = assignSlots(player.faceDown, fdSlotRef.current, maxSlots);
+
   // ── Flop section ──
   const flopSection = (
     <div
+      data-zone="faceUp"
+      data-player-id={player.id}
       className="flex"
       style={{
         gap: isBot ? 4 : (compact ? 4 : 8),
       }}
     >
-      {(player.faceDown.length > 0 || player.faceUp.length > 0) ? (
-        Array.from({ length: Math.max(player.faceDown.length, player.faceUp.length) }).map(
+      {maxSlots > 0 ? (
+        Array.from({ length: maxSlots }).map(
           (_, i) => {
-            const fdCard = player.faceDown[i];
-            const fuCard = player.faceUp[i];
+            const fdCard = darkFlopSlots[i];
+            const fuCard = flopSlots[i];
             const cardSize = isBot ? botCardSize : 'sm';
             const w = isBot ? botCardW : 44;
             const showDarkInStack = !!fdCard && !(!isBot && comboFlopDarkEnabled);
-            const h = isBot ? botCardH + 12 : (showDarkInStack ? 76 : 64);
+            // Fixed height — never changes when cards are removed
+            const h = isBot ? botCardH + 12 : 76;
+
+            // Empty slot — both cards played
+            if (!fdCard && !fuCard) {
+              return <div key={i} className="relative" style={{ width: w, height: h }} />;
+            }
 
             // During flop reverse animation: two-face card flip
             if (flopFlipAnimating && fdCard && fuCard) {
-              const flipTop = showDarkInStack ? 12 : 0;
               return (
                 <div key={i} className="relative" style={{ width: w, height: h, perspective: '600px' }}>
                   {/* Face A: old face-up card (now in faceDown after swap) — flips out */}
                   <div
                     className="absolute left-0 right-0"
                     style={{
-                      top: flipTop,
+                      top: 12,
                       animation: 'flopFlipOut 1.5s ease-in-out forwards',
                       backfaceVisibility: 'hidden' as const,
                     }}
@@ -160,7 +206,7 @@ function PlayerZone({
                   <div
                     className="absolute left-0 right-0"
                     style={{
-                      top: flipTop,
+                      top: 12,
                       animation: 'flopFlipIn 1.5s ease-in-out forwards',
                       backfaceVisibility: 'hidden' as const,
                     }}
@@ -193,9 +239,7 @@ function PlayerZone({
                   </div>
                 )}
                 {fuCard && (
-                  <div
-                    className={`absolute z-10 ${showDarkInStack ? 'top-3' : 'top-0'}`}
-                  >
+                  <div className="absolute z-10 top-3">
                     <Card
                       card={fuCard}
                       size={cardSize}
@@ -222,7 +266,7 @@ function PlayerZone({
       {isBot && (
         <>
           <div />
-          <div className="flex items-end justify-center mb-1" style={{ paddingBottom: botFanArc }}>
+          <div data-zone="hand" data-player-id={player.id} className="flex items-end justify-center mb-1" style={{ paddingBottom: botFanArc }}>
             {player.hand.map((card, i) => {
               const { rotate, y } = fanStyle(i, player.hand.length, botFanAngle, botFanArc);
               return (
@@ -278,6 +322,7 @@ function PlayerZone({
       {!isBot && (
         <>
           <div />
+          <div data-zone="hand" data-player-id={player.id}>
           <Reorder.Group
             as="div"
             axis="x"
@@ -333,6 +378,7 @@ function PlayerZone({
               );
             })}
           </Reorder.Group>
+          </div>
         </>
       )}
 
@@ -379,7 +425,7 @@ interface PileHorizontalProps {
 function PileHorizontal({ pile }: PileHorizontalProps) {
   if (pile.length === 0) {
     return (
-      <div className="h-20 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-600 px-4">
+      <div data-zone="pile" className="h-20 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-600 px-4">
         <span className="text-gray-600 text-[10px] sm:text-xs">pile vide</span>
       </div>
     );
@@ -393,7 +439,7 @@ function PileHorizontal({ pile }: PileHorizontalProps) {
   const moveCount = visibleMoves.length;
 
   return (
-    <div className="flex items-center justify-center gap-2">
+    <div data-zone="pile" className="flex items-center justify-center gap-2">
       {visibleMoves.map((entry, moveIdx) => {
         const opacityIdx = moveCount <= 5 ? moveIdx + (5 - moveCount) : moveIdx;
         const opacity = MOVE_OPACITY[opacityIdx] ?? 0.2;
@@ -409,50 +455,26 @@ function PileHorizontal({ pile }: PileHorizontalProps) {
             key={`${entry.timestamp}-${moveIdx}`}
             className={`relative flex-shrink-0 rounded-lg ${isLatest ? 'border-2 border-green-400' : ''}`}
             style={{ opacity }}
+            {...(isLatest ? { 'data-pile-latest': '' } : {})}
           >
-            {isLatest ? (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={cards.map((c) => c.id).join(',')}
-                  initial={{ scale: 0.7, y: -16, opacity: 0 }}
-                  animate={{ scale: 1, y: 0, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 180, damping: 22 }}
-                  className="relative flex-shrink-0"
-                  style={{
-                    width: groupWidth,
-                    height: cards.length > 1 ? MD_HEIGHT : undefined,
-                  }}
+            <div
+              className="relative flex-shrink-0"
+              style={{
+                width: groupWidth,
+                height: cards.length > 1 ? MD_HEIGHT : undefined,
+              }}
+            >
+              {cards.map((card, cardIdx) => (
+                <div
+                  key={card.id}
+                  data-card-id={card.id}
+                  className={cards.length > 1 ? 'absolute top-0' : undefined}
+                  style={cards.length > 1 ? { left: cardIdx * CARD_OVERLAP, zIndex: cardIdx } : undefined}
                 >
-                  {cards.map((card, cardIdx) => (
-                    <div
-                      key={card.id}
-                      className={cards.length > 1 ? 'absolute top-0' : undefined}
-                      style={cards.length > 1 ? { left: cardIdx * CARD_OVERLAP, zIndex: cardIdx } : undefined}
-                    >
-                      <Card card={card} size="md" noLayout />
-                    </div>
-                  ))}
-                </motion.div>
-              </AnimatePresence>
-            ) : (
-              <div
-                className="relative flex-shrink-0"
-                style={{
-                  width: groupWidth,
-                  height: cards.length > 1 ? MD_HEIGHT : undefined,
-                }}
-              >
-                {cards.map((card, cardIdx) => (
-                  <div
-                    key={card.id}
-                    className={cards.length > 1 ? 'absolute top-0' : undefined}
-                    style={cards.length > 1 ? { left: cardIdx * CARD_OVERLAP, zIndex: cardIdx } : undefined}
-                  >
-                    <Card card={card} size="md" noLayout />
-                  </div>
-                ))}
-              </div>
-            )}
+                  <Card card={card} size="md" noLayout />
+                </div>
+              ))}
+            </div>
           </div>
         );
       })}
@@ -486,7 +508,7 @@ function GraveyardDisplay({ graveyard }: GraveyardDisplayProps) {
   const maxWidth = cardWidth + (GRAVEYARD_MAX - 1) * GRAVEYARD_OVERLAP;
 
   return (
-    <div className="flex flex-col items-end gap-0.5">
+    <div data-zone="graveyard" className="flex flex-col items-end gap-0.5">
       <div
         className="relative flex-shrink-0"
         style={{ width: maxWidth, height: 52 }}
@@ -667,6 +689,7 @@ function MiniLog({ log, visible = true, maxEntries = 8 }: MiniLogProps) {
 interface CardsColumnProps {
   state: GameState;
   humanId: string;
+  currentPower: LastPowerTriggered | null;
 }
 
 /** Maps card rank codes to readable French labels. */
@@ -682,12 +705,11 @@ function rankLabel(rank: string): string {
 
 /** Pending action types that require hiding the last pile entry (card shown after choice). */
 const POPUP_PENDING_TYPES = new Set([
-  'target',
   'PendingMultiJackOrder',
 ]);
 
 /** Center column: Pile centred vertically. Overlay space handled externally. */
-function CardsColumn({ state, humanId }: CardsColumnProps) {
+function CardsColumn({ state, humanId, currentPower }: CardsColumnProps) {
   // Hide last pile entry during popup pending actions (card appears after choice)
   const hasPendingPopup = !!(state.pendingAction && POPUP_PENDING_TYPES.has(state.pendingAction.type));
   const displayPile = hasPendingPopup && state.pile.length > 0
@@ -726,6 +748,8 @@ function CardsColumn({ state, humanId }: CardsColumnProps) {
         {turnMessage || '\u00A0'}
       </p>
       <PileHorizontal pile={displayPile} />
+      {/* Power Overlay — fixed-positioned, centered on [data-pile-latest] */}
+      <PowerOverlay power={currentPower} players={state.players} />
       <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
         Pile : {totalPileCards} cartes
       </span>
@@ -1671,7 +1695,7 @@ export function GameBoard({
               className={`flex-shrink-0 flex flex-col items-center gap-0.5 ${onInspectZone ? 'cursor-pointer' : ''}`}
               onClick={onInspectZone ? () => onInspectZone('deck') : undefined}
             >
-              <div className="relative flex-shrink-0">
+              <div data-zone="deck" className="relative flex-shrink-0">
                 {state.deck.length > 0 ? (
                   <>
                     {state.deck.length > 1 && (
@@ -1696,11 +1720,7 @@ export function GameBoard({
 
         {/* Colonne centre (50%) — Pile + Overlay absolu */}
         <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg relative">
-          <CardsColumn state={state} humanId={humanId} />
-          {/* Power Overlay — centered absolute, no layout shift */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <PowerOverlay power={currentPower ?? null} players={state.players} />
-          </div>
+          <CardsColumn state={state} humanId={humanId} currentPower={currentPower ?? null} />
         </div>
 
         {/* Colonne droite (25%) — Dernier coup + MiniLog (50/50) */}
@@ -1762,7 +1782,7 @@ export function GameBoard({
 
       {/* ── Target choice (post-play As : qui joue après ?) ── */}
       <AnimatePresence>
-        {pendingTargetForHuman && onTargetChoice && (
+        {pendingTargetForHuman && !state.pendingActionDelayed && !currentPower && onTargetChoice && (
           <TargetPickerModal
             title="Target (As)"
             description="Choisissez qui jouera après vous."
@@ -1775,7 +1795,7 @@ export function GameBoard({
 
       {/* ── Manouche target picker (multi-jack: targetId not yet set) ── */}
       <AnimatePresence>
-        {pendingManoucheTargetForHuman && !state.pendingActionDelayed && onManoucheTarget && (
+        {pendingManoucheTargetForHuman && !state.pendingActionDelayed && !currentPower && onManoucheTarget && (
           <TargetPickerModal
             title="Manouche ♠"
             description="Choisissez un adversaire pour l'échange."
@@ -1788,7 +1808,7 @@ export function GameBoard({
 
       {/* ── Manouche pick ── */}
       <AnimatePresence>
-        {pendingManoucheForHuman && !state.pendingActionDelayed && onManouchePick && onManoucheSkip && (
+        {pendingManoucheForHuman && !state.pendingActionDelayed && !currentPower && onManouchePick && onManoucheSkip && (
           <ManouchePickModal
             state={state}
             humanId={humanId}
@@ -1800,7 +1820,7 @@ export function GameBoard({
 
       {/* ── Super Manouche target picker (multi-jack: targetId not yet set) ── */}
       <AnimatePresence>
-        {pendingSuperManoucheTargetForHuman && !state.pendingActionDelayed && onManoucheTarget && (
+        {pendingSuperManoucheTargetForHuman && !state.pendingActionDelayed && !currentPower && onManoucheTarget && (
           <TargetPickerModal
             title="Super Manouche ♠"
             description="Choisissez un adversaire pour l'échange."
@@ -1813,7 +1833,7 @@ export function GameBoard({
 
       {/* ── Super Manouche pick ── */}
       <AnimatePresence>
-        {pendingSuperManoucheForHuman && !state.pendingActionDelayed && onSuperManouchePick && (
+        {pendingSuperManoucheForHuman && !state.pendingActionDelayed && !currentPower && onSuperManouchePick && (
           <SuperManouchePickModal
             state={state}
             humanId={humanId}
@@ -1824,7 +1844,7 @@ export function GameBoard({
 
       {/* ── Shifumi target picker (initiator picks 2 players) ── */}
       <AnimatePresence>
-        {pendingShifumiTargetForHuman && !state.pendingActionDelayed && onShifumiTarget && (
+        {pendingShifumiTargetForHuman && !state.pendingActionDelayed && !currentPower && onShifumiTarget && (
           <ShifumiTargetPickerModal
             title={pending?.type === 'superShifumi' ? 'Super Shifumi ♣' : 'Shifumi ♣'}
             description="Choisissez 2 joueurs pour le duel."
@@ -1836,7 +1856,7 @@ export function GameBoard({
 
       {/* ── Shifumi choice (participant picks rock/paper/scissors) ── */}
       <AnimatePresence>
-        {pendingShifumiChoiceForHuman && !state.pendingActionDelayed && onShifumiChoice && (
+        {pendingShifumiChoiceForHuman && !state.pendingActionDelayed && !currentPower && onShifumiChoice && (
           <ShifumiChoiceModal
             isSuper={pending?.type === 'superShifumi'}
             onChoice={onShifumiChoice}
@@ -1863,7 +1883,7 @@ export function GameBoard({
 
       {/* ── Flop Reverse target picker ── */}
       <AnimatePresence>
-        {pendingFlopReverseForHuman && !state.pendingActionDelayed && onFlopReverseTarget && (
+        {pendingFlopReverseForHuman && !state.pendingActionDelayed && !currentPower && onFlopReverseTarget && (
           <TargetPickerModal
             title="Flop Reverse ♥"
             description="Choisissez un joueur dont le flop et le dark flop seront échangés."
@@ -1877,7 +1897,7 @@ export function GameBoard({
 
       {/* ── Flop Remake target picker (step 1) ── */}
       <AnimatePresence>
-        {pendingFlopRemakeTargetForHuman && !state.pendingActionDelayed && onFlopRemakeTarget && (
+        {pendingFlopRemakeTargetForHuman && !state.pendingActionDelayed && !currentPower && onFlopRemakeTarget && (
           <TargetPickerModal
             title="Flop Remake ♥"
             description="Choisissez un joueur qui redistribuera son flop et dark flop."
@@ -1891,7 +1911,7 @@ export function GameBoard({
 
       {/* ── Flop Remake distribution (step 2) ── */}
       <AnimatePresence>
-        {pendingFlopRemakeForHuman && !state.pendingActionDelayed && onFlopRemake && (
+        {pendingFlopRemakeForHuman && !state.pendingActionDelayed && !currentPower && onFlopRemake && (
           <FlopRemakeModal
             state={state}
             humanId={humanId}
@@ -1913,7 +1933,7 @@ export function GameBoard({
 
       {/* ── Revolution Confirmation popup ── */}
       <AnimatePresence>
-        {pendingRevolutionConfirmForHuman && !state.pendingActionDelayed && pendingRevolutionConfirm && onRevolutionConfirm && (
+        {pendingRevolutionConfirmForHuman && !state.pendingActionDelayed && !currentPower && pendingRevolutionConfirm && onRevolutionConfirm && (
           <ModalWrapper
             title={pendingRevolutionConfirm.isSuper ? 'Super Révolution ♦' : 'Révolution ♦'}
             subtitle={pendingRevolutionConfirm.isSuper

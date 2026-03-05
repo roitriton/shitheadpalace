@@ -172,7 +172,7 @@ export function resolvePowers(
   // after the player makes their choice, so the overlay shows only once.
   if (isTargetTriggered(playedCards, newState.variant, newState.phase)) {
     newState = applyTarget(newState, playerId, timestamp);
-    newState = { ...newState, lastPowerTriggered: null, pendingCardsPlayed: cardsInfo };
+    newState = { ...newState, lastPowerTriggered: { type: 'target', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: true, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   }
 

@@ -68,7 +68,7 @@ export function applyTargetChoice(
     pendingAction: null,
     currentPlayerIndex: nextPlayerIndex as number,
     turnOrder: rest,
-    lastPowerTriggered: { type: 'target', playerId, targetId: targetPlayerId, cardsPlayed: state.pendingCardsPlayed },
+    lastPowerTriggered: null,
     pendingCardsPlayed: undefined,
   };
 

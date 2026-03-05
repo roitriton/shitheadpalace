@@ -11,6 +11,8 @@ import { ChatPanel, type ChatMessage } from './components/ChatPanel';
 import { ActionLog } from './components/ActionLog';
 import { BottomBar } from './components/BottomBar';
 import { TopBar } from './components/TopBar';
+import { CardAnimationLayer } from './components/CardAnimationLayer';
+import { useCardAnimations, CardAnimationContext } from './hooks/useCardAnimations';
 
 // ─── Socket (singleton module-level) ──────────────────────────────────────────
 
@@ -51,6 +53,9 @@ function App() {
   const humanIdRef = useRef(humanId);
   humanIdRef.current = humanId;
 
+  // Card flight animations
+  const { animations: cardAnimations, hiddenCardIds, onAnimationComplete: onCardAnimComplete } = useCardAnimations(gameState, humanId);
+
   useEffect(() => {
     socket.on(
       'game:state',
@@ -59,24 +64,42 @@ function App() {
         setHumanId(playerId);
         setSelectedCards([]);
 
+        // Save old log length BEFORE updating — needed for overlay delay calculation
+        const oldLogLength = prevLogLengthRef.current;
+
         // Track unread log entries
-        const newEntries = state.log.length - prevLogLengthRef.current;
-        if (newEntries > 0 && !actionLogOpenRef.current) {
-          setActionLogUnread((prev) => prev + newEntries);
+        const newLogCount = state.log.length - oldLogLength;
+        if (newLogCount > 0 && !actionLogOpenRef.current) {
+          setActionLogUnread((prev) => prev + newLogCount);
         }
         prevLogLengthRef.current = state.log.length;
 
-        // Track power overlay — show overlay when a new power is triggered
+        // Track power overlay — delay display until card flight animations complete
         const lpt = state.lastPowerTriggered;
-        // Build a string fingerprint so we can detect new triggers reliably
         const lptKey = lpt ? `${lpt.type}|${lpt.playerId}|${state.log.length}` : null;
         if (lpt && lptKey !== prevPowerTypeRef.current) {
-          setCurrentPower(lpt);
+          // Compute card flight duration from new play log entries
+          const recentEntries = state.log.slice(oldLogLength);
+          let maxPlayEndTime = 0;
+          for (const entry of recentEntries) {
+            if (entry.type === 'play' || entry.type === 'darkPlay') {
+              const cIds = (entry.data.cardIds as string[] | undefined);
+              const cId = (entry.data.cardId as string | undefined);
+              const count = cIds ? cIds.length : (cId ? 1 : 0);
+              const endTime = (count > 1 ? (count - 1) * 50 : 0) + 800;
+              if (endTime > maxPlayEndTime) maxPlayEndTime = endTime;
+            }
+          }
+          const overlayDelay = maxPlayEndTime > 0 ? maxPlayEndTime + 100 : 0;
+
           if (powerTimerRef.current) clearTimeout(powerTimerRef.current);
           powerTimerRef.current = setTimeout(() => {
-            setCurrentPower(null);
-            powerTimerRef.current = null;
-          }, 1500);
+            setCurrentPower(lpt);
+            powerTimerRef.current = setTimeout(() => {
+              setCurrentPower(null);
+              powerTimerRef.current = null;
+            }, 1500);
+          }, overlayDelay);
         }
         prevPowerTypeRef.current = lptKey;
       },
@@ -136,6 +159,7 @@ function App() {
 
   const handleCardClick = (card: CardType) => {
     if (!gameState) return;
+    if (currentPower !== null) return; // Block selection during overlay animation
     const human = gameState.players.find((p) => p.id === humanId);
     if (!human) return;
 
@@ -489,6 +513,7 @@ function App() {
 
   return (
     <>
+    <CardAnimationContext.Provider value={hiddenCardIds}>
     <AnimatePresence mode="wait">
       <motion.div
         key="board"
@@ -582,6 +607,8 @@ function App() {
         )}
       </motion.div>
     </AnimatePresence>
+    <CardAnimationLayer animations={cardAnimations} onComplete={onCardAnimComplete} />
+    </CardAnimationContext.Provider>
     </>
   );
 }

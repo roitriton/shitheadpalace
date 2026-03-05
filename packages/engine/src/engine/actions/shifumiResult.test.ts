@@ -143,12 +143,12 @@ describe('PendingShifumiResult', () => {
       expect(s3.pile).toHaveLength(0);
     });
 
-    it('advances the turn after resolving', () => {
+    it('advances the turn after resolving (from loser position)', () => {
       const s1 = applyShifumiChoice(stateReadyForChoices(), 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
       const s3 = resolveShifumiResult(s2);
-      // Turn advances from initiator (p0, index 0) → next is index 1
-      expect(s3.currentPlayerIndex).toBe(1);
+      // p2 (index 2) loses and picks up → turn advances from p2 → next is p3 (index 3)
+      expect(s3.currentPlayerIndex).toBe(3);
     });
 
     it('logs a shifumiResolved entry after resolving', () => {
@@ -286,6 +286,118 @@ describe('PendingShifumiResult', () => {
     it('throws when no pending shifumiResult action', () => {
       const state = makeState();
       expect(() => resolveShifumiResult(state)).toThrow('No pending shifumiResult action');
+    });
+  });
+
+  describe('resolveShifumiResult — turn advances from loser (3 players)', () => {
+    it('turn goes to player after loser, not after launcher', () => {
+      // 3 players: Human (p0), Bot A (p1), Bot B (p2)
+      // Bot B (p2) played J♣, shifumi between p1 and p2, p1 loses and picks up
+      // Next = player AFTER loser (p1) = p2 (Bot B)
+      const state = makeState({
+        players: [
+          makePlayer('p0', { name: 'Human', hand: [c5] }),
+          makePlayer('p1', { name: 'BotA', hand: [c5] }),
+          makePlayer('p2', { name: 'BotB', hand: [c5] }),
+        ],
+        currentPlayerIndex: 2, // Bot B is the launcher
+        turnOrder: [0, 1], // Human, Bot A
+        pendingAction: {
+          type: 'shifumiResult',
+          player1Id: 'p1',
+          player1Name: 'BotA',
+          player1Choice: 'scissors',
+          player2Id: 'p2',
+          player2Name: 'BotB',
+          player2Choice: 'rock',
+          result: 'player2', // Bot B wins, Bot A (p1) loses
+          shifumiType: 'normal',
+          _savedPendingAction: { type: 'shifumi', initiatorId: 'p2', player1Id: 'p1', player2Id: 'p2' } as PendingShifumi,
+          _savedInitiatorId: 'p2',
+        } as PendingShifumiResult,
+        pendingCemeteryTransit: true,
+      });
+
+      const next = resolveShifumiResult(state);
+
+      // Turn should go to Bot B (p2), the player AFTER Bot A (loser)
+      expect(next.currentPlayerIndex).toBe(2);
+      expect(next.players[next.currentPlayerIndex]!.id).toBe('p2');
+      // pendingCemeteryTransit should be cleared (loser took entire pile including jack)
+      expect(next.pendingCemeteryTransit).toBeFalsy();
+      // Bot A (loser) picked up the pile
+      const botA = next.players.find((p) => p.id === 'p1')!;
+      expect(botA.hand).toHaveLength(2); // original c5 + pile cK
+    });
+
+    it('turn goes to player after loser even when launcher is between them', () => {
+      // Players: p0 (launcher), p1 (loser), p2 (bystander)
+      // p0 plays J♣ → shifumi between p0 and p1 → p1 loses
+      // Next = player AFTER p1 = p2
+      const state = makeState({
+        players: [
+          makePlayer('p0', { name: 'Launcher', hand: [c5] }),
+          makePlayer('p1', { name: 'Loser', hand: [c5] }),
+          makePlayer('p2', { name: 'Bystander', hand: [c5] }),
+        ],
+        currentPlayerIndex: 0, // p0 is the launcher
+        turnOrder: [1, 2],
+        pendingAction: {
+          type: 'shifumiResult',
+          player1Id: 'p0',
+          player1Name: 'Launcher',
+          player1Choice: 'rock',
+          player2Id: 'p1',
+          player2Name: 'Loser',
+          player2Choice: 'scissors',
+          result: 'player1', // p0 wins, p1 loses
+          shifumiType: 'normal',
+          _savedPendingAction: { type: 'shifumi', initiatorId: 'p0', player1Id: 'p0', player2Id: 'p1' } as PendingShifumi,
+          _savedInitiatorId: 'p0',
+        } as PendingShifumiResult,
+        pendingCemeteryTransit: true,
+      });
+
+      const next = resolveShifumiResult(state);
+
+      // Turn should go to p2 (player AFTER loser p1)
+      expect(next.currentPlayerIndex).toBe(2);
+      expect(next.players[next.currentPlayerIndex]!.id).toBe('p2');
+    });
+
+    it('launcher replays when they are right after the loser in turn order', () => {
+      // Players: p0 (launcher), p1 (bystander), p2 (loser)
+      // p0 plays J♣ → shifumi between p1 and p2 → p2 loses
+      // Next = player AFTER p2 = p0 (launcher replays)
+      const state = makeState({
+        players: [
+          makePlayer('p0', { name: 'Launcher', hand: [c5] }),
+          makePlayer('p1', { name: 'Bystander', hand: [c5] }),
+          makePlayer('p2', { name: 'Loser', hand: [c5] }),
+        ],
+        currentPlayerIndex: 0,
+        turnOrder: [1, 2],
+        pendingAction: {
+          type: 'shifumiResult',
+          player1Id: 'p1',
+          player1Name: 'Bystander',
+          player1Choice: 'rock',
+          player2Id: 'p2',
+          player2Name: 'Loser',
+          player2Choice: 'scissors',
+          result: 'player1', // p1 wins, p2 loses
+          shifumiType: 'normal',
+          _savedPendingAction: { type: 'shifumi', initiatorId: 'p0', player1Id: 'p1', player2Id: 'p2' } as PendingShifumi,
+          _savedInitiatorId: 'p0',
+        } as PendingShifumiResult,
+        pendingCemeteryTransit: true,
+      });
+
+      const next = resolveShifumiResult(state);
+
+      // Turn should go to p0 (launcher), who is after loser p2 in turn order
+      expect(next.currentPlayerIndex).toBe(0);
+      expect(next.players[next.currentPlayerIndex]!.id).toBe('p0');
     });
   });
 });

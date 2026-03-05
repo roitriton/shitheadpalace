@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { Card as CardType } from '@shit-head-palace/engine';
+import { CardAnimationContext } from '../hooks/useCardAnimations';
 
 // ─── Constantes visuelles ──────────────────────────────────────────────────────
 
@@ -32,6 +33,8 @@ interface CardProps {
   variant?: 'default' | 'burned';
   /** When true and selected, show red highlight instead of gold (burn indicator) */
   burnHighlight?: boolean;
+  /** Ghost card in animation layer — skip animation-hide context check */
+  ghost?: boolean;
 }
 
 // ─── Dos de carte ──────────────────────────────────────────────────────────────
@@ -97,7 +100,9 @@ function CardFace({ card, size = 'md', burned }: { card: CardType; size?: 'xs' |
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-export function Card({ card, faceDown, selected, onClick, disabled, size = 'md', noLayout, noMotion, variant = 'default', burnHighlight }: CardProps) {
+export function Card({ card, faceDown, selected, onClick, disabled, size = 'md', noLayout, noMotion, variant = 'default', burnHighlight, ghost }: CardProps) {
+  const hiddenCardIds = React.useContext(CardAnimationContext);
+  const isAnimHidden = !ghost && hiddenCardIds.has(card.id);
   const isHidden = faceDown || card.hidden;
   const isClickable = !!onClick && !disabled;
 
@@ -114,6 +119,8 @@ export function Card({ card, faceDown, selected, onClick, disabled, size = 'md',
         boxShadow: selected
           ? (burnHighlight ? '0 0 12px rgba(239, 68, 68, 0.6)' : '0 0 12px rgba(201, 168, 76, 0.6)')
           : 'none',
+        opacity: isAnimHidden ? 0 : undefined,
+        transition: isAnimHidden ? 'none' : undefined,
       }}
       animate={noMotion ? undefined : { y: selected ? -18 : 0 }}
       whileHover={noMotion ? undefined : (isClickable && !selected ? { y: -10, scale: 1.04 } : {})}

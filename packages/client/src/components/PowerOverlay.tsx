@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState, useLayoutEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LastPowerTriggered, Player } from '@shit-head-palace/engine';
 
@@ -92,37 +92,74 @@ interface PowerOverlayProps {
   players: Player[];
 }
 
+/**
+ * Renders a power icon overlay centered on the latest pile card using
+ * position: fixed with JS-calculated coordinates from [data-pile-latest].
+ */
 export function PowerOverlay({ power, players }: PowerOverlayProps) {
   // Stable key counter: increments each time a new power arrives,
   // so AnimatePresence treats each trigger as a distinct animation cycle.
   const counterRef = useRef(0);
   const prevPowerRef = useRef<LastPowerTriggered | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+
   if (power && power !== prevPowerRef.current) {
     counterRef.current += 1;
   }
   prevPowerRef.current = power;
 
+  // Compute position from [data-pile-latest] element's bounding rect
+  useLayoutEffect(() => {
+    if (!power) return; // Keep old position for exit animation
+    const el = document.querySelector('[data-pile-latest]');
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      setPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    } else {
+      // Fallback: center of viewport (e.g. pile empty after burn)
+      setPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    }
+  }, [power]);
+
   return (
-    <AnimatePresence mode="wait">
-      {power && (
-        <motion.div
-          key={counterRef.current}
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 3.5 }}
-          transition={{
-            duration: 0.4,
-            ease: 'easeOut',
-            exit: { duration: 0.6, ease: 'easeIn' },
-          }}
-          style={{ transformOrigin: 'center center', willChange: 'transform, opacity' }}
-          className="flex items-center justify-center"
-        >
-          <span className="text-5xl drop-shadow-lg">
-            {POWER_DISPLAY[power.type].icon}
-          </span>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div
+      style={{
+        position: 'fixed',
+        left: pos?.x ?? 0,
+        top: pos?.y ?? 0,
+        zIndex: 60,
+        pointerEvents: 'none',
+      }}
+    >
+      <AnimatePresence mode="wait">
+        {power && pos && (
+          <motion.div
+            key={counterRef.current}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 3.5 }}
+            transition={{
+              duration: 0.4,
+              ease: 'easeOut',
+              exit: { duration: 0.6, ease: 'easeIn' },
+            }}
+            style={{
+              transformOrigin: 'center center',
+              willChange: 'transform, opacity',
+              width: 0,
+              height: 0,
+              overflow: 'visible',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <span className="text-5xl drop-shadow-lg">
+              {POWER_DISPLAY[power.type].icon}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

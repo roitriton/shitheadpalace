@@ -404,8 +404,8 @@ describe('applyShifumiChoice', () => {
       expect(s3.log.some((l) => l.type === 'shifumiResolved')).toBe(true);
     });
 
-    it('advances the turn from the initiator position after resolution', () => {
-      // p0 is initiator (currentPlayerIndex=0), turnOrder=[1,2,3]
+    it('advances the turn from the loser position after resolution', () => {
+      // p0 is initiator (currentPlayerIndex=0), p1 wins (rock), p2 loses (scissors)
       // Give players cards so auto-skip doesn't interfere with turn-order check
       const base = stateReadyForChoices();
       const c5 = card('5', 'spades', 9);
@@ -416,8 +416,8 @@ describe('applyShifumiChoice', () => {
       const s1 = applyShifumiChoice(withHands, 'p1', 'rock');
       const s2 = applyShifumiChoice(s1, 'p2', 'scissors');
       const s3 = resolveShifumiResult(s2);
-      // advanceTurn from index 0 → next player is index 1
-      expect(s3.currentPlayerIndex).toBe(1);
+      // p2 (index 2) loses → advanceTurn from loser → next player is p3 (index 3)
+      expect(s3.currentPlayerIndex).toBe(3);
     });
   });
 

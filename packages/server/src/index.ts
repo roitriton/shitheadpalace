@@ -133,6 +133,9 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
 
   if (!currentIsBot && !hasBotPending) return;
 
+  // Add extra delay when a power overlay is playing on the client
+  const botDelay = BOT_DELAY_MS + (state.lastPowerTriggered ? OVERLAY_DELAY_MS : 0);
+
   setTimeout(() => {
     const current = soloSessions.get(socket.id);
     if (!current || current !== session) return;
@@ -159,7 +162,7 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
         scheduleSoloShifumiResultResolution(socket, session);
       } else if (needsMultiJackContinuation(session.state)) {
         scheduleSoloMultiJackContinuation(socket, session);
-      } else if (session.state.pendingCemeteryTransit) {
+      } else if (session.state.pendingCemeteryTransit && !session.state.pendingAction) {
         setTimeout(() => {
           const stillCurrent = soloSessions.get(socket.id);
           if (!stillCurrent || stillCurrent !== session) return;
@@ -175,7 +178,7 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
         scheduleSoloBotIfNeeded(socket, session);
       }
     }
-  }, BOT_DELAY_MS);
+  }, botDelay);
 }
 
 /**
@@ -227,7 +230,7 @@ function scheduleSoloMultiJackContinuation(socket: Socket, session: SoloSession)
     } else if (needsMultiJackContinuation(session.state)) {
       // Another immediate power in the sequence — continue
       scheduleSoloMultiJackContinuation(socket, session);
-    } else if (session.state.pendingCemeteryTransit) {
+    } else if (session.state.pendingCemeteryTransit && !session.state.pendingAction) {
       setTimeout(() => {
         const c = soloSessions.get(socket.id);
         if (!c || c !== session) return;
@@ -259,7 +262,7 @@ function scheduleSoloShifumiResultResolution(socket: Socket, session: SoloSessio
       scheduleSoloShifumiResultResolution(socket, session);
     } else if (needsMultiJackContinuation(session.state)) {
       scheduleSoloMultiJackContinuation(socket, session);
-    } else if (session.state.pendingCemeteryTransit) {
+    } else if (session.state.pendingCemeteryTransit && !session.state.pendingAction) {
       setTimeout(() => {
         const c = soloSessions.get(socket.id);
         if (!c || c !== session) return;
@@ -398,7 +401,7 @@ io.on('connection', (rawSocket) => {
       } else if (needsMultiJackContinuation(s.state)) {
         // Multi-jack continuation: revolution/superRevolution needs server-driven step
         scheduleSoloMultiJackContinuation(socket, s);
-      } else if (s.state.pendingCemeteryTransit) {
+      } else if (s.state.pendingCemeteryTransit && !s.state.pendingAction) {
         // Two-step cemetery transit: intermediate state already sent, resolve after delay
         setTimeout(() => {
           const current = soloSessions.get(socket.id);
@@ -478,7 +481,7 @@ io.on('connection', (rawSocket) => {
         scheduleSoloShifumiResultResolution(socket, s);
       } else if (needsMultiJackContinuation(s.state)) {
         scheduleSoloMultiJackContinuation(socket, s);
-      } else if (s.state.pendingCemeteryTransit) {
+      } else if (s.state.pendingCemeteryTransit && !s.state.pendingAction) {
         setTimeout(() => {
           const current = soloSessions.get(socket.id);
           if (!current || current !== s) return;

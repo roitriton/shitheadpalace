@@ -240,7 +240,7 @@ export class GameRoom {
     // Multi-jack continuation, cemetery transit, or bot scheduling
     if (this.needsMultiJackContinuation()) {
       this.scheduleMultiJackContinuation();
-    } else if (this.state.pendingCemeteryTransit) {
+    } else if (this.state.pendingCemeteryTransit && !this.state.pendingAction) {
       setTimeout(() => {
         if (!this.state) return;
         this.state = resolveCemeteryTransit(this.state);
@@ -343,7 +343,7 @@ export class GameRoom {
         this.scheduleShifumiResultResolution();
       } else if (this.needsMultiJackContinuation()) {
         this.scheduleMultiJackContinuation();
-      } else if (this.state.pendingCemeteryTransit) {
+      } else if (this.state.pendingCemeteryTransit && !this.state.pendingAction) {
         setTimeout(() => {
           if (!this.state) return;
           this.state = resolveCemeteryTransit(this.state);
@@ -376,7 +376,7 @@ export class GameRoom {
         this.scheduleShifumiResultResolution();
       } else if (this.needsMultiJackContinuation()) {
         this.scheduleMultiJackContinuation();
-      } else if (this.state.pendingCemeteryTransit) {
+      } else if (this.state.pendingCemeteryTransit && !this.state.pendingAction) {
         setTimeout(() => {
           if (!this.state) return;
           this.state = resolveCemeteryTransit(this.state);
@@ -402,6 +402,9 @@ export class GameRoom {
     const hasBotPending = canBotActOnPendingAction(this.state, this.botIds);
 
     if (!currentIsBot && !hasBotPending) return;
+
+    // Add extra delay when a power overlay is playing on the client
+    const botDelay = BOT_DELAY_MS + (this.state.lastPowerTriggered ? OVERLAY_DELAY_MS : 0);
 
     setTimeout(() => {
       if (!this.state) return;
@@ -430,7 +433,7 @@ export class GameRoom {
           this.scheduleShifumiResultResolution();
         } else if (this.needsMultiJackContinuation()) {
           this.scheduleMultiJackContinuation();
-        } else if (this.state.pendingCemeteryTransit) {
+        } else if (this.state.pendingCemeteryTransit && !this.state.pendingAction) {
           setTimeout(() => {
             if (!this.state) return;
             this.state = resolveCemeteryTransit(this.state);
@@ -448,7 +451,7 @@ export class GameRoom {
           this.scheduleBotIfNeeded();
         }
       }
-    }, BOT_DELAY_MS);
+    }, botDelay);
   }
 
   // ─── Reconnection ──────────────────────────────────────────────────────────
