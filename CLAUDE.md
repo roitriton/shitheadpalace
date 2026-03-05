@@ -176,7 +176,7 @@ Session 28/02 — Phases 3-6 (1033 tests au total) :
   - Bot support : auto-résolution PendingMultiJackOrder + PendingRevolutionConfirm
   - Continuation step-by-step serveur
 
-Nombre total de tests : 1070 (934 engine + 123 server + 13 client)
+Nombre total de tests : 1073 (937 engine + 123 server + 13 client)
 
 Session 28/02 (suite) — Étape 11B : Uniformisation modals (1033 tests, pas de nouveaux tests) :
 - [x] Étape 11B-A — Composants ModalWrapper + ModalButton
@@ -238,7 +238,7 @@ Session 04/03 — Phases 11C-11D + feedback shifumi + log engine (1070 tests au 
   - Alignement log = minilog (format unifié, darkPlay fusionné avec play, accents corrigés)
   - CSS @keyframes fadeInSlide pour apparition fluide des entrées log/minilog
 
-Session 05/03 — Étape 11E : Animations de déplacement des cartes (EN COURS, 1070 tests) :
+Session 05/03 — Étape 11E : Animations de déplacement des cartes (1073 tests) :
 - [x] Fix 11E-2 — Système d'animation ghost card (cartes volantes)
   - Nouveaux fichiers : CardAnimationLayer.tsx, hooks/useCardAnimations.ts
   - useCardAnimations hook : compare GameState consécutifs, détecte play/pickup/burn/draw, crée FlyingCardAnim
@@ -259,12 +259,23 @@ Session 05/03 — Étape 11E : Animations de déplacement des cartes (EN COURS, 
   - Fix 3 : PowerOverlay déplacé dans CardsColumn (centré sur la pile, pas sur toute la colonne 50%)
   - Fix 4 (investigation) : transit cimetière valets — PAS DE BUG, pendingActionDelayed bloque correctement
   - Fix 5 (investigation) : tour après shifumi — PAS DE BUG confirmé dans advanceTurn/resolveAutoSkip
+- [x] Fix 11E-4 — 4 bugs persistants (1070 tests, pas de nouveaux tests)
+  - Bug 1 : Target (As) utilise pendingActionDelayed (comme les valets) pour séquencer overlay avant popup
+  - Bug 2 : overlay delay timing — save oldLogLength AVANT mise à jour du ref, évite slice vide → delay=0
+  - Bug 3 : PowerOverlay wrapper CSS (absolute inset-0 dans relative autour de PileHorizontal)
+  - Bug 4 : pendingCemeteryTransit bloqué par pendingAction (5 locations index.ts + 4 locations GameRoom.ts)
+- [x] Fix 11E-5 — Overlay position, blocage pendant overlay, bot delay (1073 tests, +3 engine)
+  - PowerOverlay : position: fixed + getBoundingClientRect() sur [data-pile-latest], centrage JS exact
+  - Blocage interactions pendant overlay : handleCardClick guard (currentPower !== null), BottomBar skip guard
+  - Bot delay : +OVERLAY_DELAY_MS quand lastPowerTriggered !== null (solo + GameRoom)
+  - Tour shifumi : currentPlayerIndex → initiatorIdx + pendingCemeteryTransit: false + 3 tests
+- [x] Fix 11E-6 — Popup Target pendant overlay + tour après perdant shifumi (1073 tests, +1 engine)
+  - Popups double-gatées : !state.pendingActionDelayed ET !currentPower (11 popup conditions mises à jour)
+  - Tour shifumi corrigé : advanceTurn depuis le PERDANT (pas le lanceur), buildTurnQueue rebuild
+  - Règle : quand un joueur ramasse, le joueur APRÈS le ramasseur joue ensuite
+  - 3 tests shifumi turn : après perdant, lanceur entre les deux, lanceur rejoue si après perdant
 
-Bugs restants 11E :
-- Animations à vérifier visuellement sur toutes les actions (play, dark play, pickup, burn, draw)
-- Synchronisation overlay : valider que le timer-based delay est correct dans tous les cas (multi-jack, burn, etc.)
-
-Nombre total de tests : 1070 (934 engine + 123 server + 13 client)
+Nombre total de tests : 1073 (937 engine + 123 server + 13 client)
 
 Étapes à venir :
 - [ ] Étape 11E (suite) — Validation visuelle animations + polish
