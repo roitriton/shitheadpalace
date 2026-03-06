@@ -69,7 +69,53 @@ export function validateVariant(variant: GameVariant): VariantValidationError[] 
     });
   }
 
-  // ── 4. powerAssignments ───────────────────────────────────────────────────
+  // ── 4. minHandSize (optional) ────────────────────────────────────────────
+  if (variant.minHandSize !== undefined) {
+    if (
+      !Number.isInteger(variant.minHandSize) ||
+      variant.minHandSize < 1 ||
+      variant.minHandSize > 5
+    ) {
+      errors.push({
+        field: 'minHandSize',
+        message: 'minHandSize must be an integer between 1 and 5',
+      });
+    }
+  }
+
+  // ── 5. flopSize (optional) ─────────────────────────────────────────────
+  if (variant.flopSize !== undefined) {
+    if (
+      !Number.isInteger(variant.flopSize) ||
+      variant.flopSize < 1 ||
+      variant.flopSize > 5
+    ) {
+      errors.push({
+        field: 'flopSize',
+        message: 'flopSize must be an integer between 1 and 5',
+      });
+    }
+  }
+
+  // ── 6. Enough cards for all players ────────────────────────────────────
+  {
+    const handSize = variant.minHandSize ?? 3;
+    const flop = variant.flopSize ?? 3;
+    const cardsPerPlayer = handSize + flop * 2;
+    const totalCards = variant.deckCount * 52;
+    if (
+      Number.isInteger(variant.playerCount) &&
+      Number.isInteger(variant.deckCount) &&
+      cardsPerPlayer * variant.playerCount > totalCards
+    ) {
+      errors.push({
+        field: 'deckCount',
+        message: `not enough cards: ${variant.playerCount} players × ${cardsPerPlayer} cards/player = ${cardsPerPlayer * variant.playerCount} needed, but only ${totalCards} available`,
+      });
+    }
+  }
+
+  // ── 7. powerAssignments ───────────────────────────────────────────────────
   // Map from rank → first power that claimed it (for conflict detection)
   const claimedBy = new Map<Rank, Power>();
 

@@ -58,8 +58,13 @@ export function createInitialGameState(
     return player;
   });
 
-  // Deal cards
-  const { players, deck: remainingDeck } = dealCards(emptyPlayers, shuffledDeck);
+  // Deal cards (respect variant hand / flop sizes)
+  const { players, deck: remainingDeck } = dealCards(
+    emptyPlayers,
+    shuffledDeck,
+    variant.minHandSize ?? 3,
+    variant.flopSize ?? 3,
+  );
 
   return {
     id: gameId,

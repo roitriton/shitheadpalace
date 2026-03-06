@@ -159,11 +159,12 @@ export function applyFlopRemake(
   if (playerId !== targetId) {
     throw new Error('Only the Flop Remake target can redistribute their cards');
   }
-  if (faceUpIds.length > 3) {
-    throw new Error('Flop Remake: at most 3 cards may be placed face-up');
+  const maxFlopSize = state.variant.flopSize ?? 3;
+  if (faceUpIds.length > maxFlopSize) {
+    throw new Error(`Flop Remake: at most ${maxFlopSize} cards may be placed face-up`);
   }
-  if (faceDownIds.length > 3) {
-    throw new Error('Flop Remake: at most 3 cards may be placed face-down');
+  if (faceDownIds.length > maxFlopSize) {
+    throw new Error(`Flop Remake: at most ${maxFlopSize} cards may be placed face-down`);
   }
 
   const targetIdx = state.players.findIndex((p) => p.id === targetId);

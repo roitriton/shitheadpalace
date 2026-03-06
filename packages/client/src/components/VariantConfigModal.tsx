@@ -151,6 +151,13 @@ function configToVariant(config: VariantConfig): GameVariant {
     powerAssignments,
   };
 
+  if (config.minHandSize !== 3) {
+    variant.minHandSize = config.minHandSize;
+  }
+  if (config.flopCount !== 3) {
+    variant.flopSize = config.flopCount;
+  }
+
   if (Object.keys(uniquePowerAssignments).length > 0) {
     variant.uniquePowerAssignments = uniquePowerAssignments;
   }

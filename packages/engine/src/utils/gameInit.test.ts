@@ -194,4 +194,51 @@ describe('createInitialGameState', () => {
     }));
     expect(() => createInitialGameState('g1', sixPlayers, STANDARD_VARIANT)).toThrow();
   });
+
+  // ── Custom minHandSize / flopSize ────────────────────────────────────────
+
+  it('deals 2 cards to hand when variant.minHandSize = 2', () => {
+    const variant: GameVariant = { ...STANDARD_VARIANT, minHandSize: 2 };
+    const state = createInitialGameState('g1', FOUR_PLAYERS, variant);
+    for (const p of state.players) {
+      expect(p.hand).toHaveLength(2);
+      expect(p.faceUp).toHaveLength(3);
+      expect(p.faceDown).toHaveLength(3);
+    }
+    // 4 players × (2 + 3 + 3) = 32 cards dealt
+    expect(state.deck).toHaveLength(52 - 32);
+  });
+
+  it('deals 2 flop/dark flop when variant.flopSize = 2', () => {
+    const variant: GameVariant = { ...STANDARD_VARIANT, flopSize: 2 };
+    const state = createInitialGameState('g1', FOUR_PLAYERS, variant);
+    for (const p of state.players) {
+      expect(p.hand).toHaveLength(3);
+      expect(p.faceUp).toHaveLength(2);
+      expect(p.faceDown).toHaveLength(2);
+    }
+    // 4 players × (3 + 2 + 2) = 28 cards dealt
+    expect(state.deck).toHaveLength(52 - 28);
+  });
+
+  it('deals with minHandSize=5, flopSize=1', () => {
+    const variant: GameVariant = { ...STANDARD_VARIANT, minHandSize: 5, flopSize: 1 };
+    const state = createInitialGameState('g1', FOUR_PLAYERS, variant);
+    for (const p of state.players) {
+      expect(p.hand).toHaveLength(5);
+      expect(p.faceUp).toHaveLength(1);
+      expect(p.faceDown).toHaveLength(1);
+    }
+    // 4 players × (5 + 1 + 1) = 28 cards dealt
+    expect(state.deck).toHaveLength(52 - 28);
+  });
+
+  it('uses default sizes (3) when minHandSize/flopSize are not specified', () => {
+    const state = createInitialGameState('g1', FOUR_PLAYERS, STANDARD_VARIANT);
+    for (const p of state.players) {
+      expect(p.hand).toHaveLength(3);
+      expect(p.faceUp).toHaveLength(3);
+      expect(p.faceDown).toHaveLength(3);
+    }
+  });
 });

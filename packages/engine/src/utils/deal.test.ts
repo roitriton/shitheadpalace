@@ -132,4 +132,52 @@ describe('dealCards', () => {
       expect(p.faceDown).toHaveLength(3);
     }
   });
+
+  // ── Custom handSize / flopSize ─────────────────────────────────────────────
+
+  it('deals with custom handSize=2, flopSize=2 (2+2+2=6 per player)', () => {
+    const { players, deck: remaining } = dealCards(makePlayers(4), createDeck(), 2, 2);
+    for (const p of players) {
+      expect(p.hand).toHaveLength(2);
+      expect(p.faceUp).toHaveLength(2);
+      expect(p.faceDown).toHaveLength(2);
+    }
+    expect(remaining).toHaveLength(52 - 4 * 6);
+  });
+
+  it('deals with custom handSize=5, flopSize=1 (5+1+1=7 per player)', () => {
+    const { players, deck: remaining } = dealCards(makePlayers(4), createDeck(), 5, 1);
+    for (const p of players) {
+      expect(p.hand).toHaveLength(5);
+      expect(p.faceUp).toHaveLength(1);
+      expect(p.faceDown).toHaveLength(1);
+    }
+    expect(remaining).toHaveLength(52 - 4 * 7);
+  });
+
+  it('deals with custom handSize=1, flopSize=5 (1+5+5=11 per player)', () => {
+    const { players, deck: remaining } = dealCards(makePlayers(4), createDeck(), 1, 5);
+    for (const p of players) {
+      expect(p.hand).toHaveLength(1);
+      expect(p.faceUp).toHaveLength(5);
+      expect(p.faceDown).toHaveLength(5);
+    }
+    expect(remaining).toHaveLength(52 - 4 * 11);
+  });
+
+  it('throws when custom sizes require more cards than available', () => {
+    // 4 players × (5 + 5 + 5) = 60 cards needed; 52-card deck
+    expect(() => dealCards(makePlayers(4), createDeck(), 5, 5)).toThrow(/Not enough cards/);
+  });
+
+  it('distributes every card exactly once with custom sizes', () => {
+    const deck = createDeck();
+    const { players, deck: remaining } = dealCards(makePlayers(3), deck, 2, 4);
+    const allCards = [
+      ...remaining,
+      ...players.flatMap((p) => [...p.hand, ...p.faceUp, ...p.faceDown]),
+    ];
+    expect(allCards).toHaveLength(52);
+    expect(new Set(allCards.map((c) => c.id)).size).toBe(52);
+  });
 });

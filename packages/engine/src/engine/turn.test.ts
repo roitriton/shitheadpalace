@@ -100,6 +100,30 @@ describe('autoDraw', () => {
     expect(deck).toHaveLength(originalDeckLength);
     expect(player.hand).toHaveLength(originalHandLength);
   });
+
+  it('draws until hand reaches custom targetHandSize = 5', () => {
+    const player = makePlayer('p', { hand: [card('2')] });
+    const deck = [card('3'), card('4'), card('5'), card('6'), card('7')];
+    const { player: p2, deck: d2 } = autoDraw(player, deck, 5);
+    expect(p2.hand).toHaveLength(5);
+    expect(d2).toHaveLength(1);
+  });
+
+  it('draws until hand reaches custom targetHandSize = 1 (draws nothing if already 1)', () => {
+    const player = makePlayer('p', { hand: [card('2')] });
+    const deck = [card('3'), card('4')];
+    const { player: p2, deck: d2 } = autoDraw(player, deck, 1);
+    expect(p2.hand).toHaveLength(1);
+    expect(d2).toHaveLength(2);
+  });
+
+  it('draws until hand reaches custom targetHandSize = 2', () => {
+    const player = makePlayer('p', { hand: [] });
+    const deck = [card('3'), card('4'), card('5')];
+    const { player: p2, deck: d2 } = autoDraw(player, deck, 2);
+    expect(p2.hand).toHaveLength(2);
+    expect(d2).toHaveLength(1);
+  });
 });
 
 // ─── isPlayerFinished ─────────────────────────────────────────────────────────

@@ -66,6 +66,8 @@ export function deserializeVariant(json: string): GameVariant {
     playerCount: obj['playerCount'] as number,
     deckCount: obj['deckCount'] as number,
     powerAssignments: obj['powerAssignments'] as GameVariant['powerAssignments'],
+    ...(obj['minHandSize'] !== undefined ? { minHandSize: obj['minHandSize'] as number } : {}),
+    ...(obj['flopSize'] !== undefined ? { flopSize: obj['flopSize'] as number } : {}),
     ...(obj['uniquePowerAssignments'] !== undefined
       ? { uniquePowerAssignments: obj['uniquePowerAssignments'] as GameVariant['uniquePowerAssignments'] }
       : {}),

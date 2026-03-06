@@ -109,6 +109,16 @@ export interface GameVariant {
   /** Number of standard 52-card decks to use */
   deckCount: number;
   /**
+   * Minimum number of cards a player should hold in hand during Phase 1
+   * (auto-draw from deck refills up to this count). Defaults to 3.
+   */
+  minHandSize?: number;
+  /**
+   * Number of face-up (flop) AND face-down (dark flop) cards dealt to each
+   * player at the start. Same value is used for both zones. Defaults to 3.
+   */
+  flopSize?: number;
+  /**
    * Optional per-rank suit→unique-power mapping. When present, overrides the
    * hardcoded J-only defaults. Each key is a Rank whose cards trigger unique
    * powers; the value maps each Suit to a base unique power type.

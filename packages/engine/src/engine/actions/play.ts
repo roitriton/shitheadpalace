@@ -567,7 +567,7 @@ export function applyPlay(
 
     // Auto-draw before setting pending (Phase 1 only)
     if (zone === 'hand' && mjState.deck.length > 0) {
-      const { player: drawn, deck: newDeck } = autoDraw(updatedPlayer, mjState.deck);
+      const { player: drawn, deck: newDeck } = autoDraw(updatedPlayer, mjState.deck, state.variant.minHandSize ?? 3);
       mjPlayers = [...mjState.players];
       mjPlayers[playerIndex] = drawn;
       mjState = { ...mjState, players: mjPlayers, deck: newDeck };
@@ -619,7 +619,7 @@ export function applyPlay(
 
   // ── Auto-draw (Phase 1 only) ───────────────────────────────────────────────
   if (zone === 'hand' && newState.deck.length > 0) {
-    const { player: drawn, deck: newDeck } = autoDraw(updatedPlayer, newState.deck);
+    const { player: drawn, deck: newDeck } = autoDraw(updatedPlayer, newState.deck, state.variant.minHandSize ?? 3);
     newPlayers = [...newState.players];
     newPlayers[playerIndex] = drawn;
     newState = { ...newState, players: newPlayers, deck: newDeck };

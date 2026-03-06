@@ -187,7 +187,7 @@ describe('validateVariant', () => {
   });
 
   it('accepts playerCount of 6 (maximum)', () => {
-    expect(validateVariant(validVariant({ playerCount: 6 }))).toHaveLength(0);
+    expect(validateVariant(validVariant({ playerCount: 6, deckCount: 2 }))).toHaveLength(0);
   });
 
   // ── deckCount ─────────────────────────────────────────────────────────────
@@ -273,6 +273,82 @@ describe('validateVariant', () => {
 
   it('accepts an empty powerAssignments (all powers disabled)', () => {
     expect(validateVariant(validVariant({ powerAssignments: {} }))).toHaveLength(0);
+  });
+
+  // ── minHandSize ────────────────────────────────────────────────────────
+
+  it('accepts minHandSize of 1', () => {
+    expect(validateVariant(validVariant({ minHandSize: 1 }))).toHaveLength(0);
+  });
+
+  it('accepts minHandSize of 5', () => {
+    expect(validateVariant(validVariant({ minHandSize: 5 }))).toHaveLength(0);
+  });
+
+  it('reports an error when minHandSize is 0', () => {
+    const errors = validateVariant(validVariant({ minHandSize: 0 }));
+    expect(errors.some((e) => e.field === 'minHandSize')).toBe(true);
+  });
+
+  it('reports an error when minHandSize is 6', () => {
+    const errors = validateVariant(validVariant({ minHandSize: 6 }));
+    expect(errors.some((e) => e.field === 'minHandSize')).toBe(true);
+  });
+
+  it('reports an error when minHandSize is not an integer', () => {
+    const errors = validateVariant(validVariant({ minHandSize: 2.5 }));
+    expect(errors.some((e) => e.field === 'minHandSize')).toBe(true);
+  });
+
+  it('accepts variant without minHandSize (defaults to 3)', () => {
+    expect(validateVariant(validVariant())).toHaveLength(0);
+  });
+
+  // ── flopSize ───────────────────────────────────────────────────────────
+
+  it('accepts flopSize of 1', () => {
+    expect(validateVariant(validVariant({ flopSize: 1 }))).toHaveLength(0);
+  });
+
+  it('accepts flopSize of 5', () => {
+    const errors = validateVariant(validVariant({ flopSize: 5, deckCount: 2 }));
+    expect(errors.some((e) => e.field === 'flopSize')).toBe(false);
+  });
+
+  it('reports an error when flopSize is 0', () => {
+    const errors = validateVariant(validVariant({ flopSize: 0 }));
+    expect(errors.some((e) => e.field === 'flopSize')).toBe(true);
+  });
+
+  it('reports an error when flopSize is 6', () => {
+    const errors = validateVariant(validVariant({ flopSize: 6 }));
+    expect(errors.some((e) => e.field === 'flopSize')).toBe(true);
+  });
+
+  // ── card count ─────────────────────────────────────────────────────────
+
+  it('reports an error when not enough cards for all players', () => {
+    // 6 players × (3 + 3 + 3) = 54 needed, only 52 in 1 deck
+    const errors = validateVariant(validVariant({ playerCount: 6, deckCount: 1 }));
+    expect(errors.some((e) => e.field === 'deckCount')).toBe(true);
+  });
+
+  it('accepts when 2 decks provide enough cards for 6 players', () => {
+    // 6 players × 9 = 54; 2 decks = 104
+    const errors = validateVariant(validVariant({ playerCount: 6, deckCount: 2 }));
+    expect(errors.some((e) => e.field === 'deckCount')).toBe(false);
+  });
+
+  it('reports an error when large minHandSize + flopSize exceeds available cards', () => {
+    // 4 players × (5 + 5 + 5) = 60 needed, only 52 in 1 deck
+    const errors = validateVariant(validVariant({ minHandSize: 5, flopSize: 5, deckCount: 1 }));
+    expect(errors.some((e) => e.field === 'deckCount')).toBe(true);
+  });
+
+  it('accepts when small sizes fit in a single deck', () => {
+    // 6 players × (1 + 1 + 1) = 18 needed, 52 available
+    const errors = validateVariant(validVariant({ playerCount: 6, minHandSize: 1, flopSize: 1, deckCount: 1 }));
+    expect(errors.some((e) => e.field === 'deckCount')).toBe(false);
   });
 });
 
@@ -360,5 +436,19 @@ describe('deserializeVariant', () => {
       powerAssignments: { burn: '10', reset: '10' },
     });
     expect(() => deserializeVariant(bad)).toThrow();
+  });
+
+  it('roundtrips minHandSize and flopSize', () => {
+    const v = createVariant({ minHandSize: 2, flopSize: 4 });
+    const restored = deserializeVariant(serializeVariant(v));
+    expect(restored.minHandSize).toBe(2);
+    expect(restored.flopSize).toBe(4);
+  });
+
+  it('omits minHandSize and flopSize when not present', () => {
+    const v = createVariant();
+    const restored = deserializeVariant(serializeVariant(v));
+    expect(restored.minHandSize).toBeUndefined();
+    expect(restored.flopSize).toBeUndefined();
   });
 });

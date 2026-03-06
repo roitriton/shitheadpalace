@@ -1,33 +1,35 @@
 import type { Card, Direction, GameState, PendingAllBlockedShifumi, Player } from '../types';
 import { canPlayerPlayAnything } from './validation';
 
-/** Target hand size during Phase 1 (while the draw pile is non-empty). */
+/** Default target hand size during Phase 1 (while the draw pile is non-empty). */
 export const TARGET_HAND_SIZE = 3;
 
 // ─── Drawing ──────────────────────────────────────────────────────────────────
 
 /**
  * Auto-draws cards from the deck into the player's hand until they hold
- * TARGET_HAND_SIZE cards or the deck runs out. Pure function.
+ * `targetHandSize` cards or the deck runs out. Pure function.
  *
  * Called automatically after a player plays from their hand in Phase 1.
  *
- * @param player - The acting player.
- * @param deck   - The current draw pile (index 0 = top).
+ * @param player         - The acting player.
+ * @param deck           - The current draw pile (index 0 = top).
+ * @param targetHandSize - Minimum hand size to draw up to (default TARGET_HAND_SIZE).
  * @returns Updated player and remaining deck (neither input is mutated).
  */
 export function autoDraw(
   player: Player,
   deck: Card[],
+  targetHandSize: number = TARGET_HAND_SIZE,
 ): { player: Player; deck: Card[] } {
-  if (deck.length === 0 || player.hand.length >= TARGET_HAND_SIZE) {
+  if (deck.length === 0 || player.hand.length >= targetHandSize) {
     return { player, deck };
   }
 
   const newDeck = [...deck];
   const newHand = [...player.hand];
 
-  while (newHand.length < TARGET_HAND_SIZE && newDeck.length > 0) {
+  while (newHand.length < targetHandSize && newDeck.length > 0) {
     newHand.push(newDeck.shift() as Card);
   }
 
