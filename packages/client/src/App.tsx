@@ -14,14 +14,18 @@ import { TopBar } from './components/TopBar';
 import { CardAnimationLayer } from './components/CardAnimationLayer';
 import { useCardAnimations, CardAnimationContext } from './hooks/useCardAnimations';
 import { VariantConfigModal } from './components/VariantConfigModal';
+import { AuthScreen } from './components/AuthScreen';
+import { useAuth } from './auth/authContext';
 
-// ─── Socket (singleton module-level) ──────────────────────────────────────────
+// ─── Socket (singleton module-level, connects manually after auth) ───────────
 
-const socket: Socket = io('/');
+const socket: Socket = io('/', { autoConnect: false });
 
 // ─── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
+  const { user, token, loading, logout } = useAuth();
+
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [humanId, setHumanId] = useState('');
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
@@ -68,6 +72,25 @@ function App() {
 
   // Card flight animations
   const { animations: cardAnimations, hiddenCardIds, onAnimationComplete: onCardAnimComplete } = useCardAnimations(gameState, humanId);
+
+  // ── Socket connection (reactive to auth token) ──────────────────────────────
+  useEffect(() => {
+    if (loading) return;
+    if (!token) {
+      socket.disconnect();
+      return;
+    }
+    socket.auth = { token };
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      // Reconnect with new token
+      socket.disconnect().connect();
+    }
+    return () => {
+      socket.disconnect();
+    };
+  }, [token, loading]);
 
   useEffect(() => {
     socket.on(
@@ -429,6 +452,20 @@ function App() {
     emit('game:action', { type: 'revolutionConfirm' });
   };
 
+  // ── Auth gate ──────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-casino-room flex items-center justify-center">
+        <p className="text-gray-400">Chargement...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
   // ── Écran d'accueil / configuration ─────────────────────────────────────────
 
   if (!gameState) {
@@ -618,6 +655,8 @@ function App() {
           isDev={isDev}
           revealHands={isDev ? debugRevealHands : undefined}
           onToggleRevealHands={isDev ? () => setDebugRevealHands((v) => !v) : undefined}
+          username={user.username}
+          onLogout={logout}
         />
         <GameBoard
           state={gameState}

@@ -13,6 +13,10 @@ interface TopBarProps {
   /** Debug: reveal bot hands */
   revealHands?: boolean;
   onToggleRevealHands?: () => void;
+  /** Connected user's username */
+  username?: string;
+  /** Logout callback */
+  onLogout?: () => void;
 }
 
 function ThemeDropdown<T extends { id: string; label: string; image: string }>({
@@ -74,6 +78,8 @@ export function TopBar({
   isDev,
   revealHands,
   onToggleRevealHands,
+  username,
+  onLogout,
 }: TopBarProps) {
   const { background, setBackground, cardBack, setCardBack } = useTheme();
 
@@ -110,6 +116,19 @@ export function TopBar({
           onSelect={setCardBack}
         />
       </div>
+
+      {/* User info + logout */}
+      {username && onLogout && (
+        <div className="flex items-center gap-2 mr-3">
+          <span className="text-gray-300 text-xs truncate max-w-[100px]">{username}</span>
+          <button
+            onClick={onLogout}
+            className="text-gray-500 hover:text-gray-300 text-xs transition-colors"
+          >
+            Quitter
+          </button>
+        </div>
+      )}
 
       {/* Droite : Debug (dev only) */}
       {isDev && onToggleRevealHands && (

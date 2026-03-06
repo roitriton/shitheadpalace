@@ -32,6 +32,7 @@ beforeEach(async () => {
     email: 'lobby@example.com',
     username: 'lobbyuser',
     password: 'Password123',
+    gdprConsent: true,
   });
   userToken = res.body.token;
   userId = res.body.user.id;

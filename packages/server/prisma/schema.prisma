@@ -15,6 +15,7 @@ model User {
   googleId         String?         @unique
   appleId          String?         @unique
   avatarUrl        String?
+  gdprConsentAt    DateTime?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   gamesPlayed      GamePlayer[]

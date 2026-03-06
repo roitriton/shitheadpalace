@@ -30,6 +30,7 @@ describe('POST /auth/register', () => {
       email: 'alice@example.com',
       username: 'alice',
       password: 'Password123',
+      gdprConsent: true,
     });
 
     expect(res.status).toBe(201);
@@ -46,6 +47,7 @@ describe('POST /auth/register', () => {
       email: 'not-an-email',
       username: 'alice',
       password: 'Password123',
+      gdprConsent: true,
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Validation failed');
@@ -56,6 +58,7 @@ describe('POST /auth/register', () => {
       email: 'alice@example.com',
       username: 'alice',
       password: 'short',
+      gdprConsent: true,
     });
     expect(res.status).toBe(400);
   });
@@ -64,6 +67,27 @@ describe('POST /auth/register', () => {
     const res = await request(app).post('/auth/register').send({
       email: 'alice@example.com',
       username: 'ab',
+      password: 'Password123',
+      gdprConsent: true,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when gdprConsent is false', async () => {
+    const res = await request(app).post('/auth/register').send({
+      email: 'alice@example.com',
+      username: 'alice',
+      password: 'Password123',
+      gdprConsent: false,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('GDPR consent is required');
+  });
+
+  it('returns 400 when gdprConsent is missing', async () => {
+    const res = await request(app).post('/auth/register').send({
+      email: 'alice@example.com',
+      username: 'alice',
       password: 'Password123',
     });
     expect(res.status).toBe(400);
@@ -74,12 +98,14 @@ describe('POST /auth/register', () => {
       email: 'alice@example.com',
       username: 'alice',
       password: 'Password123',
+      gdprConsent: true,
     });
 
     const res = await request(app).post('/auth/register').send({
       email: 'alice@example.com',
       username: 'bob',
       password: 'Password123',
+      gdprConsent: true,
     });
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('Email already in use');
@@ -90,12 +116,14 @@ describe('POST /auth/register', () => {
       email: 'alice@example.com',
       username: 'alice',
       password: 'Password123',
+      gdprConsent: true,
     });
 
     const res = await request(app).post('/auth/register').send({
       email: 'bob@example.com',
       username: 'alice',
       password: 'Password123',
+      gdprConsent: true,
     });
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('Username already taken');
@@ -108,6 +136,7 @@ describe('POST /auth/login', () => {
       email: 'alice@example.com',
       username: 'alice',
       password: 'Password123',
+      gdprConsent: true,
     });
   });
 
@@ -153,6 +182,7 @@ describe('GET /auth/me', () => {
       email: 'alice@example.com',
       username: 'alice',
       password: 'Password123',
+      gdprConsent: true,
     });
     const token = regRes.body.token;
 
@@ -185,6 +215,7 @@ describe('GET /auth/me', () => {
       email: 'ghost@example.com',
       username: 'ghost',
       password: 'Password123',
+      gdprConsent: true,
     });
     const token = regRes.body.token;
 

@@ -7,6 +7,7 @@ describe('registerSchema', () => {
       email: 'test@example.com',
       username: 'player1',
       password: 'securePass123',
+      gdprConsent: true,
     });
     expect(result.success).toBe(true);
   });
@@ -52,6 +53,7 @@ describe('registerSchema', () => {
       email: 'test@example.com',
       username: 'my-player_1',
       password: 'securePass123',
+      gdprConsent: true,
     });
     expect(result.success).toBe(true);
   });
