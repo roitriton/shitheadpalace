@@ -131,6 +131,15 @@ function PlayerZone({
   const fdSlotRef = React.useRef<Map<string, number>>(new Map());
   const maxFlopSlotsRef = React.useRef(0);
 
+  // Clear slot tracking when flopRemake swaps cards mid-animation (old→new at 750ms)
+  const prevFaceUpIdKeyRef = React.useRef(player.faceUp.map((c) => c.id).join(','));
+  const faceUpIdKey = player.faceUp.map((c) => c.id).join(',');
+  if (flopRemakeAnimating && faceUpIdKey !== prevFaceUpIdKeyRef.current) {
+    fuSlotRef.current.clear();
+    fdSlotRef.current.clear();
+  }
+  prevFaceUpIdKeyRef.current = faceUpIdKey;
+
   const currentMaxSlots = Math.max(player.faceUp.length, player.faceDown.length);
   if (currentMaxSlots > maxFlopSlotsRef.current) {
     maxFlopSlotsRef.current = currentMaxSlots;
@@ -1412,6 +1421,8 @@ interface GameBoardProps {
   onPickUp?: () => void;
   /** Player ID whose flop is currently being rainbow-animated (flop remake) */
   flopRemakePlayerId?: string | null;
+  /** Old faceUp cards to display during the first half of flop remake animation */
+  flopRemakeOldFaceUp?: CardType[] | null;
   /** Callback when flop remake animation completes */
   onFlopRemakeAnimComplete?: () => void;
 }
@@ -1450,6 +1461,7 @@ export function GameBoard({
   onSkipTurn,
   onPickUp,
   flopRemakePlayerId,
+  flopRemakeOldFaceUp,
   onFlopRemakeAnimComplete,
 }: GameBoardProps) {
   const { background, cardBack } = useTheme();
@@ -1684,10 +1696,14 @@ export function GameBoard({
       <div className="flex-[25] min-h-0 flex items-start justify-evenly px-2 sm:px-3 md:px-4">
         {bots.map((bot) => {
           const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
+          // During flop remake animation first half, show old faceUp cards
+          const botForRender = (flopRemakePlayerId === bot.id && flopRemakeOldFaceUp)
+            ? { ...bot, faceUp: flopRemakeOldFaceUp }
+            : bot;
           return (
             <div key={bot.id} className="z-[2]">
               <PlayerZone
-                player={bot}
+                player={botForRender}
                 isBot={true}
                 isActive={botGlobalIdx === state.currentPlayerIndex}
                 activeZone={getActiveZone(bot)}
@@ -1768,7 +1784,9 @@ export function GameBoard({
       {/* ── 4. Zone joueur humain (35%) — décalé vers le bas ── */}
       <div className="flex-[35] min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 pt-2 sm:pt-3 flex justify-center items-start">
         <PlayerZone
-          player={human}
+          player={(flopRemakePlayerId === humanId && flopRemakeOldFaceUp)
+            ? { ...human, faceUp: flopRemakeOldFaceUp }
+            : human}
           isBot={false}
           isActive={isMyTurn}
           activeZone={humanActiveZone}

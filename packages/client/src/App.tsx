@@ -47,7 +47,12 @@ function App() {
 
   // Flop remake animation state
   const [flopRemakePlayerId, setFlopRemakePlayerId] = useState<string | null>(null);
+  const [flopRemakeOldFaceUp, setFlopRemakeOldFaceUp] = useState<CardType[] | null>(null);
+  const flopRemakeSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevLogLenForRemakeRef = useRef(0);
+
+  // Ref for always-current gameState (needed by socket handler to capture old flop cards)
+  const gameStateRef = useRef<GameState | null>(null);
 
   // Debug state (dev mode only)
   const [debugRevealHands, setDebugRevealHands] = useState(false);
@@ -108,17 +113,35 @@ function App() {
         prevPowerTypeRef.current = lptKey;
 
         // Detect flopRemakeDone in new log entries → trigger rainbow animation
+        // Must capture old faceUp BEFORE setGameState updates the rendered cards
         const remakeOldLen = prevLogLenForRemakeRef.current;
         prevLogLenForRemakeRef.current = state.log.length;
         if (state.log.length > remakeOldLen) {
           for (let i = remakeOldLen; i < state.log.length; i++) {
             const entry = state.log[i]!;
             if (entry.type === 'flopRemakeDone' && entry.playerId) {
-              setFlopRemakePlayerId(entry.playerId as string);
+              const targetId = entry.playerId as string;
+              // Capture old faceUp from pre-update state
+              const oldState = gameStateRef.current;
+              if (oldState) {
+                const targetPlayer = oldState.players.find((p) => p.id === targetId);
+                if (targetPlayer) {
+                  setFlopRemakeOldFaceUp(targetPlayer.faceUp);
+                  // Switch to new cards at ~750ms (gradient is fully opaque from 500ms to 2000ms)
+                  if (flopRemakeSwitchTimerRef.current) clearTimeout(flopRemakeSwitchTimerRef.current);
+                  flopRemakeSwitchTimerRef.current = setTimeout(() => {
+                    setFlopRemakeOldFaceUp(null);
+                    flopRemakeSwitchTimerRef.current = null;
+                  }, 750);
+                }
+              }
+              setFlopRemakePlayerId(targetId);
               break;
             }
           }
         }
+
+        gameStateRef.current = state;
       },
     );
 
@@ -142,6 +165,7 @@ function App() {
       socket.off('chat:message');
       socket.off('chat:history');
       if (powerTimerRef.current) clearTimeout(powerTimerRef.current);
+      if (flopRemakeSwitchTimerRef.current) clearTimeout(flopRemakeSwitchTimerRef.current);
     };
   }, []);
 
@@ -309,13 +333,18 @@ function App() {
     setCurrentPower(null);
     prevPowerTypeRef.current = null;
     setFlopRemakePlayerId(null);
+    setFlopRemakeOldFaceUp(null);
     prevLogLenForRemakeRef.current = 0;
+    gameStateRef.current = null;
     if (powerTimerRef.current) { clearTimeout(powerTimerRef.current); powerTimerRef.current = null; }
+    if (flopRemakeSwitchTimerRef.current) { clearTimeout(flopRemakeSwitchTimerRef.current); flopRemakeSwitchTimerRef.current = null; }
     emit('game:restart');
   };
 
   const handleFlopRemakeAnimComplete = () => {
     setFlopRemakePlayerId(null);
+    setFlopRemakeOldFaceUp(null);
+    if (flopRemakeSwitchTimerRef.current) { clearTimeout(flopRemakeSwitchTimerRef.current); flopRemakeSwitchTimerRef.current = null; }
   };
 
   // ── Post-play pending action callbacks ─────────────────────────────────────
@@ -593,6 +622,7 @@ function App() {
           onSkipTurn={handleSkipTurn}
           onPickUp={handlePickUp}
           flopRemakePlayerId={flopRemakePlayerId}
+          flopRemakeOldFaceUp={flopRemakeOldFaceUp}
           onFlopRemakeAnimComplete={handleFlopRemakeAnimComplete}
         />
         <ChatPanel

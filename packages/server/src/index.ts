@@ -173,6 +173,11 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
         setTimeout(() => {
           const stillCurrent = soloSessions.get(socket.id);
           if (!stillCurrent || stillCurrent !== session) return;
+          // Resolve cemetery transit (J♥ + 9 → graveyard)
+          if (session.state.pendingCemeteryTransit && !session.state.pendingAction) {
+            session.state = resolveCemeteryTransit(session.state);
+            sendSoloState(socket, session);
+          }
           if (needsMultiJackContinuation(session.state)) {
             scheduleSoloMultiJackContinuation(socket, session);
           } else {
@@ -422,6 +427,11 @@ io.on('connection', (rawSocket) => {
         setTimeout(() => {
           const current = soloSessions.get(socket.id);
           if (!current || current !== s) return;
+          // Resolve cemetery transit (J♥ + 9 → graveyard)
+          if (s.state.pendingCemeteryTransit && !s.state.pendingAction) {
+            s.state = resolveCemeteryTransit(s.state);
+            sendSoloState(socket, s);
+          }
           if (needsMultiJackContinuation(s.state)) {
             scheduleSoloMultiJackContinuation(socket, s);
           } else {
@@ -518,6 +528,11 @@ io.on('connection', (rawSocket) => {
         setTimeout(() => {
           const current = soloSessions.get(socket.id);
           if (!current || current !== s) return;
+          // Resolve cemetery transit (J♥ + 9 → graveyard)
+          if (s.state.pendingCemeteryTransit && !s.state.pendingAction) {
+            s.state = resolveCemeteryTransit(s.state);
+            sendSoloState(socket, s);
+          }
           if (needsMultiJackContinuation(s.state)) {
             scheduleSoloMultiJackContinuation(socket, s);
           } else {

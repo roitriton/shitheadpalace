@@ -36,10 +36,10 @@ export function FlopRemakeCardOverlay({ duration = 2.5, onComplete }: FlopRemake
         background: 'linear-gradient(180deg, #ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff, #ff0088)',
         backgroundSize: '100% 300%',
       }}
-      initial={{ opacity: 0, backgroundPosition: '0% 0%' }}
+      initial={{ opacity: 0, backgroundPosition: '0% 100%' }}
       animate={{
         opacity: [0, 1, 1, 0],
-        backgroundPosition: ['0% 0%', '0% 0%', '0% 100%', '0% 100%'],
+        backgroundPosition: ['0% 100%', '0% 100%', '0% 0%', '0% 0%'],
       }}
       transition={{
         duration,
