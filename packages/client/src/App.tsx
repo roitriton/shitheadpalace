@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { Card as CardType, GameState, ShifumiChoice, LastPowerTriggered, MultiJackSequenceEntry } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, GameVariant, ShifumiChoice, LastPowerTriggered, MultiJackSequenceEntry } from '@shit-head-palace/engine';
 import { getActiveZone, matchesPowerRank, canPlayerPlayAnything, canPlayCards } from '@shit-head-palace/engine';
 import { SwapPhase } from './components/SwapPhase';
 import { DebugSwapPhase } from './components/DebugSwapPhase';
@@ -13,6 +13,7 @@ import { BottomBar } from './components/BottomBar';
 import { TopBar } from './components/TopBar';
 import { CardAnimationLayer } from './components/CardAnimationLayer';
 import { useCardAnimations, CardAnimationContext } from './hooks/useCardAnimations';
+import { VariantConfigModal } from './components/VariantConfigModal';
 
 // ─── Socket (singleton module-level) ──────────────────────────────────────────
 
@@ -53,6 +54,9 @@ function App() {
 
   // Ref for always-current gameState (needed by socket handler to capture old flop cards)
   const gameStateRef = useRef<GameState | null>(null);
+
+  // Variant config modal
+  const [showVariantConfig, setShowVariantConfig] = useState(false);
 
   // Debug state (dev mode only)
   const [debugRevealHands, setDebugRevealHands] = useState(false);
@@ -321,7 +325,7 @@ function App() {
     emit('game:debug-compose', { hand, faceUp, faceDown });
   };
 
-  const handleRestart = () => {
+  const resetLocalState = () => {
     setSelectedCards([]);
     setError(null);
     setChatMessages([]);
@@ -338,7 +342,18 @@ function App() {
     gameStateRef.current = null;
     if (powerTimerRef.current) { clearTimeout(powerTimerRef.current); powerTimerRef.current = null; }
     if (flopRemakeSwitchTimerRef.current) { clearTimeout(flopRemakeSwitchTimerRef.current); flopRemakeSwitchTimerRef.current = null; }
-    emit('game:restart');
+  };
+
+  const handleRestart = () => {
+    resetLocalState();
+    setGameState(null);
+    setShowVariantConfig(true);
+  };
+
+  const handleStartSolo = (variant: GameVariant, _playerCount: number) => {
+    resetLocalState();
+    setShowVariantConfig(false);
+    emit('solo:start', { variant });
   };
 
   const handleFlopRemakeAnimComplete = () => {
@@ -414,7 +429,7 @@ function App() {
     emit('game:action', { type: 'revolutionConfirm' });
   };
 
-  // ── Écran de chargement ──────────────────────────────────────────────────────
+  // ── Écran d'accueil / configuration ─────────────────────────────────────────
 
   if (!gameState) {
     return (
@@ -425,8 +440,24 @@ function App() {
           className="text-center"
         >
           <h1 className="font-serif text-4xl text-gold mb-3">Shit Head Palace</h1>
-          <p className="text-felt-light">Connexion au serveur…</p>
+          <p className="text-felt-light mb-6">Prêt à jouer ?</p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowVariantConfig(true)}
+            className="px-8 py-3 rounded-full bg-green-600 hover:bg-green-500 text-white font-semibold text-lg shadow-lg transition-colors"
+          >
+            Nouvelle partie
+          </motion.button>
         </motion.div>
+        <AnimatePresence>
+          {showVariantConfig && (
+            <VariantConfigModal
+              onConfirm={handleStartSolo}
+              onCancel={() => setShowVariantConfig(false)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     );
   }

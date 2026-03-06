@@ -30,6 +30,7 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Étape 11E** — Animations de déplacement des cartes : CardAnimationLayer + useCardAnimations hook, 6 types de mouvement (main→pile, pioche→main, pile→main, pile→cimetière, flop→pile, darkFlop→pile), synchronisation overlay/popups, slots flop stables, PowerOverlay position fixed, blocage interactions pendant overlay, fix tour après shifumi perdant (1073 tests)
 - [x] **Étape 12A** — Thèmes visuels : 4 fonds tileable (Casino, Saloon, Pirate, Love) + 4 dos de cartes, 2 sélecteurs indépendants dans TopBar, ThemeContext/ThemeProvider, fond tileable 512×512 CSS sur GameBoard, dos image dans Card.tsx (1073 tests)
 - [x] **Étape 12B** — Animation Flop Remake : dégradé arc-en-ciel par carte flop (fade in → défilement haut→bas → fade out, 2.5s), FlopRemakeCardOverlay Framer Motion, détection flopRemakeDone côté client, blocage interactions pendant animation, délai serveur FLOP_REMAKE_ANIM_MS=2500 avant tour bot, swap invisible anciennes→nouvelles cartes à mi-animation (750ms), fix transit cimetière après flopRemake (pendingCemeteryTransit résolu dans les 3 callbacks hasFlopRemakeJustCompleted), fix positions slots flop (clear fuSlotRef/fdSlotRef sur changement d'ordre mid-animation) (1073 tests)
+- [x] **Étape 12C phase 1** — Modal configuration des variantes : VariantConfigModal (options générales + pouvoirs standards), écran d'accueil avec bouton "Nouvelle partie", 4 options générales (joueurs, paquets, main, flop), 13 dropdowns pouvoir par rang avec icônes+descriptions, "Pouvoirs uniques" grisé, bouton "Règles par défaut", validation client+serveur via validateVariant, passage variante au serveur via solo:start, création dynamique des bots selon playerCount, suppression auto-start anonyme (1073 tests)
 
 ### Nombre total de tests : 1073 (937 engine + 123 server + 13 client)
 
@@ -127,6 +128,7 @@ interface LogEntry {
 
 ```
 App.tsx (state principal, socket handlers, animation coordination)
+├── VariantConfigModal.tsx (config variantes avant lancement : options générales + pouvoirs par rang)
 ├── TopBar.tsx (titre, sélecteurs thème Table/Cartes, debug toggle)
 ├── GameBoard.tsx (plateau de jeu, fond tileable via ThemeContext)
 │   ├── PlayerZone (×n joueurs, CSS Grid auto 1fr)

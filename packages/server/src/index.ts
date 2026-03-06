@@ -20,8 +20,9 @@ import {
   continueMultiJackSequence,
   applyRevolutionConfirm,
   resolveShifumiResult,
+  validateVariant,
 } from '@shit-head-palace/engine';
-import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
+import type { GameState, GameVariant, GameAction, PlayerSetup } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './game/bot';
 
 // ─── Variant par défaut ────────────────────────────────────────────────────────
@@ -50,24 +51,32 @@ interface SoloSession {
 
 const soloSessions = new Map<string, SoloSession>();
 
-function createSoloSession(socketId: string): SoloSession {
+const BOT_NAMES = ['Bot A', 'Bot B', 'Bot C', 'Bot D', 'Bot E'];
+
+function createSoloSession(socketId: string, variant: GameVariant = DEFAULT_VARIANT): SoloSession {
   const humanId = `human-${socketId.slice(0, 8)}`;
-  const bot1Id = `bot1-${socketId.slice(0, 8)}`;
-  const bot2Id = `bot2-${socketId.slice(0, 8)}`;
-  const botIds = [bot1Id, bot2Id];
+  const botCount = variant.playerCount - 1;
+  const botIds: string[] = [];
+  const playerSetups: PlayerSetup[] = [
+    { id: humanId, name: 'Vous', isBot: false },
+  ];
 
-  let state = createInitialGameState(
-    socketId,
-    [
-      { id: humanId, name: 'Vous', isBot: false },
-      { id: bot1Id, name: 'Bot A', isBot: true, botDifficulty: 'easy' },
-      { id: bot2Id, name: 'Bot B', isBot: true, botDifficulty: 'easy' },
-    ],
-    DEFAULT_VARIANT,
-  );
+  for (let i = 0; i < botCount; i++) {
+    const botId = `bot${i + 1}-${socketId.slice(0, 8)}`;
+    botIds.push(botId);
+    playerSetups.push({
+      id: botId,
+      name: BOT_NAMES[i] ?? `Bot ${i + 1}`,
+      isBot: true,
+      botDifficulty: 'easy' as const,
+    });
+  }
 
-  state = applyReady(state, bot1Id, Date.now());
-  state = applyReady(state, bot2Id, Date.now());
+  let state = createInitialGameState(socketId, playerSetups, variant);
+
+  for (const botId of botIds) {
+    state = applyReady(state, botId, Date.now());
+  }
 
   return { state, humanId, botIds };
 }
@@ -382,8 +391,22 @@ io.on('connection', (rawSocket) => {
 
   // ── Solo mode (anonymous or explicit) ─────────────────────────────────────
 
-  socket.on('solo:start', () => {
-    const session = createSoloSession(socket.id);
+  socket.on('solo:start', (rawPayload?: unknown) => {
+    let variant = DEFAULT_VARIANT;
+    if (rawPayload && typeof rawPayload === 'object' && 'variant' in rawPayload) {
+      const v = (rawPayload as { variant: unknown }).variant;
+      if (v && typeof v === 'object' && 'name' in v && 'playerCount' in v && 'deckCount' in v && 'powerAssignments' in v) {
+        const candidate = v as GameVariant;
+        const errors = validateVariant(candidate);
+        if (errors.length === 0) {
+          variant = candidate;
+        } else {
+          socket.emit('game:error', { message: `Variante invalide: ${errors.map((e) => e.message).join('; ')}` });
+          return;
+        }
+      }
+    }
+    const session = createSoloSession(socket.id, variant);
     soloSessions.set(socket.id, session);
     sendSoloState(socket, session);
     emitSoloSystemMessage(socket, 'La partie commence');
@@ -469,7 +492,9 @@ io.on('connection', (rawSocket) => {
   });
 
   socket.on('solo:restart', () => {
-    const fresh = createSoloSession(socket.id);
+    const prev = soloSessions.get(socket.id);
+    const variant = prev?.state.variant ?? DEFAULT_VARIANT;
+    const fresh = createSoloSession(socket.id, variant);
     soloSessions.set(socket.id, fresh);
     sendSoloState(socket, fresh);
     emitSoloSystemMessage(socket, 'La partie commence');
@@ -568,7 +593,9 @@ io.on('connection', (rawSocket) => {
   });
 
   socket.on('game:restart', () => {
-    const fresh = createSoloSession(socket.id);
+    const prev = soloSessions.get(socket.id);
+    const variant = prev?.state.variant ?? DEFAULT_VARIANT;
+    const fresh = createSoloSession(socket.id, variant);
     soloSessions.set(socket.id, fresh);
     sendSoloState(socket, fresh);
     emitSoloSystemMessage(socket, 'La partie commence');
@@ -831,14 +858,8 @@ io.on('connection', (rawSocket) => {
     socket.emit('chat:message', chatMsg);
   });
 
-  // ── Auto-start solo for backward compatibility ────────────────────────────
-
-  if (isAnonymous) {
-    const session = createSoloSession(socket.id);
-    soloSessions.set(socket.id, session);
-    sendSoloState(socket, session);
-    emitSoloSystemMessage(socket, 'La partie commence');
-  }
+  // Note: solo games are no longer auto-started on connection.
+  // The client must explicitly emit 'solo:start' with an optional variant.
 
   // ── Disconnect ────────────────────────────────────────────────────────────
 
