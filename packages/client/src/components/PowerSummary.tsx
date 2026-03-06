@@ -1,4 +1,5 @@
-import type { GameVariant, Power, Rank } from '@shit-head-palace/engine';
+import type { GameVariant, Power, Rank, Suit, UniquePowerType } from '@shit-head-palace/engine';
+import { DEFAULT_UNIQUE_POWER_SUITS } from '@shit-head-palace/engine';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -26,24 +27,13 @@ const POWER_NAMES: Record<Power, string> = {
   superShifumi: 'Super Shifumi',
 };
 
-/** Suit info for Jack-based power display. */
+/** Suit info for unique power display. */
 const SUIT_DISPLAY: Record<string, { symbol: string; color: string }> = {
   diamonds: { symbol: '♦', color: 'text-red-400' },
   spades: { symbol: '♠', color: 'text-gray-200' },
   hearts: { symbol: '♥', color: 'text-red-400' },
   clubs: { symbol: '♣', color: 'text-gray-200' },
 };
-
-/**
- * Jack power mapping: suit → base power.
- * Will be moved to the variant config when custom unique powers are implemented.
- */
-const JACK_POWER_MAP: { suit: string; power: Power }[] = [
-  { suit: 'diamonds', power: 'revolution' },
-  { suit: 'spades', power: 'manouche' },
-  { suit: 'hearts', power: 'flopReverse' },
-  { suit: 'clubs', power: 'shifumi' },
-];
 
 /** Rank sort order for display. */
 const RANK_SORT: Record<string, number> = {
@@ -83,17 +73,22 @@ function buildPowerEntries(variant: GameVariant): PowerEntry[] {
     }
   }
 
-  // 2. Jack-only powers (suit-based) → unique
-  for (const { suit, power } of JACK_POWER_MAP) {
-    const suitInfo = SUIT_DISPLAY[suit];
-    if (!suitInfo) continue;
-    unique.push({
-      label: `J${suitInfo.symbol}`,
-      labelColor: suitInfo.color,
-      name: POWER_NAMES[power] ?? power,
-      sortKey: RANK_SORT['J'] ?? 11,
-      category: 'unique',
-    });
+  // 2. Unique power assignments (suit-based) → unique
+  const uniqueAssignments = variant.uniquePowerAssignments
+    ?? ({ J: DEFAULT_UNIQUE_POWER_SUITS } as Partial<Record<Rank, Record<Suit, UniquePowerType>>>);
+  for (const [rank, suitMap] of Object.entries(uniqueAssignments)) {
+    if (!suitMap) continue;
+    for (const [suit, power] of Object.entries(suitMap)) {
+      const suitInfo = SUIT_DISPLAY[suit];
+      if (!suitInfo) continue;
+      unique.push({
+        label: `${rank}${suitInfo.symbol}`,
+        labelColor: suitInfo.color,
+        name: POWER_NAMES[power as Power] ?? power,
+        sortKey: RANK_SORT[rank] ?? 0,
+        category: 'unique',
+      });
+    }
   }
 
   // Sort each group by rank value ascending

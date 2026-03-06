@@ -30,6 +30,7 @@ const variant: GameVariant = {
 };
 
 const cK = card('K');
+const cJC = card('J', 'clubs', 1);
 const c5 = card('5', 'spades', 9);
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
@@ -300,6 +301,10 @@ describe('PendingShifumiResult', () => {
           makePlayer('p1', { name: 'BotA', hand: [c5] }),
           makePlayer('p2', { name: 'BotB', hand: [c5] }),
         ],
+        pile: [
+          { cards: [cK], playerId: 'p0', playerName: 'Human', timestamp: 0 },
+          { cards: [cJC], playerId: 'p2', playerName: 'BotB', timestamp: 1 },
+        ],
         currentPlayerIndex: 2, // Bot B is the launcher
         turnOrder: [0, 1], // Human, Bot A
         pendingAction: {
@@ -323,9 +328,11 @@ describe('PendingShifumiResult', () => {
       // Turn should go to Bot B (p2), the player AFTER Bot A (loser)
       expect(next.currentPlayerIndex).toBe(2);
       expect(next.players[next.currentPlayerIndex]!.id).toBe('p2');
-      // pendingCemeteryTransit should be cleared (loser took entire pile including jack)
+      // pendingCemeteryTransit resolved: J♣ sent to graveyard
       expect(next.pendingCemeteryTransit).toBeFalsy();
-      // Bot A (loser) picked up the pile
+      expect(next.graveyard).toHaveLength(1);
+      expect(next.graveyard[0]!.rank).toBe('J');
+      // Bot A (loser) picked up remaining pile (cK, without J♣)
       const botA = next.players.find((p) => p.id === 'p1')!;
       expect(botA.hand).toHaveLength(2); // original c5 + pile cK
     });

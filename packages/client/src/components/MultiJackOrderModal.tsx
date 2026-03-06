@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import type { Card as CardType, GameState, MultiJackSequenceEntry, PendingMultiJackOrder } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, MultiJackSequenceEntry, PendingMultiJackOrder, UniquePowerType } from '@shit-head-palace/engine';
+import { getUniquePowerForCard } from '@shit-head-palace/engine';
 import { Card } from './Card';
 import { ModalWrapper } from './ModalWrapper';
 import { ModalButton } from './ModalButton';
@@ -11,24 +12,39 @@ interface MultiJackOrderModalProps {
   onSubmit: (sequence: MultiJackSequenceEntry[]) => void;
 }
 
-/** Maps a jack's suit to its power name. */
-function suitToPower(suit: CardType['suit'], hasSuper: boolean): string {
-  switch (suit) {
-    case 'diamonds': return hasSuper ? 'Super Révolution' : 'Révolution';
-    case 'spades':   return hasSuper ? 'Super Manouche'   : 'Manouche';
-    case 'hearts':   return hasSuper ? 'Flop Remake'      : 'Flop Reverse';
-    case 'clubs':    return hasSuper ? 'Super Shifumi'    : 'Shifumi';
-  }
+/** Display names for each unique power type (normal and super variants). */
+const UNIQUE_POWER_NAMES: Record<UniquePowerType, { normal: string; super: string }> = {
+  revolution: { normal: 'Révolution', super: 'Super Révolution' },
+  manouche: { normal: 'Manouche', super: 'Super Manouche' },
+  flopReverse: { normal: 'Flop Reverse', super: 'Flop Remake' },
+  shifumi: { normal: 'Shifumi', super: 'Super Shifumi' },
+};
+
+/** Color class for each unique power type. */
+const UNIQUE_POWER_COLORS: Record<UniquePowerType, string> = {
+  revolution: 'text-purple-400',
+  manouche: 'text-blue-400',
+  flopReverse: 'text-pink-400',
+  shifumi: 'text-green-400',
+};
+
+/** Plural French names for card ranks. */
+const RANK_PLURAL: Record<string, string> = {
+  '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7',
+  '8': '8', '9': '9', '10': '10', 'J': 'Valets', 'Q': 'Dames', 'K': 'Rois', 'A': 'As',
+};
+
+/** Gets the display name for a card's unique power. */
+function cardPowerName(card: CardType, variant: GameState['variant'], hasSuper: boolean): string {
+  const power = getUniquePowerForCard(card, variant);
+  if (!power) return '???';
+  return hasSuper ? UNIQUE_POWER_NAMES[power].super : UNIQUE_POWER_NAMES[power].normal;
 }
 
-/** Color class for each suit power. */
-function suitPowerColor(suit: CardType['suit']): string {
-  switch (suit) {
-    case 'diamonds': return 'text-purple-400';
-    case 'spades':   return 'text-blue-400';
-    case 'hearts':   return 'text-pink-400';
-    case 'clubs':    return 'text-green-400';
-  }
+/** Gets the color class for a card's unique power. */
+function cardPowerColor(card: CardType, variant: GameState['variant']): string {
+  const power = getUniquePowerForCard(card, variant);
+  return power ? UNIQUE_POWER_COLORS[power] : 'text-gray-400';
 }
 
 /** Unicode symbol for a suit. */
@@ -56,6 +72,9 @@ export function MultiJackOrderModal({ state, humanId, onSubmit }: MultiJackOrder
   const { jacks, mirrors } = pending;
   const hasMirror = mirrors.length > 0;
   const mirrorCard = mirrors[0] ?? null;
+  const cardRank = jacks[0]?.rank ?? 'J';
+  const rankPlural = RANK_PLURAL[cardRank] ?? cardRank;
+  const rankSingular = cardRank === 'J' ? 'valet' : cardRank === 'Q' ? 'dame' : cardRank === 'K' ? 'roi' : cardRank;
 
   // Which jack gets the mirror (null = none assigned yet)
   const [mirrorAssignedTo, setMirrorAssignedTo] = useState<string | null>(null);
@@ -125,7 +144,7 @@ export function MultiJackOrderModal({ state, humanId, onSubmit }: MultiJackOrder
   };
 
   return (
-    <ModalWrapper title="Ordre des Valets" subtitle="Choisissez l'ordre de résolution des valets.">
+    <ModalWrapper title={`Ordre des ${rankPlural}`} subtitle={`Choisissez l'ordre de résolution des ${rankPlural.toLowerCase()}.`}>
       {/* ── Numbered slots ─────────────────────────────────────────── */}
       <div className="w-full">
         <p className="text-xs text-gray-400 mb-2">Ordre de résolution :</p>
@@ -134,8 +153,8 @@ export function MultiJackOrderModal({ state, humanId, onSubmit }: MultiJackOrder
             const jackId = orderedJackIds[slotIndex];
             const jack = jackId ? jacks.find((j) => j.id === jackId) : null;
             const hasThisMirror = jack ? mirrorAssignedTo === jack.id : false;
-            const powerName = jack ? suitToPower(jack.suit, hasThisMirror) : '';
-            const colorClass = jack ? suitPowerColor(jack.suit) : '';
+            const powerName = jack ? cardPowerName(jack, state.variant, hasThisMirror) : '';
+            const colorClass = jack ? cardPowerColor(jack, state.variant) : '';
             const isFilled = !!jack;
 
             return (
@@ -191,12 +210,12 @@ export function MultiJackOrderModal({ state, humanId, onSubmit }: MultiJackOrder
       {availableJacks.length > 0 && (
         <div className="w-full mt-4">
           <p className="text-xs text-gray-400 mb-2">
-            Valets disponibles — cliquez ou glissez :
+            {rankPlural} disponibles — cliquez ou glissez :
           </p>
           <div className="flex gap-3 flex-wrap justify-center">
             {availableJacks.map((jack) => {
-              const powerName = suitToPower(jack.suit, false);
-              const colorClass = suitPowerColor(jack.suit);
+              const powerName = cardPowerName(jack, state.variant, false);
+              const colorClass = cardPowerColor(jack, state.variant);
 
               return (
                 <div key={jack.id} className="flex flex-col items-center gap-1">
@@ -209,7 +228,7 @@ export function MultiJackOrderModal({ state, humanId, onSubmit }: MultiJackOrder
                     <Card card={jack} size="sm" noLayout />
                   </div>
                   <span className={`text-[10px] font-semibold ${colorClass}`}>
-                    J{suitSymbol(jack.suit)} — {powerName}
+                    {jack.rank}{suitSymbol(jack.suit)} — {powerName}
                   </span>
                 </div>
               );
@@ -224,12 +243,12 @@ export function MultiJackOrderModal({ state, humanId, onSubmit }: MultiJackOrder
           <div className="flex items-center gap-2 mb-2 justify-center">
             <Card card={mirrorCard} size="xs" noLayout />
             <p className="text-xs text-gray-300">
-              Attribuez le 9 à un valet pour déclencher sa version Super
+              Attribuez le {mirrorCard.rank} à un {rankSingular} pour déclencher sa version Super
             </p>
           </div>
           <div className="flex gap-2 justify-center">
             {jacks.map((jack) => {
-              const superName = suitToPower(jack.suit, true);
+              const superName = cardPowerName(jack, state.variant, true);
               const isAssigned = mirrorAssignedTo === jack.id;
               return (
                 <button
@@ -252,9 +271,9 @@ export function MultiJackOrderModal({ state, humanId, onSubmit }: MultiJackOrder
       {/* ── Status message ──────────────────────────────────────── */}
       <p className={`text-xs min-h-[1.25rem] mt-2 ${canConfirm ? 'text-amber-400' : 'text-gray-500'}`}>
         {!mirrorOk
-          ? 'Attribuez le 9 à un valet.'
+          ? `Attribuez le ${mirrorCard?.rank ?? '9'} à un ${rankSingular}.`
           : !allJacksOrdered
-            ? 'Placez les valets dans les slots.'
+            ? `Placez les ${rankPlural.toLowerCase()} dans les slots.`
             : 'Prêt à confirmer !'}
       </p>
 

@@ -20,6 +20,9 @@ export type Power =
   | 'shifumi'
   | 'superShifumi';
 
+/** The four base unique powers that can be assigned per suit on any rank. */
+export type UniquePowerType = 'revolution' | 'manouche' | 'flopReverse' | 'shifumi';
+
 export type GamePhase =
   | 'setup'
   | 'swapping'
@@ -105,6 +108,13 @@ export interface GameVariant {
   playerCount: number;
   /** Number of standard 52-card decks to use */
   deckCount: number;
+  /**
+   * Optional per-rank suit→unique-power mapping. When present, overrides the
+   * hardcoded J-only defaults. Each key is a Rank whose cards trigger unique
+   * powers; the value maps each Suit to a base unique power type.
+   * Super variants are triggered automatically when a Mirror accompanies the play.
+   */
+  uniquePowerAssignments?: Partial<Record<Rank, Record<Suit, UniquePowerType>>>;
 }
 
 // ─── Pending Actions ──────────────────────────────────────────────────────────

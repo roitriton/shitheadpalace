@@ -66,6 +66,9 @@ export function deserializeVariant(json: string): GameVariant {
     playerCount: obj['playerCount'] as number,
     deckCount: obj['deckCount'] as number,
     powerAssignments: obj['powerAssignments'] as GameVariant['powerAssignments'],
+    ...(obj['uniquePowerAssignments'] !== undefined
+      ? { uniquePowerAssignments: obj['uniquePowerAssignments'] as GameVariant['uniquePowerAssignments'] }
+      : {}),
   };
 
   // ── Validate ───────────────────────────────────────────────────────────────

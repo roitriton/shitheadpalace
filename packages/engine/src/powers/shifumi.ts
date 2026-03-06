@@ -1,5 +1,5 @@
 import type { Card, GamePhase, GameVariant } from '../types';
-import { matchesPowerRank } from './utils';
+import { matchesPowerRank, isUniquePowerCard } from './utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ export function isShifumiTriggered(
   phase: GamePhase,
 ): boolean {
   if (phase === 'revolution' || phase === 'superRevolution') return false;
-  if (!playedCards.some(isShifumiCard)) return false;
+  if (!playedCards.some((c) => isUniquePowerCard(c, variant, 'shifumi'))) return false;
   // Mirror present → Super Shifumi, not regular Shifumi
   return !playedCards.some((c) => matchesPowerRank(c.rank, variant, 'mirror'));
 }
@@ -57,6 +57,6 @@ export function isSuperShifumiTriggered(
   phase: GamePhase,
 ): boolean {
   if (phase === 'revolution' || phase === 'superRevolution') return false;
-  if (!playedCards.some(isShifumiCard)) return false;
+  if (!playedCards.some((c) => isUniquePowerCard(c, variant, 'shifumi'))) return false;
   return playedCards.some((c) => matchesPowerRank(c.rank, variant, 'mirror'));
 }

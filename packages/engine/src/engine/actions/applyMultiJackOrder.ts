@@ -1,12 +1,14 @@
 import type {
   Card,
   GameState,
+  GameVariant,
   MultiJackSequenceEntry,
   PendingMultiJackOrder,
   PileEntry,
 } from '../../types';
 import { advanceTurn, isGameOver, isPlayerFinished, resolveAutoSkip } from '../turn';
 import { appendLog } from '../../utils/log';
+import { getUniquePowerForCard } from '../../powers/utils';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -71,19 +73,22 @@ function finalizeGame(state: GameState, timestamp: number): GameState {
 
 /**
  * Determines the jack power type based on suit and mirror presence.
+ * Uses the variant's uniquePowerAssignments when available; falls back to defaults.
  */
 function getJackPowerType(
   jackCard: Card,
   hasMirror: boolean,
+  variant: GameVariant,
 ): { power: string; isSuper: boolean } {
-  switch (jackCard.suit) {
-    case 'diamonds':
+  const basePower = getUniquePowerForCard(jackCard, variant) ?? 'revolution';
+  switch (basePower) {
+    case 'revolution':
       return { power: hasMirror ? 'superRevolution' : 'revolution', isSuper: hasMirror };
-    case 'spades':
+    case 'manouche':
       return { power: hasMirror ? 'superManouche' : 'manouche', isSuper: hasMirror };
-    case 'hearts':
+    case 'flopReverse':
       return { power: hasMirror ? 'flopRemake' : 'flopReverse', isSuper: hasMirror };
-    case 'clubs':
+    case 'shifumi':
       return { power: hasMirror ? 'superShifumi' : 'shifumi', isSuper: hasMirror };
   }
 }
@@ -135,7 +140,7 @@ export function resolveNextMultiJack(state: GameState, timestamp: number): GameS
   };
 
   // 2. Determine power
-  const { power } = getJackPowerType(jackCard, !!mirrorCard);
+  const { power } = getJackPowerType(jackCard, !!mirrorCard, state.variant);
   const cardsInfo = cardsOnPile.map((c) => ({ rank: c.rank, suit: c.suit }));
 
   newState = appendLog(newState, 'multiJackResolve', timestamp, launcherId, launcher.name, {

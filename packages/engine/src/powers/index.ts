@@ -1,4 +1,10 @@
-export { matchesPowerRank } from './utils';
+export {
+  matchesPowerRank,
+  isUniquePowerCard,
+  hasAnyUniquePower,
+  getUniquePowerForCard,
+  DEFAULT_UNIQUE_POWER_SUITS,
+} from './utils';
 export { isBurnTriggered, applyBurn } from './burn';
 export { isResetTriggered, applyReset } from './reset';
 export { isUnderTriggered, getUnderValue, applyUnder } from './under';

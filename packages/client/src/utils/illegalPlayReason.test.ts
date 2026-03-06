@@ -94,12 +94,12 @@ describe('getIllegalPlayReason', () => {
     );
   });
 
-  // ── Cas 5 — Valet sur pile vide ────────────────────────────────────────────
+  // ── Cas 5 — Pouvoir unique sur pile vide ───────────────────────────────────
 
-  it('returns jack on empty pile message', () => {
+  it('returns unique power on empty pile message', () => {
     const state = makeState({ pile: [] });
     expect(getIllegalPlayReason([card('J', 'diamonds')], state, 'p1')).toBe(
-      'Les valets ne se jouent pas dans une pile vide. Jamais à sec',
+      'Cette carte ne se joue pas dans une pile vide. Jamais à sec',
     );
   });
 

@@ -1,5 +1,5 @@
 import type { Card, GamePhase, GameState, GameVariant } from '../types';
-import { matchesPowerRank } from './utils';
+import { matchesPowerRank, isUniquePowerCard } from './utils';
 import { appendLog } from '../utils/log';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ export function isFlopReverseTriggered(
   phase: GamePhase,
 ): boolean {
   if (phase === 'revolution' || phase === 'superRevolution') return false;
-  if (!playedCards.some(isFlopReverseCard)) return false;
+  if (!playedCards.some((c) => isUniquePowerCard(c, variant, 'flopReverse'))) return false;
   // Mirror present → Flop Remake, not regular Flop Reverse
   return !playedCards.some((c) => matchesPowerRank(c.rank, variant, 'mirror'));
 }
@@ -58,7 +58,7 @@ export function isFlopRemakeTriggered(
   phase: GamePhase,
 ): boolean {
   if (phase === 'revolution' || phase === 'superRevolution') return false;
-  if (!playedCards.some(isFlopReverseCard)) return false;
+  if (!playedCards.some((c) => isUniquePowerCard(c, variant, 'flopReverse'))) return false;
   return playedCards.some((c) => matchesPowerRank(c.rank, variant, 'mirror'));
 }
 

@@ -1,4 +1,4 @@
-import type { GameVariant, Power, Rank } from '../types';
+import type { GameVariant, Power, Rank, Suit, UniquePowerType } from '../types';
 import { JACK_ONLY_POWERS } from './defaults';
 
 // ─── Valid rank set ───────────────────────────────────────────────────────────
@@ -109,6 +109,48 @@ export function validateVariant(variant: GameVariant): VariantValidationError[] 
         });
       } else {
         claimedBy.set(rank, power);
+      }
+    }
+  }
+
+  // ── 5. uniquePowerAssignments (optional) ──────────────────────────────────
+  if (variant.uniquePowerAssignments !== undefined) {
+    const validSuits = new Set<Suit>(['hearts', 'diamonds', 'clubs', 'spades']);
+    const validUniquePowers = new Set<UniquePowerType>(['revolution', 'manouche', 'flopReverse', 'shifumi']);
+
+    if (typeof variant.uniquePowerAssignments !== 'object' || variant.uniquePowerAssignments === null) {
+      errors.push({ field: 'uniquePowerAssignments', message: 'uniquePowerAssignments must be an object' });
+    } else {
+      for (const [rankStr, suitMap] of Object.entries(variant.uniquePowerAssignments)) {
+        const rank = rankStr as Rank;
+        if (!VALID_RANKS.has(rank)) {
+          errors.push({ field: `uniquePowerAssignments.${rank}`, message: `'${rank}' is not a valid card rank` });
+          continue;
+        }
+        // Rank with unique powers must not also be assigned a configurable power
+        if (claimedBy.has(rank)) {
+          errors.push({
+            field: `uniquePowerAssignments.${rank}`,
+            message: `rank '${rank}' has unique powers but is also assigned configurable power '${claimedBy.get(rank)}'`,
+          });
+        }
+        if (typeof suitMap !== 'object' || suitMap === null) {
+          errors.push({ field: `uniquePowerAssignments.${rank}`, message: 'suit mapping must be an object' });
+          continue;
+        }
+        for (const [suitStr, powerStr] of Object.entries(suitMap as Record<string, string>)) {
+          if (!validSuits.has(suitStr as Suit)) {
+            errors.push({ field: `uniquePowerAssignments.${rank}.${suitStr}`, message: `'${suitStr}' is not a valid suit` });
+          }
+          if (!validUniquePowers.has(powerStr as UniquePowerType)) {
+            errors.push({ field: `uniquePowerAssignments.${rank}.${suitStr}`, message: `'${powerStr}' is not a valid unique power type` });
+          }
+        }
+        // Must have all 4 suits
+        const suits = Object.keys(suitMap as Record<string, string>);
+        if (suits.length !== 4) {
+          errors.push({ field: `uniquePowerAssignments.${rank}`, message: `must assign all 4 suits (got ${suits.length})` });
+        }
       }
     }
   }

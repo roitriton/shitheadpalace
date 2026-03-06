@@ -1,6 +1,6 @@
 import type { Card, GamePhase, GameState, GameVariant } from '../types';
 import { appendLog } from '../utils/log';
-import { matchesPowerRank } from './utils';
+import { matchesPowerRank, isUniquePowerCard } from './utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ export function isRevolutionTriggered(
   phase: GamePhase,
 ): boolean {
   if (phase === 'revolution' || phase === 'superRevolution') return false;
-  if (!playedCards.some(isRevolutionCard)) return false;
+  if (!playedCards.some((c) => isUniquePowerCard(c, variant, 'revolution'))) return false;
   // Mirror present → Super Revolution, not regular Revolution
   return !playedCards.some((c) => matchesPowerRank(c.rank, variant, 'mirror'));
 }
@@ -58,7 +58,7 @@ export function isSuperRevolutionTriggered(
   phase: GamePhase,
 ): boolean {
   if (phase === 'revolution' || phase === 'superRevolution') return false;
-  if (!playedCards.some(isRevolutionCard)) return false;
+  if (!playedCards.some((c) => isUniquePowerCard(c, variant, 'revolution'))) return false;
   return playedCards.some((c) => matchesPowerRank(c.rank, variant, 'mirror'));
 }
 

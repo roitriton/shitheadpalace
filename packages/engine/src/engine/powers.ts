@@ -18,7 +18,7 @@ import {
   applyFlopRemakePower,
 } from '../powers/flopReverse';
 import { isShifumiTriggered, isSuperShifumiTriggered } from '../powers/shifumi';
-import { matchesPowerRank } from '../powers/utils';
+import { matchesPowerRank, hasAnyUniquePower } from '../powers/utils';
 
 export interface PowerResult {
   /** Updated game state after all power effects are applied. */
@@ -110,8 +110,8 @@ export function resolvePowers(
   // Skip Mirror processing when Jacks are present: the Jack (and its Mirror
   // companions) will be sent to the graveyard in step 4.5, so annotating the
   // pile entry's effectiveRank would be both wasted and misleading.
-  const hasJack = playedCards.some((c) => c.rank === 'J');
-  const mirrorRank = !hasJack ? getMirrorEffectiveRank(playedCards, newState.variant) : null;
+  const hasUniquePowerCards = playedCards.some((c) => hasAnyUniquePower(c, newState.variant));
+  const mirrorRank = !hasUniquePowerCards ? getMirrorEffectiveRank(playedCards, newState.variant) : null;
   if (mirrorRank !== null) {
     newState = applyMirror(newState, mirrorRank, playerId, timestamp);
   }
@@ -146,7 +146,7 @@ export function resolvePowers(
   // They trigger their suit-specific power and are consumed to the graveyard.
   // The actual move is deferred: we set pendingCemeteryTransit here, and
   // resolveCemeteryTransit (called in applyPlay) performs the transfer.
-  if (hasJack) {
+  if (hasUniquePowerCards) {
     newState = { ...newState, pendingCemeteryTransit: true };
   }
 

@@ -10,7 +10,7 @@ import { autoDraw, isPlayerFinished, advanceTurn, isGameOver, resolveAutoSkip } 
 import { appendLog } from '../../utils/log';
 import { resolvePowers } from '../powers';
 import { getMirrorEffectiveRank } from '../../powers/mirror';
-import { matchesPowerRank } from '../../powers/utils';
+import { matchesPowerRank, hasAnyUniquePower } from '../../powers/utils';
 
 // ─── Flop helper ──────────────────────────────────────────────────────────────
 
@@ -305,7 +305,7 @@ export function applyPlay(
       const updatedPlayerRevealed = { ...player, faceDown: remaining };
 
       // Multi-jack detection for revealed dark flop
-      const realJacksRevealed = cardsToPlay.filter((c) => c.rank === 'J');
+      const realJacksRevealed = cardsToPlay.filter((c) => hasAnyUniquePower(c, state.variant));
       if (realJacksRevealed.length >= 2 && cardsToPlay.length < 4) {
         const mirrorsRevealed = cardsToPlay.filter(isMirrorCard);
         const mjPlayersRevealed = [...state.players];
@@ -558,7 +558,7 @@ export function applyPlay(
   // When ≥ 2 real jacks are played together with total cards < 4, trigger
   // multi-jack resolution instead of the normal play path. If total ≥ 4,
   // the normal burn/quad-burn path handles it.
-  const realJacksPlayed = cardsToPlay.filter((c) => c.rank === 'J');
+  const realJacksPlayed = cardsToPlay.filter((c) => hasAnyUniquePower(c, state.variant));
   if (realJacksPlayed.length >= 2 && cardsToPlay.length < 4) {
     const mirrorsPlayed = cardsToPlay.filter(isMirrorCard);
     let mjPlayers = [...state.players];

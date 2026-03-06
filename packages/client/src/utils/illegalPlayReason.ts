@@ -1,5 +1,5 @@
 import type { Card, GameState, Rank } from '@shit-head-palace/engine';
-import { getRankValue, getTopPileValue, canPlayCards, matchesPowerRank } from '@shit-head-palace/engine';
+import { getRankValue, getTopPileValue, canPlayCards, matchesPowerRank, hasAnyUniquePower } from '@shit-head-palace/engine';
 
 /** French display names for each card rank. */
 const RANK_FRENCH: Record<Rank, string> = {
@@ -58,9 +58,9 @@ export function getIllegalPlayReason(
     return "Il faut jouer Mirror en accompagnement d'une autre valeur";
   }
 
-  // Cas 5 — Valet sur pile vide
-  if (nonMirrorCards[0]!.rank === 'J' && gameState.pile.length === 0) {
-    return 'Les valets ne se jouent pas dans une pile vide. Jamais à sec';
+  // Cas 5 — Pouvoir unique sur pile vide
+  if (hasAnyUniquePower(nonMirrorCards[0]!, gameState.variant) && gameState.pile.length === 0) {
+    return 'Cette carte ne se joue pas dans une pile vide. Jamais à sec';
   }
 
   // Check if the play is actually legal before diagnosing

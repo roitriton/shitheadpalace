@@ -1,6 +1,6 @@
 import type { Card, GameState, Player } from '../types';
 import { getRankValue } from '../utils/ranks';
-import { matchesPowerRank } from '../powers/utils';
+import { matchesPowerRank, hasAnyUniquePower } from '../powers/utils';
 
 /** The three zones a player can play cards from, in priority order. */
 export type ActiveZone = 'hand' | 'faceUp' | 'faceDown';
@@ -110,8 +110,8 @@ export function canPlayCards(cards: Card[], state: GameState, effectiveCount?: n
   const topValue = getTopPileValue(state);
 
   if (topValue === null) {
-    // Jacks cannot be played on an empty pile (their powers require a pile target)
-    if (cards[0]!.rank === 'J') return false;
+    // Unique power cards cannot be played on an empty pile (they transit to graveyard)
+    if (hasAnyUniquePower(cards[0]!, state.variant)) return false;
     return true;
   }
 

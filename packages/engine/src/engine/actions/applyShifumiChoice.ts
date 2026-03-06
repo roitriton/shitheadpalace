@@ -1,6 +1,7 @@
 import type { GameState, PendingShifumi, PendingShifumiResult, ShifumiChoice } from '../../types';
 import { advanceTurn, resolveAutoSkip, buildTurnQueue } from '../turn';
 import { appendLog } from '../../utils/log';
+import { resolveCemeteryTransit } from '../cemeteryTransit';
 
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -188,16 +189,22 @@ export function resolveShifumiResult(state: GameState, timestamp = 0): GameState
   }
 
   // Non-multi-jack: immediate resolution
-  const pileCards = state.pile.flatMap((e) => e.cards);
+  // Resolve cemetery transit first: unique power card → graveyard before loser picks up
+  let prePickupState = state;
+  if (prePickupState.pendingCemeteryTransit) {
+    prePickupState = resolveCemeteryTransit(prePickupState);
+  }
 
-  const newPlayers = [...state.players];
+  const pileCards = prePickupState.pile.flatMap((e) => e.cards);
+
+  const newPlayers = [...prePickupState.players];
   newPlayers[loserIdx] = { ...loser, hand: [...loser.hand, ...pileCards] };
 
   // Rebuild turnOrder from loser's position so advanceTurn goes to the player AFTER the loser
-  const newTurnOrder = buildTurnQueue(newPlayers, loserIdx, state.direction);
+  const newTurnOrder = buildTurnQueue(newPlayers, loserIdx, prePickupState.direction);
 
   let newState: GameState = {
-    ...state,
+    ...prePickupState,
     players: newPlayers,
     pile: [],
     pendingAction: null,
