@@ -284,68 +284,66 @@ function PlayerZone({
   );
 
   return (
-    <div className="grid items-center gap-x-2 sm:gap-x-3" style={{ gridTemplateColumns: 'auto 1fr' }}>
-      {/* Bot hand — column 2 only, aligned with flop */}
+    <div className="flex flex-col items-center">
+      {/* Bot hand */}
       {isBot && (
-        <>
-          <div />
-          <div data-zone="hand" data-player-id={player.id} className="flex items-end justify-center mb-1" style={{ paddingBottom: botFanArc }}>
-            {player.hand.map((card, i) => {
-              const { rotate, y } = fanStyle(i, player.hand.length, botFanAngle, botFanArc);
-              return (
-                <div
-                  key={card.id}
-                  style={{
-                    marginLeft: i === 0 ? 0 : -botOverlap(player.hand.length),
-                    zIndex: i,
-                    transform: `rotate(${rotate}deg) translateY(${y}px)`,
-                  }}
-                >
-                  <Card card={card} faceDown={!debugRevealHands} size={botCardSize} />
-                </div>
-              );
-            })}
-            {player.hand.length === 0 && (
-              <span className="text-gray-500 text-xs italic">main vide</span>
-            )}
-          </div>
-        </>
+        <div data-zone="hand" data-player-id={player.id} className="flex items-end justify-center mb-1" style={{ paddingBottom: botFanArc }}>
+          {player.hand.map((card, i) => {
+            const { rotate, y } = fanStyle(i, player.hand.length, botFanAngle, botFanArc);
+            return (
+              <div
+                key={card.id}
+                style={{
+                  marginLeft: i === 0 ? 0 : -botOverlap(player.hand.length),
+                  zIndex: i,
+                  transform: `rotate(${rotate}deg) translateY(${y}px)`,
+                }}
+              >
+                <Card card={card} faceDown={!debugRevealHands} size={botCardSize} />
+              </div>
+            );
+          })}
+          {player.hand.length === 0 && (
+            <span className="text-gray-500 text-xs italic">main vide</span>
+          )}
+        </div>
       )}
 
-      {/* Avatar + Name — column 1 */}
-      <div className="flex flex-col items-center gap-0.5 shrink-0">
-        <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} />
-        <span className={`${isBot ? 'text-[10px] max-w-[48px]' : 'text-sm max-w-[64px]'} font-semibold truncate text-center ${isActive ? 'text-gold' : 'text-gray-400'}`}>
-          {player.name}
-        </span>
+      {/* Flop row with avatar+name absolutely positioned to the left */}
+      <div className="relative">
+        {/* Avatar + Name — outside flow, to the left of cards */}
+        <div className={`absolute right-full top-1/2 -translate-y-1/2 flex items-center ${isBot ? 'gap-1 mr-1.5' : 'gap-1.5 mr-2 sm:mr-3'}`}>
+          <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} />
+          <span className={`${isBot ? 'text-[10px] max-w-[48px]' : 'text-sm max-w-[64px]'} font-semibold truncate whitespace-nowrap ${isActive ? 'text-gold' : 'text-gray-400'}`}>
+            {player.name}
+          </span>
+        </div>
+
+        {/* Flop cards */}
+        <div className="flex flex-col items-center gap-1">
+          {flopSection}
+          {/* Dark flop — separate row when combo flop+dark enabled */}
+          {!isBot && comboFlopDarkEnabled && player.faceDown.length > 0 && (
+            <div className="flex justify-center" style={{ gap: compact ? 4 : 8 }}>
+              {player.faceDown.map((fdCard) => (
+                <Card
+                  key={fdCard.id}
+                  card={fdCard}
+                  faceDown={true}
+                  size="sm"
+                  selected={selectedCards.includes(fdCard.id)}
+                  burnHighlight={isBurnSelection}
+                  onClick={() => onCardClick?.(fdCard)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Flop — column 2 */}
-      <div className="flex flex-col items-center gap-1">
-        {flopSection}
-        {/* Dark flop — separate row when combo flop+dark enabled */}
-        {!isBot && comboFlopDarkEnabled && player.faceDown.length > 0 && (
-          <div className="flex justify-center" style={{ gap: compact ? 4 : 8 }}>
-            {player.faceDown.map((fdCard) => (
-              <Card
-                key={fdCard.id}
-                card={fdCard}
-                faceDown={true}
-                size="sm"
-                selected={selectedCards.includes(fdCard.id)}
-                burnHighlight={isBurnSelection}
-                onClick={() => onCardClick?.(fdCard)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Human hand — column 2 only, aligned with flop */}
+      {/* Human hand */}
       {!isBot && (
-        <>
-          <div />
-          <div data-zone="hand" data-player-id={player.id}>
+        <div data-zone="hand" data-player-id={player.id}>
           <Reorder.Group
             as="div"
             axis="x"
@@ -401,26 +399,19 @@ function PlayerZone({
               );
             })}
           </Reorder.Group>
-          </div>
-        </>
+        </div>
       )}
 
-      {/* Combo hint text — column 2 only */}
+      {/* Combo hint text */}
       {!isBot && comboHandFlopEnabled && (
-        <>
-          <div />
-          <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
-            Vous pouvez aussi sélectionner des cartes du flop de même valeur
-          </p>
-        </>
+        <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
+          Vous pouvez aussi sélectionner des cartes du flop de même valeur
+        </p>
       )}
       {!isBot && comboFlopDarkEnabled && (
-        <>
-          <div />
-          <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
-            Vous pouvez aussi sélectionner des cartes du dark flop (attention : combo invalide = ramasser)
-          </p>
-        </>
+        <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
+          Vous pouvez aussi sélectionner des cartes du dark flop (attention : combo invalide = ramasser)
+        </p>
       )}
     </div>
   );
@@ -1464,7 +1455,7 @@ export function GameBoard({
   flopRemakeOldFaceUp,
   onFlopRemakeAnimComplete,
 }: GameBoardProps) {
-  const { background, cardBack } = useTheme();
+  const { theme } = useTheme();
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
 
   // Flop reverse animation: track which player is being flipped
@@ -1682,8 +1673,8 @@ export function GameBoard({
       border-4 sm:border-[5px] md:border-[6px] border-casino-wood
       shadow-[inset_0_0_40px_rgba(0,0,0,0.4),0_4px_16px_rgba(0,0,0,0.7)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.7)]"
       style={{
-        backgroundColor: background.bgColor,
-        backgroundImage: `url(${background.image})`,
+        backgroundColor: theme.bgColor,
+        backgroundImage: `url(${theme.bgImage})`,
         backgroundRepeat: 'repeat',
         backgroundPosition: '0 0',
         backgroundSize: '512px 512px',
@@ -1692,8 +1683,14 @@ export function GameBoard({
       {/* Bordure dorée intérieure */}
       <div className="absolute inset-0 rounded-lg sm:rounded-[1.5rem] md:rounded-[2rem] border border-gold/30 pointer-events-none" />
 
+      {/* Effet de lumière radial (lumineux au centre, sombre sur les bords) */}
+      <div
+        className="absolute inset-0 pointer-events-none z-[1]"
+        style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.9) 100%)' }}
+      />
+
       {/* ── 1. Zone adversaires (25%) ── */}
-      <div className="flex-[25] min-h-0 flex items-start justify-evenly px-2 sm:px-3 md:px-4">
+      <div className="flex-[25] min-h-0 flex items-center justify-evenly px-2 sm:px-3 md:px-4 relative z-[2]">
         {bots.map((bot) => {
           const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
           // During flop remake animation first half, show old faceUp cards
@@ -1720,11 +1717,11 @@ export function GameBoard({
       </div>
 
       {/* ── 2. Zone principale (40%) — 3 colonnes ── */}
-      <div className="flex-[40] min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2">
+      <div className="flex-[40] min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2 relative z-[2]">
         {/* Colonne gauche (25%) — Résumé pouvoirs / Révolution + Cimetière / Pioche */}
-        <div className="w-1/4 flex flex-col h-full bg-black/10 rounded-lg gap-1 p-1">
+        <div className="w-1/4 flex flex-col h-full bg-black/20 rounded-lg gap-1 p-1">
           {/* Cadre haut — Résumé des pouvoirs ou Révolution */}
-          <div className="flex-1 min-h-0 bg-black/20 rounded-lg flex items-center justify-center overflow-hidden p-2">
+          <div className="flex-1 min-h-0 bg-black/40 rounded-lg flex items-center justify-center overflow-hidden p-2">
             {(state.phase === 'revolution' || state.phase === 'superRevolution') ? (
               <RevolutionBanner phase={state.phase} />
             ) : (
@@ -1743,7 +1740,7 @@ export function GameBoard({
                   <>
                     {state.deck.length > 1 && (
                       <div className="absolute top-0.5 left-0.5 w-11 h-16 rounded-lg overflow-hidden opacity-80">
-                        <img src={cardBack.image} alt="" className="w-full h-full object-cover" draggable={false} />
+                        <img src={theme.cardBackImage} alt="" className="w-full h-full object-cover" draggable={false} />
                       </div>
                     )}
                     <div className="relative">
@@ -1764,14 +1761,14 @@ export function GameBoard({
         </div>
 
         {/* Colonne centre (50%) — Pile + Overlay absolu */}
-        <div className="w-1/2 h-full bg-white/[2.5%] rounded-lg relative">
+        <div className="w-1/2 h-full bg-black/40 rounded-lg relative">
           <CardsColumn state={state} humanId={humanId} currentPower={currentPower ?? null} />
         </div>
 
         {/* Colonne droite (25%) — Dernier coup + MiniLog (50/50) */}
-        <div className="w-1/4 flex flex-col h-full bg-black/10 rounded-lg gap-1 p-1">
+        <div className="w-1/4 flex flex-col h-full bg-black/20 rounded-lg gap-1 p-1">
           {/* Cadre — Dernier coup (50%) */}
-          <div className="flex-1 min-h-0 bg-black/20 rounded-lg overflow-hidden p-1.5 flex flex-col items-center justify-center">
+          <div className="flex-1 min-h-0 bg-black/40 rounded-lg overflow-hidden p-1.5 flex flex-col items-center justify-center">
             <LastPlayDisplay log={state.log} />
           </div>
           {/* MiniLog étendu (50%) */}
@@ -1781,8 +1778,8 @@ export function GameBoard({
         </div>
       </div>
 
-      {/* ── 4. Zone joueur humain (35%) — décalé vers le bas ── */}
-      <div className="flex-[35] min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 pt-2 sm:pt-3 flex justify-center items-start">
+      {/* ── 4. Zone joueur humain (35%) ── */}
+      <div className="flex-[35] min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 pt-2 sm:pt-3 flex justify-center items-center relative z-[2]">
         <PlayerZone
           player={(flopRemakePlayerId === humanId && flopRemakeOldFaceUp)
             ? { ...human, faceUp: flopRemakeOldFaceUp }
@@ -1805,15 +1802,18 @@ export function GameBoard({
       </div>
 
       {/* ── Status (sous la main du héros) — fixed height to avoid layout shift ── */}
-      <div className="flex-none h-5 text-center px-2 pb-1">
+      <div className="flex-none h-7 flex items-center justify-center px-2 pb-1 relative z-[2]">
         {status && (
-          <p className={`text-[10px] sm:text-xs leading-tight truncate ${
-            statusIsNoLegal
-              ? 'text-red-500 font-bold animate-pulse'
-              : statusIsIllegal
-                ? 'text-orange-400'
-                : 'text-gray-300/80'
-          }`}>{status}</p>
+          <p
+            className={`text-xs sm:text-sm leading-tight truncate font-medium px-3 py-0.5 rounded bg-black/50 ${
+              statusIsNoLegal
+                ? 'text-red-500 font-bold animate-pulse'
+                : statusIsIllegal
+                  ? 'text-orange-400'
+                  : 'text-gray-200'
+            }`}
+            style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+          >{status}</p>
         )}
       </div>
 

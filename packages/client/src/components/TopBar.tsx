@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../themes/ThemeContext';
-import { TABLE_BACKGROUNDS, CARD_BACKS } from '../themes/themeConfig';
-import type { TableBackground, CardBack } from '../themes/themeConfig';
+import { THEMES } from '../themes/themeConfig';
+import type { Theme } from '../themes/themeConfig';
 
 interface TopBarProps {
   /** Game type label (e.g. "Solo", "Multijoueur") */
@@ -19,7 +19,7 @@ interface TopBarProps {
   onLogout?: () => void;
 }
 
-function ThemeDropdown<T extends { id: string; label: string; image: string }>({
+function ThemeDropdown<T extends { id: string; label: string; bgImage: string }>({
   label,
   items,
   selected,
@@ -62,7 +62,7 @@ function ThemeDropdown<T extends { id: string; label: string; image: string }>({
               }`}
               onClick={() => { onSelect(item); setOpen(false); }}
             >
-              <img src={item.image} alt={item.label} className="w-5 h-5 rounded object-cover" />
+              <img src={item.bgImage} alt={item.label} className="w-5 h-5 rounded object-cover" />
               {item.label}
             </button>
           ))}
@@ -81,7 +81,7 @@ export function TopBar({
   username,
   onLogout,
 }: TopBarProps) {
-  const { background, setBackground, cardBack, setCardBack } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   return (
     <div className="fixed top-0 left-0 right-0 h-14 z-50 bg-gray-900/95 backdrop-blur border-b border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
@@ -101,19 +101,13 @@ export function TopBar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Theme selectors */}
+      {/* Theme selector */}
       <div className="flex items-center gap-2 mr-3">
-        <ThemeDropdown<TableBackground>
-          label="Table"
-          items={TABLE_BACKGROUNDS}
-          selected={background}
-          onSelect={setBackground}
-        />
-        <ThemeDropdown<CardBack>
-          label="Cartes"
-          items={CARD_BACKS}
-          selected={cardBack}
-          onSelect={setCardBack}
+        <ThemeDropdown<Theme>
+          label="Thème"
+          items={THEMES}
+          selected={theme}
+          onSelect={setTheme}
         />
       </div>
 

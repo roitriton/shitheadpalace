@@ -34,6 +34,7 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Étape 12C phase 2** — Pouvoirs uniques configurables : panneau dépliable par rang avec 4 couleurs (♠♥♦♣), mode Manuel (dropdowns éditables) + Tirage au sort (shuffle + lecture seule), configToVariant construit uniquePowerAssignments, engine variant-aware (isUniquePowerCard/hasAnyUniquePower/getUniquePowerForCard remplacent tous les hardcoded rank==='J'), validation uniquePowerAssignments dans validateVariant/deserializeVariant, PowerSummary dynamique, MultiJackOrderModal/illegalPlayReason variant-aware, fix dropdown overflow (absolute + overflow state sur motion.div), fix transit cimetière post-shifumi (resolveCemeteryTransit avant ramassage perdant) (1073 tests)
 - [x] **Étape 12D** — minHandSize et flopSize configurables dans GameVariant : ajout minHandSize? (1-5, défaut 3) et flopSize? (1-5, défaut 3) aux types, validation (plage + assez de cartes pour distribuer), sérialisation/désérialisation, dealCards paramétré (handSize + flopSize), autoDraw paramétré (targetHandSize), applyFlopRemake dynamique, configToVariant client mappé, 28 nouveaux tests (1101 tests)
 - [x] **Étape 12E** — Auth UI (inscription, connexion, JWT, RGPD, persistance session) : AuthScreen (toggle connexion/inscription, validation client, case RGPD obligatoire, liens /privacy et /terms placeholder), AuthContext + useAuth hook (login/register/logout, token localStorage, vérification GET /auth/me au chargement), socket autoConnect:false avec token auth, TopBar username + bouton déconnexion, gdprConsentAt Prisma, gdprConsent requis dans registerSchema/route, try/catch async routes serveur, proxy Vite /auth explicite, parsing JSON résilient côté client (1103 tests)
+- [x] **Étape 12F** — Améliorations visuelles : thème Foot (fond + dos), sélecteur unique "Thème" (remplace 2 dropdowns Table/Cartes), type Theme unifié (bgImage+cardBackImage), opacités doublées colonnes latérales (bg-black/20→40), cadre pile bg-black/40, effet lumière radial (centre rgba(255,255,255,0.08) + bords rgba(0,0,0,0.9)), avatar+pseudo sur même ligne horizontale positionnés absolute à gauche des cartes flop, centrage horizontal sur cartes uniquement, centrage vertical joueurs (items-center), texte statut lisible (bg-black/50 + text-shadow + taille augmentée) (1103 tests)
 
 ### Nombre total de tests : 1103 (965 engine + 125 server + 13 client)
 
@@ -164,10 +165,11 @@ App.tsx (state principal, socket handlers, animation coordination)
 - **Card.tsx** : tailles xs/sm/md, props ghost/noMotion/noLayout, intégration CardAnimationContext, dos via ThemeContext (image)
 
 ### Système de thèmes
-- **src/themes/themeConfig.ts** : types TableBackground/CardBack, 4 fonds + 4 dos, bgColor par thème
-- **src/themes/ThemeContext.tsx** : ThemeProvider + useTheme(), état React (pas de localStorage)
-- Assets dans `public/themes/` : 4 fonds `.jpg` (1024×1024, affichés 512×512 CSS) + 4 dos `.png` (210×300)
-- Sélecteurs dans TopBar : 2 dropdowns indépendants (Table + Cartes)
+- **src/themes/themeConfig.ts** : type Theme unifié (id, label, bgImage, bgColor, cardBackImage), 5 thèmes (Casino, Saloon, Pirate, Love, Foot)
+- **src/themes/ThemeContext.tsx** : ThemeProvider + useTheme(), un seul state theme + setTheme
+- Assets dans `public/themes/` : 5 fonds `.jpg` (1024×1024, affichés 512×512 CSS) + 5 dos `.png` (210×300)
+- Sélecteur unique "Thème" dans TopBar (change fond + dos ensemble)
+- Effet lumière radial : overlay absolute z-[1] avec radial-gradient (centre clair, bords sombres), éléments de jeu en z-[2]
 
 ### Hooks custom
 - **useCardAnimations.ts** : compare GameState consécutifs, détecte mouvements, crée FlyingCardAnim avec timing séquencé (play→overlay→draw)
@@ -252,7 +254,8 @@ npx kill-port 3456   # si port serveur bloqué
 - Chaque pouvoir unique a un effet standard + un effet "super" (déclenché par mirror)
 - Deux modes de sélection : Manuel ou Tirage au sort
 
-### Thèmes visuels (terminé — étape 12A)
-- 4 thèmes : Casino (défaut), Saloon, Pirate, Love
+### Thèmes visuels (terminé — étapes 12A + 12F)
+- 5 thèmes : Casino (défaut), Saloon, Pirate, Love, Foot
+- Type Theme unifié (bgImage + cardBackImage), sélecteur unique "Thème" dans TopBar
 - Fond tileable (1024×1024 affiché 512×512 CSS) + dos de cartes (210×300) par thème
-- 2 sélecteurs indépendants dans la TopBar (Table + Cartes)
+- Effet lumière radial (centre clair, bords sombres) + opacités renforcées sur les panneaux

@@ -41,11 +41,11 @@ interface CardProps {
 // ─── Dos de carte ──────────────────────────────────────────────────────────────
 
 function CardBack({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
-  const { cardBack } = useTheme();
+  const { theme } = useTheme();
   const dims = size === 'xs' ? 'w-9 h-[52px]' : size === 'sm' ? 'w-11 h-16' : 'w-14 h-20';
   return (
     <div className={`${dims} rounded-lg overflow-hidden shadow-md`}>
-      <img src={cardBack.image} alt="card back" className="w-full h-full object-cover" draggable={false} />
+      <img src={theme.cardBackImage} alt="card back" className="w-full h-full object-cover" draggable={false} />
     </div>
   );
 }
