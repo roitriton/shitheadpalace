@@ -503,7 +503,7 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
                 label="Paquets de cartes"
                 value={config.deckCount}
                 min={1}
-                max={5}
+                max={4}
                 onChange={(v) => { setConfig((p) => ({ ...p, deckCount: v })); setValidationError(null); }}
               />
               <NumberSelector
