@@ -13,9 +13,11 @@ import { BottomBar } from './components/BottomBar';
 import { TopBar } from './components/TopBar';
 import { CardAnimationLayer } from './components/CardAnimationLayer';
 import { useCardAnimations, CardAnimationContext } from './hooks/useCardAnimations';
-import { VariantConfigModal } from './components/VariantConfigModal';
 import { AuthScreen } from './components/AuthScreen';
+import { LobbyScreen } from './components/LobbyScreen';
 import { useAuth } from './auth/authContext';
+
+type AppScreen = 'lobby' | 'waitingRoom' | 'game';
 
 // ─── Socket (singleton module-level, connects manually after auth) ───────────
 
@@ -25,6 +27,10 @@ const socket: Socket = io('/', { autoConnect: false });
 
 function App() {
   const { user, token, loading, logout } = useAuth();
+
+  // Screen navigation
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>('lobby');
+  const [currentRoomName, setCurrentRoomName] = useState<string | null>(null);
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [humanId, setHumanId] = useState('');
@@ -61,9 +67,6 @@ function App() {
 
   // Shifumi loser overlay state
   const [shifumiLoserOverlay, setShifumiLoserOverlay] = useState<{ loserId: string; isSuper: boolean } | null>(null);
-
-  // Variant config modal
-  const [showVariantConfig, setShowVariantConfig] = useState(false);
 
   // Debug state (dev mode only)
   const [debugRevealHands, setDebugRevealHands] = useState(false);
@@ -102,6 +105,7 @@ function App() {
         setGameState(state);
         setHumanId(playerId);
         setSelectedCards([]);
+        setCurrentScreen('game');
 
         // Save old log length BEFORE updating — needed for overlay delay calculation
         const oldLogLength = prevLogLengthRef.current;
@@ -381,13 +385,19 @@ function App() {
   const handleRestart = () => {
     resetLocalState();
     setGameState(null);
-    setShowVariantConfig(true);
+    setCurrentScreen('lobby');
+    setCurrentRoomName(null);
   };
 
   const handleStartSolo = (variant: GameVariant, _playerCount: number) => {
     resetLocalState();
-    setShowVariantConfig(false);
     emit('solo:start', { variant });
+  };
+
+  const handleBackToLobby = () => {
+    socket.emit('lobby:leave');
+    setCurrentScreen('lobby');
+    setCurrentRoomName(null);
   };
 
   const handleFlopRemakeAnimComplete = () => {
@@ -481,9 +491,28 @@ function App() {
     return <AuthScreen />;
   }
 
-  // ── Écran d'accueil / configuration ─────────────────────────────────────────
+  // ── Lobby ───────────────────────────────────────────────────────────────────
 
-  if (!gameState) {
+  if (currentScreen === 'lobby') {
+    return (
+      <LobbyScreen
+        socket={socket}
+        onSoloStart={handleStartSolo}
+        onRoomCreated={(room) => {
+          setCurrentRoomName(room.name);
+          setCurrentScreen('waitingRoom');
+        }}
+        onRoomJoined={(room) => {
+          setCurrentRoomName(room.name);
+          setCurrentScreen('waitingRoom');
+        }}
+      />
+    );
+  }
+
+  // ── Salle d'attente (placeholder) ──────────────────────────────────────────
+
+  if (currentScreen === 'waitingRoom') {
     return (
       <div className="min-h-screen bg-casino-room flex items-center justify-center">
         <motion.div
@@ -491,25 +520,27 @@ function App() {
           animate={{ opacity: 1, scale: 1 }}
           className="text-center"
         >
-          <h1 className="font-serif text-4xl text-gold mb-3">Shit Head Palace</h1>
-          <p className="text-felt-light mb-6">Prêt à jouer ?</p>
+          <h1 className="font-serif text-2xl text-gold mb-2">{currentRoomName ?? 'Salle d\'attente'}</h1>
+          <p className="text-gray-400 mb-6">Salle d'attente — en construction</p>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setShowVariantConfig(true)}
-            className="px-8 py-3 rounded-full bg-green-600 hover:bg-green-500 text-white font-semibold text-lg shadow-lg transition-colors"
+            onClick={handleBackToLobby}
+            className="px-6 py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
           >
-            Nouvelle partie
+            Retour au lobby
           </motion.button>
         </motion.div>
-        <AnimatePresence>
-          {showVariantConfig && (
-            <VariantConfigModal
-              onConfirm={handleStartSolo}
-              onCancel={() => setShowVariantConfig(false)}
-            />
-          )}
-        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ── Jeu (game screen) ─────────────────────────────────────────────────────
+
+  if (!gameState) {
+    return (
+      <div className="min-h-screen bg-casino-room flex items-center justify-center">
+        <p className="text-gray-400">Chargement de la partie...</p>
       </div>
     );
   }

@@ -10,7 +10,7 @@ export class Lobby {
   createRoom(
     creatorId: string,
     variant: GameVariant,
-    options: { isPublic?: boolean; maxPlayers?: number } = {},
+    options: { isPublic?: boolean; maxPlayers?: number; name?: string } = {},
   ): GameRoom {
     const id = randomBytes(8).toString('hex');
     const isPublic = options.isPublic ?? true;
@@ -22,6 +22,7 @@ export class Lobby {
       isPublic,
       joinCode: isPublic ? null : generateJoinCode(),
       creatorId,
+      name: options.name ?? `Partie de ${creatorId.slice(0, 8)}`,
     };
 
     const room = new GameRoom(id, config);

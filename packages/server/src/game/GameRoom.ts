@@ -33,6 +33,8 @@ export interface RoomConfig {
   joinCode: string | null;
   /** User ID of the room creator */
   creatorId: string;
+  /** Display name for the room */
+  name: string;
 }
 
 export type RoomStatus = 'waiting' | 'playing' | 'finished';
@@ -670,21 +672,28 @@ export class GameRoom {
   /** Return a lobby-safe summary (no game state). */
   toLobbySummary(): {
     id: string;
+    name: string;
     status: RoomStatus;
     playerCount: number;
     maxPlayers: number;
     variantName: string;
     creatorId: string;
     isPublic: boolean;
+    players: { userId: string; username: string }[];
   } {
     return {
       id: this.id,
+      name: this.config.name,
       status: this.status,
       playerCount: this.humanCount,
       maxPlayers: this.config.maxPlayers,
       variantName: this.config.variant.name,
       creatorId: this.config.creatorId,
       isPublic: this.config.isPublic,
+      players: this.players.filter((p) => !p.isBot).map((p) => ({
+        userId: p.userId,
+        username: p.username,
+      })),
     };
   }
 }

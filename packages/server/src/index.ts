@@ -10,6 +10,7 @@ import { createMessagesRouter } from './routes/messages';
 import { socketAuthMiddleware, type AuthenticatedSocket } from './middleware/socketAuth';
 import { lobby } from './game/Lobby';
 import { GameRoom, type ChatMessage } from './game/GameRoom';
+import { prisma } from './lib/prisma';
 import { chatSendSchema } from './lib/validation';
 import {
   createInitialGameState,
@@ -788,6 +789,119 @@ io.on('connection', (rawSocket) => {
       }
     },
   );
+
+  // ── Lobby events (room creation, listing, join/leave) ────────────────────
+
+  socket.on('lobby:list', () => {
+    const rooms = lobby.listPublicRooms().map((r) => r.toLobbySummary());
+    socket.emit('lobby:rooms', rooms);
+  });
+
+  socket.on('lobby:create', async (data: { name: string; isPublic?: boolean; variant?: unknown }) => {
+    if (!userId) {
+      socket.emit('game:error', { message: 'Authentification requise' });
+      return;
+    }
+
+    const existing = lobby.findRoomByUserId(userId);
+    if (existing) {
+      socket.emit('game:error', { message: 'Vous êtes déjà dans une room' });
+      return;
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+    if (!dbUser) {
+      socket.emit('game:error', { message: 'Utilisateur introuvable' });
+      return;
+    }
+
+    let variant = DEFAULT_VARIANT;
+    if (data.variant && typeof data.variant === 'object' && 'name' in data.variant && 'playerCount' in data.variant && 'deckCount' in data.variant && 'powerAssignments' in data.variant) {
+      const candidate = data.variant as GameVariant;
+      const errors = validateVariant(candidate);
+      if (errors.length > 0) {
+        socket.emit('game:error', { message: `Variante invalide: ${errors.map((e) => e.message).join('; ')}` });
+        return;
+      }
+      variant = candidate;
+    }
+
+    const roomName = (typeof data.name === 'string' && data.name.trim()) ? data.name.trim().slice(0, 50) : `Partie de ${dbUser.username}`;
+    const room = lobby.createRoom(userId, variant, {
+      isPublic: data.isPublic ?? true,
+      name: roomName,
+    });
+
+    room.addPlayer(userId, dbUser.username, socket.id);
+    socket.join(`room:${room.id}`);
+
+    socket.emit('lobby:roomCreated', { room: room.toLobbySummary(), joinCode: room.config.joinCode });
+  });
+
+  socket.on('lobby:join', async (data: { roomId: string }) => {
+    if (!userId) {
+      socket.emit('game:error', { message: 'Authentification requise' });
+      return;
+    }
+
+    const existing = lobby.findRoomByUserId(userId);
+    if (existing) {
+      socket.emit('game:error', { message: 'Vous êtes déjà dans une room. Quittez-la d\'abord.' });
+      return;
+    }
+
+    const room = lobby.getRoom(data.roomId);
+    if (!room) {
+      socket.emit('game:error', { message: 'Room introuvable' });
+      return;
+    }
+
+    if (!room.canJoin) {
+      socket.emit('game:error', { message: 'Room pleine ou partie déjà lancée' });
+      return;
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+    if (!dbUser) {
+      socket.emit('game:error', { message: 'Utilisateur introuvable' });
+      return;
+    }
+
+    try {
+      room.addPlayer(userId, dbUser.username, socket.id);
+      socket.join(`room:${room.id}`);
+      socket.emit('lobby:joined', { room: room.toLobbySummary() });
+      io.to(`room:${room.id}`).emit('lobby:playerJoined', {
+        room: room.toLobbySummary(),
+        userId,
+        username: dbUser.username,
+      });
+    } catch (err) {
+      socket.emit('game:error', { message: (err as Error).message });
+    }
+  });
+
+  socket.on('lobby:leave', () => {
+    if (!userId) return;
+    const room = lobby.findRoomByUserId(userId);
+    if (!room || room.status !== 'waiting') return;
+
+    const leavingPlayer = room.players.find((p) => p.userId === userId);
+    room.removePlayer(userId);
+    socket.leave(`room:${room.id}`);
+
+    if (room.humanCount === 0) {
+      lobby.removeRoom(room.id);
+    } else {
+      io.to(`room:${room.id}`).emit('lobby:playerLeft', {
+        room: room.toLobbySummary(),
+        userId,
+        username: leavingPlayer?.username,
+      });
+    }
+
+    socket.emit('lobby:left');
+  });
 
   // ── Room events (multiplayer) ─────────────────────────────────────────────
 

@@ -8,72 +8,75 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 
 ### Étapes terminées
 
-- [x] **Étape 1** — Monorepo init (engine, server, client configurés)
+- [x] **Étape 1** — Monorepo init (engine, server, client)
 - [x] **Étape 2** — Engine : modèles et utilitaires (86 tests)
 - [x] **Étape 3** — Engine : logique de jeu de base (340 tests)
 - [x] **Étape 4A** — Pouvoirs simples : Burn, Reset, Under, Skip, Mirror (367 tests)
 - [x] **Prototype visuel** — Serveur Express + Socket.IO, client React, 1 bot facile
-- [x] **Étape 4B** — Pouvoirs complexes : Target, Révolution, Manouche, Flop Reverse, Shifumi + versions Super (727 tests)
+- [x] **Étape 4B** — Pouvoirs complexes : Target, Révolution, Manouche, Flop Reverse, Shifumi + Super (727 tests)
 - [x] **Étape 5** — Variantes engine : createVariant, validateVariant, serialize/deserialize (693 tests)
-- [x] **Fix A→E** — Valets pile/révolution, FlopRemakeModal, valets pile vide, SuperManouchePickModal, bordures Card (757 tests)
+- [x] **Fix A→E** — Corrections valets, modals, bordures Card (757 tests)
 - [x] **Étape 6** — Auth et comptes : Prisma SQLite, bcrypt, JWT, Zod (765 tests)
 - [x] **Étape 7** — Multijoueur en ligne : Socket.IO rooms, lobby, reconnexions (821 tests)
-- [x] **Étape 8** — Chat et messagerie : chat temps réel, messages privés, log des actions (842 tests)
-- [x] **Étape 9** — Layout casino + espace de jeu : fond feutre, disposition joueurs, cartes améliorées, responsive, BottomBar (842 tests)
-- [x] **Étape 11A** — Feedback visuel pouvoirs : PowerOverlay, RevolutionBanner, MiniLog, PileHorizontal, GraveyardDisplay, layout 3 colonnes (852 tests)
-- [x] **Étape 11B** — Uniformisation modals : ModalWrapper + ModalButton, 9 modals migrées (852 tests)
-- [x] **Étape 11 (phases 3→8)** — Multi-valets engine+UI, quad burn, transit cimetière, combo main+flop, surbrillance burn (1033 tests)
-- [x] **Étape 11C** — Quick fixes UI : PowerOverlay simplifié (icône seule, scale-up), bouton Jouer vert/grisé, suppression popup "pas de coup légal", symboles cartes dans log (1033 tests)
-- [x] **Étape 11D** — Valets visibles dans la pile avec overlay avant popup, pendingActionDelayed flag, scheduleOverlayDelay serveur (1070 tests)
-- [x] **Étape 11D-bis** — Refonte popup manouche (popup unique + skip échange), bouton Jouer désactivé si sélection illégale (1070 tests)
-- [x] **Étape 11D-ter** — Skip tour pile vide (applySkipTurn), message rouge clignotant, animation flop reverse (two-face rotateX), alignement log=minilog (1070 tests)
-- [x] **Étape 11E** — Animations de déplacement des cartes : CardAnimationLayer + useCardAnimations hook, 6 types de mouvement (main→pile, pioche→main, pile→main, pile→cimetière, flop→pile, darkFlop→pile), synchronisation overlay/popups, slots flop stables, PowerOverlay position fixed, blocage interactions pendant overlay, fix tour après shifumi perdant (1073 tests)
-- [x] **Étape 12A** — Thèmes visuels : 4 fonds tileable (Casino, Saloon, Pirate, Love) + 4 dos de cartes, 2 sélecteurs indépendants dans TopBar, ThemeContext/ThemeProvider, fond tileable 512×512 CSS sur GameBoard, dos image dans Card.tsx (1073 tests)
-- [x] **Étape 12B** — Animation Flop Remake : dégradé arc-en-ciel par carte flop (fade in → défilement haut→bas → fade out, 2.5s), FlopRemakeCardOverlay Framer Motion, détection flopRemakeDone côté client, blocage interactions pendant animation, délai serveur FLOP_REMAKE_ANIM_MS=2500 avant tour bot, swap invisible anciennes→nouvelles cartes à mi-animation (750ms), fix transit cimetière après flopRemake (pendingCemeteryTransit résolu dans les 3 callbacks hasFlopRemakeJustCompleted), fix positions slots flop (clear fuSlotRef/fdSlotRef sur changement d'ordre mid-animation) (1073 tests)
-- [x] **Étape 12C phase 1** — Modal configuration des variantes : VariantConfigModal (options générales + pouvoirs standards), écran d'accueil avec bouton "Nouvelle partie", 4 options générales (joueurs, paquets, main, flop), 13 dropdowns pouvoir par rang avec icônes+descriptions, "Pouvoirs uniques" grisé, bouton "Règles par défaut", validation client+serveur via validateVariant, passage variante au serveur via solo:start, création dynamique des bots selon playerCount, suppression auto-start anonyme (1073 tests)
-- [x] **Étape 12C phase 2** — Pouvoirs uniques configurables : panneau dépliable par rang avec 4 couleurs (♠♥♦♣), mode Manuel (dropdowns éditables) + Tirage au sort (shuffle + lecture seule), configToVariant construit uniquePowerAssignments, engine variant-aware (isUniquePowerCard/hasAnyUniquePower/getUniquePowerForCard remplacent tous les hardcoded rank==='J'), validation uniquePowerAssignments dans validateVariant/deserializeVariant, PowerSummary dynamique, MultiJackOrderModal/illegalPlayReason variant-aware, fix dropdown overflow (absolute + overflow state sur motion.div), fix transit cimetière post-shifumi (resolveCemeteryTransit avant ramassage perdant) (1073 tests)
-- [x] **Étape 12D** — minHandSize et flopSize configurables dans GameVariant : ajout minHandSize? (1-5, défaut 3) et flopSize? (1-5, défaut 3) aux types, validation (plage + assez de cartes pour distribuer), sérialisation/désérialisation, dealCards paramétré (handSize + flopSize), autoDraw paramétré (targetHandSize), applyFlopRemake dynamique, configToVariant client mappé, 28 nouveaux tests (1101 tests)
-- [x] **Étape 12E** — Auth UI (inscription, connexion, JWT, RGPD, persistance session) : AuthScreen (toggle connexion/inscription, validation client, case RGPD obligatoire, liens /privacy et /terms placeholder), AuthContext + useAuth hook (login/register/logout, token localStorage, vérification GET /auth/me au chargement), socket autoConnect:false avec token auth, TopBar username + bouton déconnexion, gdprConsentAt Prisma, gdprConsent requis dans registerSchema/route, try/catch async routes serveur, proxy Vite /auth explicite, parsing JSON résilient côté client (1103 tests)
-- [x] **Étape 12F** — Améliorations visuelles : thème Foot (fond + dos), sélecteur unique "Thème" (remplace 2 dropdowns Table/Cartes), type Theme unifié (bgImage+cardBackImage), opacités doublées colonnes latérales (bg-black/20→40), cadre pile bg-black/40, effet lumière radial (centre rgba(255,255,255,0.08) + bords rgba(0,0,0,0.9)), avatar+pseudo sur même ligne horizontale positionnés absolute à gauche des cartes flop, centrage horizontal sur cartes uniquement, centrage vertical joueurs (items-center), texte statut lisible (bg-black/50 + text-shadow + taille augmentée) (1103 tests)
-- [x] **Étape 12G** — Animations échange Manouche/Super Manouche (cartes volantes entre joueurs) + overlay shifumi perdant (😭 normal / ☠️ super) sur avatar avec séquençage 3 étapes serveur (transit cimetière → overlay 2s → ramassage/fin), signal serveur shifumiLoserOverlay dans game:state, ShifumiLoserOverlay.tsx Framer Motion, PlayerAvatar data-player-avatar, useCardAnimations détecte shifumiResolved pour animation ramassage, gestion correcte des égalités (pas de transit ni overlay) (1103 tests)
+- [x] **Étape 8** — Chat et messagerie temps réel (842 tests)
+- [x] **Étape 9** — Layout casino + espace de jeu responsive (842 tests)
+- [x] **Étape 11A** — Feedback visuel pouvoirs : PowerOverlay, RevolutionBanner, MiniLog, layout 3 colonnes (852 tests)
+- [x] **Étape 11B** — Uniformisation modals : ModalWrapper + ModalButton (852 tests)
+- [x] **Étape 11 (3→8)** — Multi-valets, quad burn, transit cimetière, combo main+flop (1033 tests)
+- [x] **Étape 11C** — Quick fixes UI : PowerOverlay simplifié, bouton Jouer vert/grisé (1033 tests)
+- [x] **Étape 11D** — Valets visibles pile + pendingActionDelayed + scheduleOverlayDelay (1070 tests)
+- [x] **Étape 11D-bis** — Refonte popup manouche, bouton Jouer désactivé si illégal (1070 tests)
+- [x] **Étape 11D-ter** — Skip tour pile vide, animation flop reverse rotateX (1070 tests)
+- [x] **Étape 11E** — Animations cartes : CardAnimationLayer + useCardAnimations, 6 types de mouvement (1073 tests)
+- [x] **Étape 12A** — Thèmes visuels : 4 thèmes + ThemeContext (1073 tests)
+- [x] **Étape 12B** — Animation Flop Remake : dégradé arc-en-ciel, FlopRemakeCardOverlay (1073 tests)
+- [x] **Étape 12C-1** — Modal config variantes : VariantConfigModal, écran d'accueil, 13 pouvoirs par rang (1073 tests)
+- [x] **Étape 12C-2** — Pouvoirs uniques configurables : Manuel/Tirage au sort, engine variant-aware (1073 tests)
+- [x] **Étape 12D** — minHandSize et flopSize configurables dans GameVariant (1101 tests)
+- [x] **Étape 12E** — Auth UI : inscription, connexion, JWT, RGPD, persistance session (1103 tests)
+- [x] **Étape 12F** — Améliorations visuelles : thème Foot, sélecteur unique, effet lumière radial (1103 tests)
+- [x] **Étape 12G-1** — Popup ramassage flop : timing + affichage pile complète (1103 tests)
+- [x] **Étape 12G** — Animations échange Manouche + overlay shifumi perdant + séquençage 3 étapes (1107 tests)
+- [x] **Étape 12H-1** — Lobby multijoueur : navigation auth→lobby→game, RoomManager, liste rooms, création avec config variantes, join (1119 tests)
 
-### Nombre total de tests : 1103 (965 engine + 125 server + 13 client)
+### Nombre total de tests : 1119 (969 engine + 137 server + 13 client)
 
 ### Étapes à venir
+
 - [ ] Étape 12 — Lobby, profil, variantes (client)
 - [ ] Étape 13 — IA (bots intermédiaire et expert)
-- [ ] Étape 14 — Son et polish
-- [ ] Étape 15 — Tests d'intégration, responsive mobile et déploiement
+- [ ] Étape 14 — Son (Howler.js) et polish
+- [ ] Étape 15 — Tests d'intégration, responsive mobile (Capacitor) et déploiement
 
 ### Bugs connus
-- Le responsive mobile (portrait + paysage) nécessite un polish supplémentaire. À résoudre à l'étape 15 avec tests sur appareil réel via Capacitor.
 
-IMPORTANT : Mettre à jour cette section DEUX FOIS par tâche — au début (marquer EN COURS) et à la fin (cocher terminé + nombre de tests). Ne jamais oublier la mise à jour de fin.
+- Responsive mobile (portrait + paysage) → à résoudre étape 15 avec Capacitor.
+
+IMPORTANT : Mettre à jour cette section DEUX FOIS par tâche — au début (marquer EN COURS) et à la fin (cocher terminé + nombre de tests).
 
 ## Stack technique
 
-- **Monorepo** structuré avec les dossiers : `packages/engine`, `packages/server`, `packages/client`
-- **Engine** (packages/engine) : TypeScript pur, aucune dépendance framework. Contient TOUTE la logique de jeu, les règles, la validation des coups, les pouvoirs. Doit être 100% testable unitairement.
-- **Server** (packages/server) : Node.js, Express, Socket.IO, Prisma, SQLite. Fait autorité sur l'état du jeu (source de vérité). Le client n'est jamais cru — chaque action est validée par l'engine côté serveur.
-- **Client** (packages/client) : React 18+, TypeScript, Vite, Tailwind CSS, Socket.IO-client, Framer Motion.
+- **Monorepo** : `packages/engine`, `packages/server`, `packages/client`
+- **Engine** : TypeScript pur, logique de jeu complète, 100% testable unitairement
+- **Server** : Node.js, Express, Socket.IO, Prisma, SQLite — source de vérité (le client n'est jamais cru)
+- **Client** : React 18+, TypeScript, Vite, Tailwind CSS, Socket.IO-client, Framer Motion
+- **Auth** : `.env` requis avec `DATABASE_URL` et `JWT_SECRET`
+- **i18n** : prévu via i18next (ne pas hardcoder de textes côté composants)
 
 ## Conventions de code
 
 - TypeScript strict (`strict: true`) partout, zéro `any`
-- Nommage : camelCase pour variables/fonctions, PascalCase pour types/interfaces/composants React
-- Toute fonction publique de l'engine doit avoir un JSDoc décrivant son comportement
-- Chaque pouvoir de carte est implémenté comme un module séparé dans `packages/engine/src/powers/`
-- Les tests utilisent Vitest. Chaque fichier `.ts` de l'engine a un `.test.ts` correspondant
-- Messages de commit : format `type: description courte` (ex: `feat: phase 11E — animations déplacement cartes`)
+- Nommage : camelCase variables/fonctions, PascalCase types/interfaces/composants
+- JSDoc sur toute fonction publique de l'engine
+- Pouvoirs dans `packages/engine/src/powers/` (un module par pouvoir)
+- Tests Vitest, chaque `.ts` de l'engine a un `.test.ts`
+- Commits : `type: description courte`
 
-## Architecture de l'engine (CRITIQUE)
+## Architecture engine
 
-L'engine est le cœur du projet. Il doit être :
-- **Pur** : aucun effet de bord, aucune dépendance réseau ou BDD
-- **Déterministe** : mêmes entrées = mêmes sorties (sauf shuffle initial)
-- **Sérialisable** : l'état complet du jeu (GameState) doit être JSON-sérialisable pour sauvegarde/restauration
+Pur, déterministe, sérialisable (JSON). Aucun effet de bord.
 
-### Structure de l'état du jeu (GameState)
+### GameState
 
 ```typescript
 interface GameState {
@@ -89,130 +92,89 @@ interface GameState {
   finishOrder: string[];
   variant: GameVariant;
   pendingAction: PendingAction | null;
-  pendingActionDelayed?: boolean; // flag pour séquencer overlay AVANT popup (valets, target)
-  pendingCemeteryTransit?: boolean; // flag pour transit pile→cimetière différé
-  lastPowerTriggered: { type: string; ... } | null; // pouvoir à afficher en overlay
+  pendingActionDelayed?: boolean;
+  pendingCemeteryTransit?: boolean;
+  lastPowerTriggered: { type: string; ... } | null;
   log: LogEntry[];
 }
-
-interface LogEntry {
-  type: string;
-  entryType?: 'action' | 'power' | 'effect'; // pour couleurs dans le minilog/log
-  data: Record<string, any>;
-  timestamp: number;
-}
 ```
 
-### Pouvoirs — Résumé technique des règles
+### Pouvoirs
 
-| Pouvoir | Valeur par défaut | Effet |
-|---------|-------------------|-------|
-| Burn | 10, ou 4 cartes identiques | Brûle la pile → cimetière, lanceur rejoue |
-| Reset | 2 | Pile à valeur 0 pour le suivant |
-| Under | 8 | Suivant doit jouer ≤ valeur du Under |
-| Skip | 7 | Suivant(s) sautent. Cumulable. |
-| Target | A | Lanceur choisit qui joue après lui |
-| Mirror | 9 | Prend la valeur de la carte accompagnée (jamais seul) |
-| Révolution | J♦ seul | Inverse l'ordre des valeurs jusqu'à ramassage |
-| Super Révolution | J♦ + Mirror | Comme Révolution mais permanent |
-| Manouche | J♠ seul | Prend 1 carte adversaire, donne 1+ de même valeur (ou skip échange) |
-| Super Manouche | J♠ + Mirror | Échange libre (même nombre total) |
-| Flop Reverse | J♥ seul | Échange flop ↔ dark flop d'un joueur (animation rotateX) |
-| Flop Remake | J♥ + Mirror | Joueur recompose son flop + dark flop |
-| Shifumi | J♣ seul | Pierre-papier-ciseaux, perdant ramasse. Tour passe après le perdant. |
-| Super Shifumi | J♣ + Mirror | Comme Shifumi mais perdant = shit head |
+| Pouvoir | Défaut | Effet |
+|---------|--------|-------|
+| Burn | 10 / 4 identiques | Pile → cimetière, lanceur rejoue |
+| Reset | 2 | Pile à valeur 0 |
+| Under | 8 | Suivant joue ≤ valeur |
+| Skip | 7 | Saute suivant(s), cumulable |
+| Target | A | Choisit le prochain joueur |
+| Mirror | 9 | Copie la carte accompagnée (jamais seul) |
+| Révolution | J♦ | Inverse ordre valeurs (temporaire) |
+| Super Révolution | J♦+Mirror | Inverse ordre valeurs (permanent) |
+| Manouche | J♠ | Prend 1 carte adversaire, donne 1+ même valeur |
+| Super Manouche | J♠+Mirror | Échange libre (même nombre total) |
+| Flop Reverse | J♥ | Échange flop ↔ dark flop |
+| Flop Remake | J♥+Mirror | Recompose flop + dark flop |
+| Shifumi | J♣ | Pierre-papier-ciseaux, perdant ramasse |
+| Super Shifumi | J♣+Mirror | Perdant = shit head |
 
-### Règles importantes
-- Après avoir joué, si la main < 3 cartes ET pioche non vide → pioche jusqu'à 3 cartes
-- Transition Phase 1 → Phase 2 quand la pioche est vide
-- Dark flop : une carte à l'aveugle, une par une. Si injouable → ramasse tout.
-- Pile vide + main uniquement mirrors/valets → skipTurn (tour passé automatiquement)
-- Après un ramassage (y compris shifumi perdu), le joueur APRÈS le ramasseur joue
+### Règles clés
 
-## Architecture du client — Composants existants
+- Main < minHandSize (défaut 3) + pioche non vide → pioche auto
+- Pioche vide → phase 2 (flop/dark flop)
+- Dark flop injouable → ramasse tout
+- Pile vide + que mirrors/valets → skipTurn auto
+- Après ramassage → joueur APRÈS le ramasseur joue
 
-```
-App.tsx (state principal, socket handlers, animation coordination)
-├── VariantConfigModal.tsx (config variantes avant lancement : options générales + pouvoirs par rang)
-├── TopBar.tsx (titre, sélecteurs thème Table/Cartes, debug toggle)
-├── GameBoard.tsx (plateau de jeu, fond tileable via ThemeContext)
-│   ├── PlayerZone (×n joueurs, CSS Grid auto 1fr)
-│   │   ├── PlayerAvatar.tsx (cercle coloré, taille bot/human, data-player-avatar)
-│   │   ├── Cartes flop/dark flop (slots fixes, fuSlotRef/fdSlotRef)
-│   │   └── Main en éventail (Reorder.Group, fanStyle)
-│   ├── CardsColumn (zone centrale)
-│   │   ├── PileHorizontal (5 derniers coups, contour vert)
-│   │   ├── PowerOverlay.tsx (position: fixed, getBoundingClientRect)
-│   │   ├── GraveyardDisplay (10 dernières brûlées)
-│   │   └── Pioche (deck count)
-│   ├── MiniLog (8 entrées, 3 types: action/power/effect)
-│   ├── RevolutionBanner
-│   ├── Modals (toutes via ModalWrapper + ModalButton) :
-│   │   ├── TargetPickerModal, ManouchePickModal, SuperManouchePickModal
-│   │   ├── ShifumiChoiceModal, ShifumiResultModal (auto-dismiss 3s)
-│   │   ├── FlopRemakeModal, MultiJackOrderModal, FlopPickUpModal
-│   │   └── RevolutionConfirm (inline)
-│   ├── ShifumiLoserOverlay.tsx (😭/☠️ sur avatar perdant, Framer Motion 2s)
-│   └── Texte statut sous la main (illegalPlayReason, noLegalMove, emptyPileBlocked)
-├── CardAnimationLayer.tsx (fixed z-100, ghost cards Framer Motion)
-├── BottomBar.tsx (Jouer vert/grisé, Ramasser, Passer son tour jaune)
-├── ChatPanel.tsx (rétractable gauche)
-├── ActionLog.tsx (rétractable droite, mêmes entrées que minilog)
-└── DebugPanel.tsx (dev only)
-```
-
-### Composants réutilisables
-- **ModalWrapper.tsx** : overlay bg-black/60, conteneur bg-gray-800/95, titre serif doré, animation Framer Motion scale+opacity
-- **ModalButton.tsx** : 3 variantes (player=dark+bordure, confirm=ambre, cancel=transparent)
-- **Card.tsx** : tailles xs/sm/md, props ghost/noMotion/noLayout, intégration CardAnimationContext, dos via ThemeContext (image)
-
-### Système de thèmes
-- **src/themes/themeConfig.ts** : type Theme unifié (id, label, bgImage, bgColor, cardBackImage), 5 thèmes (Casino, Saloon, Pirate, Love, Foot)
-- **src/themes/ThemeContext.tsx** : ThemeProvider + useTheme(), un seul state theme + setTheme
-- Assets dans `public/themes/` : 5 fonds `.jpg` (1024×1024, affichés 512×512 CSS) + 5 dos `.png` (210×300)
-- Sélecteur unique "Thème" dans TopBar (change fond + dos ensemble)
-- Effet lumière radial : overlay absolute z-[1] avec radial-gradient (centre clair, bords sombres), éléments de jeu en z-[2]
-
-### Hooks custom
-- **useCardAnimations.ts** : compare GameState consécutifs, détecte mouvements (play, darkPlay, pickUp, darkPlayFail, shifumiResolved, manouchePick, superManouchePick), crée FlyingCardAnim avec timing séquencé (play→overlay→draw)
-
-### Système d'animation
-- CardAnimationLayer : overlay fixed, ghost cards avec cubic bezier
-- Séquence par coup : cartes volent (800ms) → overlay pouvoir (1500ms) → popups → pioche (600ms)
-- pendingActionDelayed bloque les popups pendant vol+overlay
-- isAnimating / currentPower bloque les interactions joueur pendant les animations
-- Slots flop stables (Map<cardId, slotIndex>) : les cartes ne bougent pas quand une voisine est jouée
-
-## Architecture du serveur
-
-### Timing et séquençage
-- OVERLAY_DELAY_MS = 1500ms : délai avant de clear pendingActionDelayed
-- BOT_DELAY_MS = 1500ms : délai avant action bot (+ OVERLAY_DELAY_MS si lastPowerTriggered)
-- CEMETERY_TRANSIT_DELAY_MS = 2250ms : délai transit pile→cimetière
-- SHIFUMI_RESULT_DELAY_MS = 3000ms : auto-dismiss popup résultat shifumi
-- SHIFUMI_LOSER_OVERLAY_MS = 2000ms : durée overlay perdant shifumi sur avatar
-- MANOUCHE_ANIM_MS = 1600ms : délai animation échange cartes manouche
-- pendingCemeteryTransit ne se résout QUE si !state.pendingAction (guard sur 9 locations)
-- Séquençage shifumi décisif en 3 étapes serveur : (1) état intermédiaire (dismiss modal + transit cimetière), (2) signal overlay shifumiLoserOverlay, (3) état final (ramassage/fin)
-
-### Communication Socket.IO
+## Architecture client
 
 ```
-Client → Server :
-  'solo:action'         { type, ...payload }
-  'game:action'         { gameId, type, ...payload }
-  'chat:send'           { gameId, text }
+App.tsx
+├── VariantConfigModal.tsx
+├── TopBar.tsx (thème, debug toggle)
+├── GameBoard.tsx (fond tileable ThemeContext)
+│   ├── PlayerZone ×n (PlayerAvatar, flop/dark flop, main en éventail)
+│   ├── CardsColumn (PileHorizontal, PowerOverlay, GraveyardDisplay, Pioche)
+│   ├── MiniLog, RevolutionBanner
+│   ├── Modals (ModalWrapper+ModalButton) : Target, Manouche, SuperManouche,
+│   │   ShifumiChoice, ShifumiResult, FlopRemake, MultiJackOrder, FlopPickUp
+│   └── ShifumiLoserOverlay
+├── CardAnimationLayer.tsx (ghost cards Framer Motion)
+├── BottomBar.tsx (Jouer, Ramasser, Passer)
+├── ChatPanel.tsx / ActionLog.tsx (panneaux rétractables)
+└── DebugPanel.tsx
+```
 
-Server → Client :
-  'game:state'          GameState (filtré par joueur) + optional shifumiLoserOverlay signal
-  'chat:message'        { playerId, playerName, text, timestamp }
-  'error'               { message }
+- **Thèmes** : 5 thèmes (Casino, Saloon, Pirate, Love, Foot) dans `src/themes/`, sélecteur unique TopBar
+- **Animations** : useCardAnimations détecte mouvements entre GameState consécutifs, CardAnimationLayer anime
+- **Séquence** : cartes volent → overlay pouvoir → popups → pioche (pendingActionDelayed bloque les popups)
+
+## Architecture serveur
+
+### Constantes de timing
+
+| Constante | Valeur | Usage |
+|-----------|--------|-------|
+| OVERLAY_DELAY_MS | 1500 | Clear pendingActionDelayed |
+| BOT_DELAY_MS | 1500 | Délai avant action bot |
+| CEMETERY_TRANSIT_DELAY_MS | 2250 | Transit pile→cimetière |
+| SHIFUMI_RESULT_DELAY_MS | 3000 | Auto-dismiss résultat shifumi |
+| SHIFUMI_LOSER_OVERLAY_MS | 2000 | Overlay perdant sur avatar |
+| MANOUCHE_ANIM_MS | 1600 | Animation échange cartes |
+| FLOP_REMAKE_ANIM_MS | 2500 | Animation flop remake |
+
+### Socket.IO
+
+```
+Client → Server :  solo:action, game:action, chat:send
+Server → Client :  game:state (filtré par joueur), chat:message, error
 ```
 
 ### Sécurité
-- JAMAIS envoyer les cartes cachées d'un joueur aux autres joueurs
-- Toute action validée par l'engine côté serveur avant diffusion
-- JWT pour l'authentification, Zod pour validation des entrées
+
+- JAMAIS envoyer les cartes cachées aux autres joueurs
+- Actions validées par l'engine côté serveur
+- JWT auth, Zod validation
 
 ## Base de données (Prisma + SQLite)
 
@@ -220,47 +182,27 @@ Modèles : User, DirectMessage, Game, GamePlayer. Voir `packages/server/prisma/s
 
 ## IA (bots)
 
-3 niveaux : Facile (première carte jouable), Intermédiaire (priorise faibles, garde pouvoirs), Expert (analyse complète). Interface commune BotStrategy dans `packages/engine/src/ai/`.
+3 niveaux : Facile (première jouable), Intermédiaire (priorise faibles), Expert (analyse complète).
+Interface BotStrategy dans `packages/engine/src/ai/`.
 
 ## Pièges à éviter
 
 1. **Ne jamais faire confiance au client** pour la logique de jeu
-2. **Le Mirror (9) ne se joue jamais seul** — toujours avec une autre carte
-3. **La Révolution désactive TOUS les pouvoirs** y compris Under, Burn
-4. **Le Burn par 4 exemplaires** fonctionne par accumulation inter-tours
+2. **Mirror (9) ne se joue jamais seul** — toujours avec une autre carte
+3. **Révolution désactive TOUS les pouvoirs** y compris Under, Burn
+4. **Burn par 4 exemplaires** fonctionne par accumulation inter-tours
 5. **Super Manouche** : nombre total de cartes identique après échange
-6. **Après rebuild engine, tuer le port serveur** (`npx kill-port 3456`) et relancer
-7. **pendingActionDelayed** doit être true pour TOUS les pouvoirs avec overlay (valets ET target)
-8. **pendingCemeteryTransit** ne doit se résoudre QUE quand pendingAction est null
+6. **Après rebuild engine, tuer le port serveur** (`npx kill-port 3456`)
+7. **pendingActionDelayed** = true pour TOUS les pouvoirs avec overlay (valets ET target)
+8. **pendingCemeteryTransit** ne se résout QUE quand pendingAction est null
 9. **Tour après shifumi** : avanceTurn depuis le PERDANT, pas le lanceur
 
 ## Commandes utiles
 
 ```bash
-npm run dev          # lance client + serveur en mode dev
-npm run test         # lance tous les tests (engine + server + client)
-npm run test:engine  # tests du moteur de jeu uniquement
-npm run build        # build de production
-npx kill-port 3456   # si port serveur bloqué
+npm run dev          # client + serveur en mode dev
+npm run test         # tous les tests
+npm run test:engine  # tests engine uniquement
+npm run build        # build production
+npx kill-port 3456   # port serveur bloqué
 ```
-
-## Vision & contraintes futures
-- Déploiement mobile prévu via Capacitor (garder le client léger, pas de dépendances desktop-only)
-- Internationalisation prévue via i18next (ne pas hardcoder de textes côté composants)
-- Son prévu via Howler.js (étape 14)
-- Lobby, profil, variantes côté client prévus (étape 12)
-- Bots intermédiaire et expert à implémenter (étape 13)
-- Responsive mobile à finaliser avec tests sur appareil réel (étape 15)
-
-## Idées à implémenter plus tard
-
-### Étape 12 — Pouvoirs uniques configurables
-- Permettre d'ajouter de nouveaux pouvoirs uniques au-delà des 4 actuels
-- Chaque pouvoir unique a un effet standard + un effet "super" (déclenché par mirror)
-- Deux modes de sélection : Manuel ou Tirage au sort
-
-### Thèmes visuels (terminé — étapes 12A + 12F)
-- 5 thèmes : Casino (défaut), Saloon, Pirate, Love, Foot
-- Type Theme unifié (bgImage + cardBackImage), sélecteur unique "Thème" dans TopBar
-- Fond tileable (1024×1024 affiché 512×512 CSS) + dos de cartes (210×300) par thème
-- Effet lumière radial (centre clair, bords sombres) + opacités renforcées sur les panneaux

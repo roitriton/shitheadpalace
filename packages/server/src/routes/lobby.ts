@@ -21,6 +21,7 @@ const DEFAULT_VARIANT: GameVariant = {
 };
 
 const createRoomSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
   isPublic: z.boolean().optional().default(true),
   maxPlayers: z.number().int().min(2).max(6).optional(),
   variant: z
@@ -63,7 +64,7 @@ router.post('/create', requireAuth, (req, res) => {
     return;
   }
 
-  const { isPublic, maxPlayers, variant } = result.data;
+  const { name, isPublic, maxPlayers, variant } = result.data;
 
   // Check if user is already in a room
   const existing = lobby.findRoomByUserId(userId);
@@ -76,6 +77,7 @@ router.post('/create', requireAuth, (req, res) => {
   const room = lobby.createRoom(userId, gameVariant, {
     isPublic,
     maxPlayers: maxPlayers ?? gameVariant.playerCount,
+    name,
   });
 
   res.status(201).json({

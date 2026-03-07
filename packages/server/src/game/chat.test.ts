@@ -23,6 +23,7 @@ function makeConfig(overrides: Partial<RoomConfig> = {}): RoomConfig {
     isPublic: true,
     joinCode: null,
     creatorId: 'creator-1',
+    name: 'Test Room',
     ...overrides,
   };
 }
