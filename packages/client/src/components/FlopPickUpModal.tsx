@@ -33,6 +33,9 @@ export function FlopPickUpModal({ state, humanId, onPickUpOnly, onPickUpWithFlop
 
   const isMirror = (c: CardType) => matchesPowerRank(c.rank, state.variant, 'mirror');
 
+  // Flatten all pile entries into a single card array for display
+  const pileCards = state.pile.flatMap((entry) => entry.cards);
+
   const handleCardClick = (cardId: string) => {
     if (selected.includes(cardId)) {
       // Deselect
@@ -81,6 +84,18 @@ export function FlopPickUpModal({ state, humanId, onPickUpOnly, onPickUpWithFlop
       title="Ramassage"
       subtitle="Vous ne pouvez rien jouer. Ramassez la pile, ou prenez aussi des cartes de votre flop de même valeur."
     >
+      {/* Pile display */}
+      {pileCards.length > 0 && (
+        <div className="w-full mb-3">
+          <p className="text-xs text-gray-400 mb-2">Pile ({pileCards.length} carte{pileCards.length > 1 ? 's' : ''}) :</p>
+          <div className="flex gap-1 flex-wrap justify-center max-h-[120px] overflow-y-auto">
+            {pileCards.map((card) => (
+              <Card key={card.id} card={card} size="xs" noLayout />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="w-full">
         <p className="text-xs text-gray-400 mb-2">Votre flop :</p>
         <div className="flex gap-2 flex-wrap justify-center min-h-[64px]">

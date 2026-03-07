@@ -1998,7 +1998,7 @@ export function GameBoard({
 
       {/* ── Flop Pick-Up modal ── */}
       <AnimatePresence>
-        {showFlopPickUp && onFlopPickUpOnly && onFlopPickUpWithFlop && (
+        {showFlopPickUp && !state.pendingActionDelayed && !currentPower && onFlopPickUpOnly && onFlopPickUpWithFlop && (
           <FlopPickUpModal
             state={state}
             humanId={humanId}
