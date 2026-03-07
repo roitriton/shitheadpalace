@@ -235,6 +235,112 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
       }
     }
 
+    // ── 5. Manouche / Super Manouche exchange ────────────────────────────
+    for (const entry of newLogEntries) {
+      if (entry.type === 'manouchePick' && entry.playerId && entry.data.takeCardId) {
+        const launcherId = entry.playerId as string;
+        const targetId = entry.data.targetId as string;
+        const takeCardId = entry.data.takeCardId as string;
+        const giveCardIds = entry.data.giveCardIds as string[];
+
+        const launcherIsBot = launcherId !== humanId;
+        const targetIsBot = targetId !== humanId;
+
+        const targetPos = getZonePos('hand', targetId);
+        const launcherPos = getZonePos('hand', launcherId);
+        if (!targetPos || !launcherPos) continue;
+
+        // Phase 1: stolen card flies from target → launcher (800ms)
+        const launcher = game.players.find((p) => p.id === launcherId);
+        const takenCard = launcher?.hand.find((c) => c.id === takeCardId);
+        if (takenCard && !handledCardIds.has(takenCard.id)) {
+          handledCardIds.add(takenCard.id);
+          newHidden.add(takenCard.id);
+          newAnims.push({
+            id: `manouche-take-${entry.id}-${takenCard.id}`,
+            card: takenCard,
+            faceDown: true,
+            from: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
+            to: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
+            duration: 800,
+            delay: 0,
+          });
+        }
+
+        // Phase 2: given cards fly from launcher → target (800ms, after phase 1)
+        const target = game.players.find((p) => p.id === targetId);
+        giveCardIds.forEach((gid, i) => {
+          const givenCard = target?.hand.find((c) => c.id === gid);
+          if (givenCard && !handledCardIds.has(givenCard.id)) {
+            handledCardIds.add(givenCard.id);
+            newHidden.add(givenCard.id);
+            newAnims.push({
+              id: `manouche-give-${entry.id}-${givenCard.id}`,
+              card: givenCard,
+              faceDown: true,
+              from: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
+              to: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
+              duration: 800,
+              delay: 800 + i * 50,
+            });
+          }
+        });
+      }
+
+      if (entry.type === 'superManouchePick' && entry.playerId) {
+        const launcherId = entry.playerId as string;
+        const targetId = entry.data.targetId as string;
+        const takeCardIds = entry.data.takeCardIds as string[];
+        const giveCardIds = entry.data.giveCardIds as string[];
+
+        const launcherIsBot = launcherId !== humanId;
+        const targetIsBot = targetId !== humanId;
+
+        const targetPos = getZonePos('hand', targetId);
+        const launcherPos = getZonePos('hand', launcherId);
+        if (!targetPos || !launcherPos) continue;
+
+        // Phase 1: stolen cards fly from target → launcher (800ms)
+        const launcher = game.players.find((p) => p.id === launcherId);
+        takeCardIds.forEach((tid, i) => {
+          const takenCard = launcher?.hand.find((c) => c.id === tid);
+          if (takenCard && !handledCardIds.has(takenCard.id)) {
+            handledCardIds.add(takenCard.id);
+            newHidden.add(takenCard.id);
+            newAnims.push({
+              id: `smanouche-take-${entry.id}-${takenCard.id}`,
+              card: takenCard,
+              faceDown: true,
+              from: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
+              to: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
+              duration: 800,
+              delay: i * 50,
+            });
+          }
+        });
+
+        // Phase 2: given cards fly from launcher → target (800ms, after phase 1)
+        const phase1End = Math.max(800, takeCardIds.length * 50 + 800);
+        const target = game.players.find((p) => p.id === targetId);
+        giveCardIds.forEach((gid, i) => {
+          const givenCard = target?.hand.find((c) => c.id === gid);
+          if (givenCard && !handledCardIds.has(givenCard.id)) {
+            handledCardIds.add(givenCard.id);
+            newHidden.add(givenCard.id);
+            newAnims.push({
+              id: `smanouche-give-${entry.id}-${givenCard.id}`,
+              card: givenCard,
+              faceDown: true,
+              from: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
+              to: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
+              duration: 800,
+              delay: phase1End + i * 50,
+            });
+          }
+        });
+      }
+    }
+
     // ── Queue animations ────────────────────────────────────────────────
     if (newAnims.length > 0) {
       setAnimations((prev) => [...prev, ...newAnims]);

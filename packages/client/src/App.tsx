@@ -71,7 +71,7 @@ function App() {
   humanIdRef.current = humanId;
 
   // Card flight animations
-  const { animations: cardAnimations, hiddenCardIds, onAnimationComplete: onCardAnimComplete } = useCardAnimations(gameState, humanId);
+  const { animations: cardAnimations, hiddenCardIds, onAnimationComplete: onCardAnimComplete, isAnimating: isCardAnimating } = useCardAnimations(gameState, humanId);
 
   // ── Socket connection (reactive to auth token) ──────────────────────────────
   useEffect(() => {
@@ -229,6 +229,7 @@ function App() {
     if (!gameState) return;
     if (currentPower !== null) return; // Block selection during overlay animation
     if (flopRemakePlayerId !== null) return; // Block selection during flop remake animation
+    if (isCardAnimating) return; // Block selection during card flight animations
     const human = gameState.players.find((p) => p.id === humanId);
     if (!human) return;
 
@@ -720,7 +721,7 @@ function App() {
           onActionLogToggle={handleActionLogToggle}
           actionLogUnread={actionLogUnread}
           isSelectionLegal={isSelectionLegal}
-          overlayActive={currentPower !== null || flopRemakePlayerId !== null}
+          overlayActive={currentPower !== null || flopRemakePlayerId !== null || isCardAnimating}
           emptyPileBlocked={emptyPileBlocked}
           onSkipTurn={handleSkipTurn}
         />

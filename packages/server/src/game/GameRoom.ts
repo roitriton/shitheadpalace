@@ -64,6 +64,9 @@ const OVERLAY_DELAY_MS = 1500;
 /** Delay before auto-resolving a shifumi result popup (3 seconds). */
 const SHIFUMI_RESULT_DELAY_MS = 3000;
 
+/** Delay for the manouche card exchange animation on the client (1.6 seconds). */
+const MANOUCHE_ANIM_MS = 1600;
+
 const MAX_CHAT_MESSAGE_LENGTH = 200;
 const MAX_CHAT_HISTORY = 100;
 
@@ -201,6 +204,7 @@ export class GameRoom {
       throw new Error('Player not found in this room');
     }
 
+    const prevState = this.state;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.state = applyAction(this.state, player.playerId, action as any, Date.now());
 
@@ -234,6 +238,12 @@ export class GameRoom {
     // Overlay delay: show jack in pile + overlay animation before popup
     if (this.needsOverlayDelay()) {
       this.scheduleOverlayDelay();
+      return;
+    }
+
+    // Manouche exchange animation delay
+    if (this.hasManoucheExchangeJustCompleted(prevState)) {
+      this.scheduleManoucheAnimDelay();
       return;
     }
 
@@ -301,6 +311,26 @@ export class GameRoom {
       // After overlay, the popup is now visible — bot may need to act on it
       this.scheduleBotIfNeeded();
     }, OVERLAY_DELAY_MS);
+  }
+
+  private hasManoucheExchangeJustCompleted(prev: GameState): boolean {
+    if (!this.state || this.state.log.length <= prev.log.length) return false;
+    const newEntries = this.state.log.slice(prev.log.length);
+    return newEntries.some((e) =>
+      (e.type === 'manouchePick' && e.data.takeCardId) ||
+      e.type === 'superManouchePick'
+    );
+  }
+
+  private scheduleManoucheAnimDelay(): void {
+    setTimeout(() => {
+      if (!this.state) return;
+      if (this.needsMultiJackContinuation()) {
+        this.scheduleMultiJackContinuation();
+      } else {
+        this.scheduleBotIfNeeded();
+      }
+    }, MANOUCHE_ANIM_MS);
   }
 
   private needsMultiJackContinuation(): boolean {
@@ -426,9 +456,11 @@ export class GameRoom {
         }
         this.broadcast();
 
-        // Overlay delay, shifumi result popup, multi-jack continuation, cemetery transit, or next bot
+        // Overlay delay, manouche anim, shifumi result popup, multi-jack continuation, cemetery transit, or next bot
         if (this.needsOverlayDelay()) {
           this.scheduleOverlayDelay();
+        } else if (this.hasManoucheExchangeJustCompleted(prev)) {
+          this.scheduleManoucheAnimDelay();
         } else if (this.state.pendingAction?.type === 'shifumiResult') {
           this.scheduleShifumiResultResolution();
         } else if (this.needsMultiJackContinuation()) {

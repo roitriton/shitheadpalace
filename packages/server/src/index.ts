@@ -101,6 +101,9 @@ const SHIFUMI_RESULT_DELAY_MS = 3000;
 /** Delay for the flop remake rainbow animation on the client (2.5 seconds). */
 const FLOP_REMAKE_ANIM_MS = 2500;
 
+/** Delay for the manouche card exchange animation on the client (1.6 seconds). */
+const MANOUCHE_ANIM_MS = 1600;
+
 /** Returns true when state has a pending overlay delay (jack power animation before popup). */
 function needsOverlayDelay(state: GameState): boolean {
   return !!state.pendingActionDelayed;
@@ -111,6 +114,16 @@ function hasFlopRemakeJustCompleted(prev: GameState, next: GameState): boolean {
   if (next.log.length <= prev.log.length) return false;
   const lastEntry = next.log[next.log.length - 1];
   return lastEntry?.type === 'flopRemakeDone';
+}
+
+/** Returns true when a manouche/superManouche exchange just completed (not a skip). */
+function hasManoucheExchangeJustCompleted(prev: GameState, next: GameState): boolean {
+  if (next.log.length <= prev.log.length) return false;
+  const newEntries = next.log.slice(prev.log.length);
+  return newEntries.some((e) =>
+    (e.type === 'manouchePick' && e.data.takeCardId) ||
+    e.type === 'superManouchePick'
+  );
 }
 
 /**
@@ -193,6 +206,17 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
             scheduleSoloBotIfNeeded(socket, session);
           }
         }, FLOP_REMAKE_ANIM_MS);
+      } else if (hasManoucheExchangeJustCompleted(prev, session.state)) {
+        // Manouche exchange animation: wait 1.6s before scheduling next action
+        setTimeout(() => {
+          const stillCurrent = soloSessions.get(socket.id);
+          if (!stillCurrent || stillCurrent !== session) return;
+          if (needsMultiJackContinuation(session.state)) {
+            scheduleSoloMultiJackContinuation(socket, session);
+          } else {
+            scheduleSoloBotIfNeeded(socket, session);
+          }
+        }, MANOUCHE_ANIM_MS);
       } else if (session.state.pendingAction?.type === 'shifumiResult') {
         scheduleSoloShifumiResultResolution(socket, session);
       } else if (needsMultiJackContinuation(session.state)) {
@@ -464,6 +488,20 @@ io.on('connection', (rawSocket) => {
         return;
       }
 
+      // Manouche exchange animation: wait 1.6s before scheduling next bot
+      if (hasManoucheExchangeJustCompleted(prevState, s.state)) {
+        setTimeout(() => {
+          const current = soloSessions.get(socket.id);
+          if (!current || current !== s) return;
+          if (needsMultiJackContinuation(s.state)) {
+            scheduleSoloMultiJackContinuation(socket, s);
+          } else {
+            scheduleSoloBotIfNeeded(socket, s);
+          }
+        }, MANOUCHE_ANIM_MS);
+        return;
+      }
+
       // Shifumi result popup: auto-resolve after 3s delay
       if (s.state.pendingAction?.type === 'shifumiResult') {
         scheduleSoloShifumiResultResolution(socket, s);
@@ -564,6 +602,20 @@ io.on('connection', (rawSocket) => {
             scheduleSoloBotIfNeeded(socket, s);
           }
         }, FLOP_REMAKE_ANIM_MS);
+        return;
+      }
+
+      // Manouche exchange animation: wait 1.6s before scheduling next bot
+      if (hasManoucheExchangeJustCompleted(prevState, s.state)) {
+        setTimeout(() => {
+          const current = soloSessions.get(socket.id);
+          if (!current || current !== s) return;
+          if (needsMultiJackContinuation(s.state)) {
+            scheduleSoloMultiJackContinuation(socket, s);
+          } else {
+            scheduleSoloBotIfNeeded(socket, s);
+          }
+        }, MANOUCHE_ANIM_MS);
         return;
       }
 
