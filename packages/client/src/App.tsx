@@ -59,6 +59,9 @@ function App() {
   // Ref for always-current gameState (needed by socket handler to capture old flop cards)
   const gameStateRef = useRef<GameState | null>(null);
 
+  // Shifumi loser overlay state
+  const [shifumiLoserOverlay, setShifumiLoserOverlay] = useState<{ loserId: string; isSuper: boolean } | null>(null);
+
   // Variant config modal
   const [showVariantConfig, setShowVariantConfig] = useState(false);
 
@@ -95,7 +98,7 @@ function App() {
   useEffect(() => {
     socket.on(
       'game:state',
-      ({ state, playerId }: { state: GameState; playerId: string }) => {
+      ({ state, playerId, shifumiLoserOverlay: overlaySignal }: { state: GameState; playerId: string; shifumiLoserOverlay?: { loserId: string; isSuper: boolean } }) => {
         setGameState(state);
         setHumanId(playerId);
         setSelectedCards([]);
@@ -168,6 +171,11 @@ function App() {
           }
         }
 
+        // Shifumi loser overlay — triggered by server signal
+        if (overlaySignal) {
+          setShifumiLoserOverlay(overlaySignal);
+        }
+
         gameStateRef.current = state;
       },
     );
@@ -230,6 +238,7 @@ function App() {
     if (currentPower !== null) return; // Block selection during overlay animation
     if (flopRemakePlayerId !== null) return; // Block selection during flop remake animation
     if (isCardAnimating) return; // Block selection during card flight animations
+    if (shifumiLoserOverlay !== null) return; // Block selection during shifumi loser overlay
     const human = gameState.players.find((p) => p.id === humanId);
     if (!human) return;
 
@@ -363,6 +372,7 @@ function App() {
     setFlopRemakePlayerId(null);
     setFlopRemakeOldFaceUp(null);
     prevLogLenForRemakeRef.current = 0;
+    setShifumiLoserOverlay(null);
     gameStateRef.current = null;
     if (powerTimerRef.current) { clearTimeout(powerTimerRef.current); powerTimerRef.current = null; }
     if (flopRemakeSwitchTimerRef.current) { clearTimeout(flopRemakeSwitchTimerRef.current); flopRemakeSwitchTimerRef.current = null; }
@@ -384,6 +394,10 @@ function App() {
     setFlopRemakePlayerId(null);
     setFlopRemakeOldFaceUp(null);
     if (flopRemakeSwitchTimerRef.current) { clearTimeout(flopRemakeSwitchTimerRef.current); flopRemakeSwitchTimerRef.current = null; }
+  };
+
+  const handleShifumiLoserOverlayComplete = () => {
+    setShifumiLoserOverlay(null);
   };
 
   // ── Post-play pending action callbacks ─────────────────────────────────────
@@ -695,6 +709,8 @@ function App() {
           flopRemakePlayerId={flopRemakePlayerId}
           flopRemakeOldFaceUp={flopRemakeOldFaceUp}
           onFlopRemakeAnimComplete={handleFlopRemakeAnimComplete}
+          shifumiLoserOverlay={shifumiLoserOverlay}
+          onShifumiLoserOverlayComplete={handleShifumiLoserOverlayComplete}
         />
         <ChatPanel
           messages={chatMessages}
@@ -721,7 +737,7 @@ function App() {
           onActionLogToggle={handleActionLogToggle}
           actionLogUnread={actionLogUnread}
           isSelectionLegal={isSelectionLegal}
-          overlayActive={currentPower !== null || flopRemakePlayerId !== null || isCardAnimating}
+          overlayActive={currentPower !== null || flopRemakePlayerId !== null || isCardAnimating || shifumiLoserOverlay !== null}
           emptyPileBlocked={emptyPileBlocked}
           onSkipTurn={handleSkipTurn}
         />

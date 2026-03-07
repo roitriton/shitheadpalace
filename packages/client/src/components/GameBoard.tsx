@@ -16,6 +16,7 @@ import { MultiJackOrderModal } from './MultiJackOrderModal';
 import { ModalWrapper } from './ModalWrapper';
 import { ModalButton } from './ModalButton';
 import { ShifumiResultModal } from './ShifumiResultModal';
+import { ShifumiLoserOverlay } from './ShifumiLoserOverlay';
 import { FlopRemakeCardOverlay } from './FlopRemakeAnimation';
 
 // ─── Zone de joueur (bot ou humain) ───────────────────────────────────────────
@@ -313,7 +314,7 @@ function PlayerZone({
       <div className="relative">
         {/* Avatar + Name — outside flow, to the left of cards */}
         <div className={`absolute right-full top-1/2 -translate-y-1/2 flex items-center ${isBot ? 'gap-1 mr-1.5' : 'gap-1.5 mr-2 sm:mr-3'}`}>
-          <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} />
+          <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} playerId={player.id} />
           <span className={`${isBot ? 'text-[10px] max-w-[48px]' : 'text-sm max-w-[64px]'} font-semibold truncate whitespace-nowrap ${isActive ? 'text-gold' : 'text-gray-400'}`}>
             {player.name}
           </span>
@@ -1416,6 +1417,10 @@ interface GameBoardProps {
   flopRemakeOldFaceUp?: CardType[] | null;
   /** Callback when flop remake animation completes */
   onFlopRemakeAnimComplete?: () => void;
+  /** Shifumi loser overlay state (loserId + isSuper) */
+  shifumiLoserOverlay?: { loserId: string; isSuper: boolean } | null;
+  /** Callback when shifumi loser overlay animation completes */
+  onShifumiLoserOverlayComplete?: () => void;
 }
 
 export function GameBoard({
@@ -1454,6 +1459,8 @@ export function GameBoard({
   flopRemakePlayerId,
   flopRemakeOldFaceUp,
   onFlopRemakeAnimComplete,
+  shifumiLoserOverlay,
+  onShifumiLoserOverlayComplete,
 }: GameBoardProps) {
   const { theme } = useTheme();
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
@@ -1819,7 +1826,7 @@ export function GameBoard({
 
       {/* ── Écran de fin ── */}
       <AnimatePresence>
-        {state.phase === 'finished' && !gameOverDismissed && (
+        {state.phase === 'finished' && !gameOverDismissed && !shifumiLoserOverlay && (
           <GameOver
             state={state}
             humanId={humanId}
@@ -1929,6 +1936,15 @@ export function GameBoard({
           <ShifumiResultModal pending={pendingShifumiResult} />
         )}
       </AnimatePresence>
+
+      {/* ── Shifumi loser overlay (on avatar) ── */}
+      {shifumiLoserOverlay && onShifumiLoserOverlayComplete && (
+        <ShifumiLoserOverlay
+          playerId={shifumiLoserOverlay.loserId}
+          isSuper={shifumiLoserOverlay.isSuper}
+          onComplete={onShifumiLoserOverlayComplete}
+        />
+      )}
 
       {/* ── Flop Reverse target picker ── */}
       <AnimatePresence>

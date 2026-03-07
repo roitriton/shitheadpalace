@@ -18,9 +18,11 @@ interface PlayerAvatarProps {
   isActive: boolean;
   /** Avatar size: 'bot' = w-12 h-12, 'human' = w-16 h-16 */
   size?: 'bot' | 'human';
+  /** Player ID for DOM targeting (used by ShifumiLoserOverlay) */
+  playerId?: string;
 }
 
-export function PlayerAvatar({ name, playerIndex, isActive, size = 'bot' }: PlayerAvatarProps) {
+export function PlayerAvatar({ name, playerIndex, isActive, size = 'bot', playerId }: PlayerAvatarProps) {
   const [from, to] = AVATAR_GRADIENTS[playerIndex % AVATAR_GRADIENTS.length];
   const initial = name.charAt(0).toUpperCase();
 
@@ -29,7 +31,7 @@ export function PlayerAvatar({ name, playerIndex, isActive, size = 'bot' }: Play
     : 'w-12 h-12 text-lg';
 
   return (
-    <div className="relative flex items-center justify-center">
+    <div className="relative flex items-center justify-center" data-player-avatar={playerId}>
       {/* Glow animé quand c'est le tour */}
       {isActive && (
         <motion.div

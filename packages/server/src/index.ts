@@ -22,7 +22,7 @@ import {
   resolveShifumiResult,
   validateVariant,
 } from '@shit-head-palace/engine';
-import type { GameState, GameVariant, GameAction, PlayerSetup } from '@shit-head-palace/engine';
+import type { GameState, GameVariant, GameAction, PlayerSetup, PendingShifumiResult } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './game/bot';
 
 // ─── Variant par défaut ────────────────────────────────────────────────────────
@@ -104,6 +104,9 @@ const FLOP_REMAKE_ANIM_MS = 2500;
 /** Delay for the manouche card exchange animation on the client (1.6 seconds). */
 const MANOUCHE_ANIM_MS = 1600;
 
+/** Delay for the shifumi loser overlay animation on the client (2 seconds). */
+const SHIFUMI_LOSER_OVERLAY_MS = 2000;
+
 /** Returns true when state has a pending overlay delay (jack power animation before popup). */
 function needsOverlayDelay(state: GameState): boolean {
   return !!state.pendingActionDelayed;
@@ -141,12 +144,13 @@ function scheduleOverlayDelay(socket: Socket, session: SoloSession): void {
   }, OVERLAY_DELAY_MS);
 }
 
-function sendSoloState(socket: Socket, session: SoloSession): void {
+function sendSoloState(socket: Socket, session: SoloSession, extra?: Record<string, unknown>): void {
   socket.emit('game:state', {
     state: IS_DEV
       ? session.state
       : filterGameStateForPlayer(session.state, session.humanId),
     playerId: session.humanId,
+    ...extra,
   });
 }
 
@@ -313,25 +317,73 @@ function scheduleSoloShifumiResultResolution(socket: Socket, session: SoloSessio
     if (!current || current !== session) return;
     if (session.state.pendingAction?.type !== 'shifumiResult') return;
 
-    session.state = resolveShifumiResult(session.state, Date.now());
+    const originalState = session.state;
+    const prevResult = originalState.pendingAction as PendingShifumiResult;
+
+    // Pre-compute the real final state
+    const finalState = resolveShifumiResult(originalState, Date.now());
+
+    // TIE: send resolved state (new shifumi round), do NOT resolve cemetery transit
+    if (prevResult.result === 'tie') {
+      session.state = finalState;
+      sendSoloState(socket, session);
+      // New round: if it's a shifumiResult again, schedule resolution; otherwise let bots act
+      if (finalState.pendingAction?.type === 'shifumiResult') {
+        scheduleSoloShifumiResultResolution(socket, session);
+      } else {
+        scheduleSoloBotIfNeeded(socket, session);
+      }
+      return;
+    }
+
+    // DECISIVE result
+    const showLoserOverlay = prevResult.shifumiType !== 'firstPlayer';
+
+    if (!showLoserOverlay) {
+      // firstPlayer: just resolve and continue
+      session.state = finalState;
+      sendSoloState(socket, session);
+      scheduleSoloBotIfNeeded(socket, session);
+      return;
+    }
+
+    const loserId = prevResult.result === 'player1' ? prevResult.player2Id : prevResult.player1Id;
+    const isSuper = prevResult.shifumiType === 'super';
+    const hadCemeteryTransit = !!originalState.pendingCemeteryTransit;
+
+    // Step 1: Intermediate state — dismiss modal, resolve cemetery transit (no pickup yet)
+    let intermediateState: GameState = { ...originalState, pendingAction: null, lastPowerTriggered: null };
+    if (hadCemeteryTransit) {
+      intermediateState = resolveCemeteryTransit(intermediateState);
+    }
+    session.state = intermediateState;
     sendSoloState(socket, session);
 
-    // After resolution, check what to do next
-    if (session.state.pendingAction?.type === 'shifumiResult') {
-      scheduleSoloShifumiResultResolution(socket, session);
-    } else if (needsMultiJackContinuation(session.state)) {
-      scheduleSoloMultiJackContinuation(socket, session);
-    } else if (session.state.pendingCemeteryTransit && !session.state.pendingAction) {
+    // Step 2: After cemetery transit animation, trigger overlay
+    const transitDelay = hadCemeteryTransit ? CEMETERY_TRANSIT_DELAY_MS : 0;
+    setTimeout(() => {
+      const c = soloSessions.get(socket.id);
+      if (!c || c !== session) return;
+
+      // Re-send state with overlay signal (same state, client shows overlay)
+      sendSoloState(socket, session, { shifumiLoserOverlay: { loserId, isSuper } });
+
+      // Step 3: After overlay, send final state (triggers pile→hand animation)
       setTimeout(() => {
-        const c = soloSessions.get(socket.id);
-        if (!c || c !== session) return;
-        session.state = resolveCemeteryTransit(session.state);
+        const c2 = soloSessions.get(socket.id);
+        if (!c2 || c2 !== session) return;
+
+        session.state = finalState;
         sendSoloState(socket, session);
-        scheduleSoloBotIfNeeded(socket, session);
-      }, CEMETERY_TRANSIT_DELAY_MS);
-    } else {
-      scheduleSoloBotIfNeeded(socket, session);
-    }
+
+        if (finalState.phase === 'finished') return;
+        if (needsMultiJackContinuation(finalState)) {
+          scheduleSoloMultiJackContinuation(socket, session);
+        } else {
+          scheduleSoloBotIfNeeded(socket, session);
+        }
+      }, SHIFUMI_LOSER_OVERLAY_MS);
+    }, transitDelay);
   }, SHIFUMI_RESULT_DELAY_MS);
 }
 
@@ -353,6 +405,9 @@ function emitSoloSystemMessage(socket: Socket, text: string): void {
 function broadcastRoomState(room: GameRoom, io: Server): void {
   if (!room.state) return;
 
+  const extra = room.broadcastExtra;
+  room.broadcastExtra = null;
+
   // Send filtered state to each connected player
   for (const player of room.players) {
     if (player.socketId && !player.isBot) {
@@ -361,6 +416,7 @@ function broadcastRoomState(room: GameRoom, io: Server): void {
         playerSocket.emit('game:state', {
           state: filterGameStateForPlayer(room.state, player.playerId),
           playerId: player.playerId,
+          ...(extra ?? {}),
         });
       }
     }

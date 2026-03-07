@@ -146,7 +146,7 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
       }
 
       // ── 2. Pickup → hand ────────────────────────────────────────────────
-      if ((entry.type === 'pickUp' || entry.type === 'darkPlayFail') && entry.playerId) {
+      if ((entry.type === 'pickUp' || entry.type === 'darkPlayFail' || entry.type === 'shifumiResolved') && entry.playerId) {
         const prevPileCards = prev.pile.flatMap((e) => e.cards);
         if (prevPileCards.length === 0) continue;
 

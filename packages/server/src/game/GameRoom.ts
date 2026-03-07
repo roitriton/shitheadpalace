@@ -8,7 +8,7 @@ import {
   continueMultiJackSequence,
   resolveShifumiResult,
 } from '@shit-head-palace/engine';
-import type { GameState, GameVariant, GameAction } from '@shit-head-palace/engine';
+import type { GameState, GameVariant, GameAction, PendingShifumiResult } from '@shit-head-palace/engine';
 import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingAction } from './bot';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -67,6 +67,9 @@ const SHIFUMI_RESULT_DELAY_MS = 3000;
 /** Delay for the manouche card exchange animation on the client (1.6 seconds). */
 const MANOUCHE_ANIM_MS = 1600;
 
+/** Delay for the shifumi loser overlay animation on the client (2 seconds). */
+const SHIFUMI_LOSER_OVERLAY_MS = 2000;
+
 const MAX_CHAT_MESSAGE_LENGTH = 200;
 const MAX_CHAT_HISTORY = 100;
 
@@ -80,6 +83,9 @@ export class GameRoom {
   spectatorSocketIds: Set<string> = new Set();
   state: GameState | null = null;
   chatMessages: ChatMessage[] = [];
+
+  /** Extra data to include in the next broadcast event (cleared after broadcast). */
+  broadcastExtra: Record<string, unknown> | null = null;
 
   /** Callbacks set by the Socket.IO layer to broadcast state. */
   private onBroadcast: ((room: GameRoom) => void) | null = null;
@@ -394,31 +400,73 @@ export class GameRoom {
       if (!this.state) return;
       if (this.state.pendingAction?.type !== 'shifumiResult') return;
 
-      this.state = resolveShifumiResult(this.state, Date.now());
+      const originalState = this.state;
+      const prevResult = originalState.pendingAction as PendingShifumiResult;
 
-      if (this.state.phase === 'finished') {
-        this.status = 'finished';
+      // Pre-compute the real final state
+      const finalState = resolveShifumiResult(originalState, Date.now());
+
+      // TIE: send resolved state (new shifumi round), do NOT resolve cemetery transit
+      if (prevResult.result === 'tie') {
+        this.state = finalState;
+        this.broadcast();
+        // New round: if it's a shifumiResult again, schedule resolution; otherwise let bots act
+        if (finalState.pendingAction?.type === 'shifumiResult') {
+          this.scheduleShifumiResultResolution();
+        } else {
+          this.scheduleBotIfNeeded();
+        }
+        return;
       }
+
+      // DECISIVE result
+      const showLoserOverlay = prevResult.shifumiType !== 'firstPlayer';
+
+      if (!showLoserOverlay) {
+        this.state = finalState;
+        if (this.state.phase === 'finished') this.status = 'finished';
+        this.broadcast();
+        this.scheduleBotIfNeeded();
+        return;
+      }
+
+      const loserId = prevResult.result === 'player1' ? prevResult.player2Id : prevResult.player1Id;
+      const isSuper = prevResult.shifumiType === 'super';
+      const hadCemeteryTransit = !!originalState.pendingCemeteryTransit;
+
+      // Step 1: Intermediate state — dismiss modal, resolve cemetery transit (no pickup yet)
+      let intermediateState: GameState = { ...originalState, pendingAction: null, lastPowerTriggered: null };
+      if (hadCemeteryTransit) {
+        intermediateState = resolveCemeteryTransit(intermediateState);
+      }
+      this.state = intermediateState;
       this.broadcast();
 
-      // After resolution, check if another shifumiResult was produced (tie → new round → new result)
-      if (this.state.pendingAction?.type === 'shifumiResult') {
-        this.scheduleShifumiResultResolution();
-      } else if (this.needsMultiJackContinuation()) {
-        this.scheduleMultiJackContinuation();
-      } else if (this.state.pendingCemeteryTransit && !this.state.pendingAction) {
+      // Step 2: After cemetery transit animation, trigger overlay
+      const transitDelay = hadCemeteryTransit ? CEMETERY_TRANSIT_DELAY_MS : 0;
+      setTimeout(() => {
+        if (!this.state) return;
+
+        // Re-send state with overlay signal
+        this.broadcastExtra = { shifumiLoserOverlay: { loserId, isSuper } };
+        this.broadcast();
+
+        // Step 3: After overlay, send final state (triggers pile→hand animation)
         setTimeout(() => {
           if (!this.state) return;
-          this.state = resolveCemeteryTransit(this.state);
-          if (this.state.phase === 'finished') {
-            this.status = 'finished';
-          }
+
+          this.state = finalState;
+          if (this.state.phase === 'finished') this.status = 'finished';
           this.broadcast();
-          this.scheduleBotIfNeeded();
-        }, CEMETERY_TRANSIT_DELAY_MS);
-      } else {
-        this.scheduleBotIfNeeded();
-      }
+
+          if (finalState.phase === 'finished') return;
+          if (this.needsMultiJackContinuation()) {
+            this.scheduleMultiJackContinuation();
+          } else {
+            this.scheduleBotIfNeeded();
+          }
+        }, SHIFUMI_LOSER_OVERLAY_MS);
+      }, transitDelay);
     }, SHIFUMI_RESULT_DELAY_MS);
   }
 
