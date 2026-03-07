@@ -1,5 +1,5 @@
 import type { GameState } from '../../types';
-import { advanceTurn, resolveAutoSkip } from '../turn';
+import { advanceTurn, resolveAutoSkip, autoDraw } from '../turn';
 import { appendLog } from '../../utils/log';
 
 
@@ -180,6 +180,17 @@ export function applyManouchePick(
     pendingCardsPlayed: undefined,
   };
 
+  // ── Auto-draw after exchange (Phase 1 only) ──────────────────────────────
+  const targetHandSize = state.variant.minHandSize ?? 3;
+  if (newState.deck.length > 0 && newState.players[launcherIdx]!.hand.length < targetHandSize) {
+    const { player: drawn, deck: newDeck } = autoDraw(
+      newState.players[launcherIdx]!, newState.deck, targetHandSize,
+    );
+    const updPlayers = [...newState.players];
+    updPlayers[launcherIdx] = drawn;
+    newState = { ...newState, players: updPlayers, deck: newDeck };
+  }
+
   newState = appendLog(newState, 'manouchePick', timestamp, launcherId, launcher.name, {
     takeCardId,
     giveCardIds,
@@ -280,6 +291,17 @@ export function applySuperManouchePick(
     pendingAction: null,
     pendingCardsPlayed: undefined,
   };
+
+  // ── Auto-draw after exchange (Phase 1 only) ──────────────────────────────
+  const targetHandSize = state.variant.minHandSize ?? 3;
+  if (newState.deck.length > 0 && newState.players[launcherIdx]!.hand.length < targetHandSize) {
+    const { player: drawn, deck: newDeck } = autoDraw(
+      newState.players[launcherIdx]!, newState.deck, targetHandSize,
+    );
+    const updPlayers = [...newState.players];
+    updPlayers[launcherIdx] = drawn;
+    newState = { ...newState, players: updPlayers, deck: newDeck };
+  }
 
   newState = appendLog(newState, 'superManouchePick', timestamp, launcherId, launcher.name, {
     giveCardIds,

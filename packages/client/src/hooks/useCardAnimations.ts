@@ -200,42 +200,10 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
       }
     }
 
-    // ── 4. Draw: deck → hand (compare deck lengths + hand contents) ─────
-    if (game.deck.length < prev.deck.length) {
-      for (const player of game.players) {
-        const prevPlayer = prev.players.find((p) => p.id === player.id);
-        if (!prevPlayer) continue;
-
-        const prevHandIds = new Set(prevPlayer.hand.map((c) => c.id));
-        const prevPileIds = new Set(prev.pile.flatMap((e) => e.cards).map((c) => c.id));
-        const drawnCards = player.hand.filter(
-          (c) => !prevHandIds.has(c.id) && !prevPileIds.has(c.id) && !handledCardIds.has(c.id),
-        );
-
-        if (drawnCards.length === 0) continue;
-
-        const isBot = player.id !== humanId;
-        const from = getZonePos('deck');
-        const to = getZonePos('hand', player.id);
-        if (!from || !to) continue;
-
-        drawnCards.forEach((card, i) => {
-          handledCardIds.add(card.id);
-          newHidden.add(card.id);
-          newAnims.push({
-            id: `draw-${card.id}`,
-            card,
-            faceDown: isBot,
-            from: { ...from, scale: 44 / 56 },
-            to: { ...to, scale: zoneScale('hand', isBot) },
-            duration: 600,
-            delay: playPhaseEndTime + i * 100,
-          });
-        });
-      }
-    }
-
-    // ── 5. Manouche / Super Manouche exchange ────────────────────────────
+    // ── 4. Manouche / Super Manouche exchange ────────────────────────────
+    // MUST run before draw detection so exchange cards are in handledCardIds
+    // and not mistakenly animated as draws from deck.
+    let manouchePhaseEndTime = 0;
     for (const entry of newLogEntries) {
       if (entry.type === 'manouchePick' && entry.playerId && entry.data.takeCardId) {
         const launcherId = entry.playerId as string;
@@ -256,6 +224,8 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
         if (takenCard && !handledCardIds.has(takenCard.id)) {
           handledCardIds.add(takenCard.id);
           newHidden.add(takenCard.id);
+          const endTime = 800;
+          if (endTime > manouchePhaseEndTime) manouchePhaseEndTime = endTime;
           newAnims.push({
             id: `manouche-take-${entry.id}-${takenCard.id}`,
             card: takenCard,
@@ -274,6 +244,8 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
           if (givenCard && !handledCardIds.has(givenCard.id)) {
             handledCardIds.add(givenCard.id);
             newHidden.add(givenCard.id);
+            const endTime = 800 + i * 50 + 800;
+            if (endTime > manouchePhaseEndTime) manouchePhaseEndTime = endTime;
             newAnims.push({
               id: `manouche-give-${entry.id}-${givenCard.id}`,
               card: givenCard,
@@ -307,6 +279,8 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
           if (takenCard && !handledCardIds.has(takenCard.id)) {
             handledCardIds.add(takenCard.id);
             newHidden.add(takenCard.id);
+            const endTime = i * 50 + 800;
+            if (endTime > manouchePhaseEndTime) manouchePhaseEndTime = endTime;
             newAnims.push({
               id: `smanouche-take-${entry.id}-${takenCard.id}`,
               card: takenCard,
@@ -327,6 +301,8 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
           if (givenCard && !handledCardIds.has(givenCard.id)) {
             handledCardIds.add(givenCard.id);
             newHidden.add(givenCard.id);
+            const endTime = phase1End + i * 50 + 800;
+            if (endTime > manouchePhaseEndTime) manouchePhaseEndTime = endTime;
             newAnims.push({
               id: `smanouche-give-${entry.id}-${givenCard.id}`,
               card: givenCard,
@@ -337,6 +313,43 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
               delay: phase1End + i * 50,
             });
           }
+        });
+      }
+    }
+
+    // ── 5. Draw: deck → hand (compare deck lengths + hand contents) ─────
+    if (game.deck.length < prev.deck.length) {
+      // Draw animations start after both play and manouche animations finish
+      const drawBaseDelay = Math.max(playPhaseEndTime, manouchePhaseEndTime);
+      for (const player of game.players) {
+        const prevPlayer = prev.players.find((p) => p.id === player.id);
+        if (!prevPlayer) continue;
+
+        const prevHandIds = new Set(prevPlayer.hand.map((c) => c.id));
+        const prevPileIds = new Set(prev.pile.flatMap((e) => e.cards).map((c) => c.id));
+        const drawnCards = player.hand.filter(
+          (c) => !prevHandIds.has(c.id) && !prevPileIds.has(c.id) && !handledCardIds.has(c.id),
+        );
+
+        if (drawnCards.length === 0) continue;
+
+        const isBot = player.id !== humanId;
+        const from = getZonePos('deck');
+        const to = getZonePos('hand', player.id);
+        if (!from || !to) continue;
+
+        drawnCards.forEach((card, i) => {
+          handledCardIds.add(card.id);
+          newHidden.add(card.id);
+          newAnims.push({
+            id: `draw-${card.id}`,
+            card,
+            faceDown: isBot,
+            from: { ...from, scale: 44 / 56 },
+            to: { ...to, scale: zoneScale('hand', isBot) },
+            duration: 600,
+            delay: drawBaseDelay + i * 100,
+          });
         });
       }
     }

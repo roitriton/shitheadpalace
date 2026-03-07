@@ -102,7 +102,7 @@ const SHIFUMI_RESULT_DELAY_MS = 3000;
 const FLOP_REMAKE_ANIM_MS = 2500;
 
 /** Delay for the manouche card exchange animation on the client (1.6 seconds). */
-const MANOUCHE_ANIM_MS = 1600;
+const MANOUCHE_ANIM_MS = 2200;
 
 /** Delay for the shifumi loser overlay animation on the client (2 seconds). */
 const SHIFUMI_LOSER_OVERLAY_MS = 2000;
@@ -215,6 +215,11 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
         setTimeout(() => {
           const stillCurrent = soloSessions.get(socket.id);
           if (!stillCurrent || stillCurrent !== session) return;
+          // Resolve cemetery transit (J♠ → graveyard) after manouche animation
+          if (session.state.pendingCemeteryTransit && !session.state.pendingAction) {
+            session.state = resolveCemeteryTransit(session.state);
+            sendSoloState(socket, session);
+          }
           if (needsMultiJackContinuation(session.state)) {
             scheduleSoloMultiJackContinuation(socket, session);
           } else {
@@ -544,11 +549,16 @@ io.on('connection', (rawSocket) => {
         return;
       }
 
-      // Manouche exchange animation: wait 1.6s before scheduling next bot
+      // Manouche exchange animation: wait 1.6s before scheduling next action
       if (hasManoucheExchangeJustCompleted(prevState, s.state)) {
         setTimeout(() => {
           const current = soloSessions.get(socket.id);
           if (!current || current !== s) return;
+          // Resolve cemetery transit (J♠ → graveyard) after manouche animation
+          if (s.state.pendingCemeteryTransit && !s.state.pendingAction) {
+            s.state = resolveCemeteryTransit(s.state);
+            sendSoloState(socket, s);
+          }
           if (needsMultiJackContinuation(s.state)) {
             scheduleSoloMultiJackContinuation(socket, s);
           } else {
@@ -661,11 +671,16 @@ io.on('connection', (rawSocket) => {
         return;
       }
 
-      // Manouche exchange animation: wait 1.6s before scheduling next bot
+      // Manouche exchange animation: wait 1.6s before scheduling next action
       if (hasManoucheExchangeJustCompleted(prevState, s.state)) {
         setTimeout(() => {
           const current = soloSessions.get(socket.id);
           if (!current || current !== s) return;
+          // Resolve cemetery transit (J♠ → graveyard) after manouche animation
+          if (s.state.pendingCemeteryTransit && !s.state.pendingAction) {
+            s.state = resolveCemeteryTransit(s.state);
+            sendSoloState(socket, s);
+          }
           if (needsMultiJackContinuation(s.state)) {
             scheduleSoloMultiJackContinuation(socket, s);
           } else {

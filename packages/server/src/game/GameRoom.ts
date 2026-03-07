@@ -65,7 +65,7 @@ const OVERLAY_DELAY_MS = 1500;
 const SHIFUMI_RESULT_DELAY_MS = 3000;
 
 /** Delay for the manouche card exchange animation on the client (1.6 seconds). */
-const MANOUCHE_ANIM_MS = 1600;
+const MANOUCHE_ANIM_MS = 2200;
 
 /** Delay for the shifumi loser overlay animation on the client (2 seconds). */
 const SHIFUMI_LOSER_OVERLAY_MS = 2000;
@@ -331,6 +331,14 @@ export class GameRoom {
   private scheduleManoucheAnimDelay(): void {
     setTimeout(() => {
       if (!this.state) return;
+      // Resolve cemetery transit (J♠ → graveyard) after manouche animation
+      if (this.state.pendingCemeteryTransit && !this.state.pendingAction) {
+        this.state = resolveCemeteryTransit(this.state);
+        if (this.state.phase === 'finished') {
+          this.status = 'finished';
+        }
+        this.broadcast();
+      }
       if (this.needsMultiJackContinuation()) {
         this.scheduleMultiJackContinuation();
       } else {

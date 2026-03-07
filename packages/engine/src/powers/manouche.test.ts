@@ -349,6 +349,70 @@ describe('applyManouchePick — nominal', () => {
     // p1 gave one 5 (c5b), received two 5s (c5a + c5cLocal) → net +1: 1 → 2
     expect(next.players[1]!.hand).toHaveLength(2); // c5b gone, c5a + c5cLocal added
   });
+
+  it('launcher auto-draws after unbalanced exchange when deck is non-empty', () => {
+    // p0 hand: [c5a, c5c] → gives both 5s, takes cQ → hand = [cQ] = 1 card
+    // Deck has 3 cards → should draw up to minHandSize (3)
+    const c5cLocal = card('5', 'clubs', 3);
+    const deckCard1 = card('3', 'hearts', 10);
+    const deckCard2 = card('4', 'diamonds', 11);
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [c5a, c5cLocal] };
+      if (i === 1) return { ...p, hand: [cQ, cK] };
+      return { ...p, hand: [cK] };
+    });
+    const state = makeState({
+      players,
+      deck: [deckCard1, deckCard2],
+      pendingAction: { type: 'manouche', launcherId: 'p0', targetId: 'p1' },
+    });
+    const next = applyManouchePick(state, 'p0', cQ.id, [c5a.id, c5cLocal.id]);
+    // p0 gave 2 cards, took 1 → net hand = 1 → auto-draw 2 cards → hand = 3
+    expect(next.players[0]!.hand).toHaveLength(3);
+    expect(next.players[0]!.hand.map((c) => c.id)).toContain(cQ.id);
+    expect(next.players[0]!.hand.map((c) => c.id)).toContain(deckCard1.id);
+    expect(next.players[0]!.hand.map((c) => c.id)).toContain(deckCard2.id);
+    expect(next.deck).toHaveLength(0);
+  });
+
+  it('launcher auto-draws respects custom minHandSize variant', () => {
+    // minHandSize = 5, p0 hand = [c5a, c5c, cK] → gives 2, takes 1 → hand = 2 → draw 3
+    const c5cLocal = card('5', 'clubs', 3);
+    const deckCards = [card('3', 'hearts', 10), card('4', 'diamonds', 11), card('6', 'clubs', 12)];
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [c5a, c5cLocal, cK] };
+      if (i === 1) return { ...p, hand: [cQ, cQb] };
+      return { ...p, hand: [cK] };
+    });
+    const customVariant: GameVariant = { ...manoucheVariant, minHandSize: 5 };
+    const state = makeState({
+      players,
+      deck: [...deckCards],
+      variant: customVariant,
+      pendingAction: { type: 'manouche', launcherId: 'p0', targetId: 'p1' },
+    });
+    const next = applyManouchePick(state, 'p0', cQ.id, [c5a.id, c5cLocal.id]);
+    // hand after exchange = [cK, cQ] = 2, draw 3 cards → hand = 5
+    expect(next.players[0]!.hand).toHaveLength(5);
+    expect(next.deck).toHaveLength(0);
+  });
+
+  it('no auto-draw when deck is empty', () => {
+    const c5cLocal = card('5', 'clubs', 3);
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [c5a, c5cLocal] };
+      if (i === 1) return { ...p, hand: [cQ] };
+      return { ...p, hand: [cK] };
+    });
+    const state = makeState({
+      players,
+      deck: [],
+      pendingAction: { type: 'manouche', launcherId: 'p0', targetId: 'p1' },
+    });
+    const next = applyManouchePick(state, 'p0', cQ.id, [c5a.id, c5cLocal.id]);
+    // Gave 2, took 1 → hand = 1, but deck empty → no draw
+    expect(next.players[0]!.hand).toHaveLength(1);
+  });
 });
 
 // ─── applySuperManouchePick — guards ──────────────────────────────────────────
@@ -612,6 +676,48 @@ describe('Manouche — full flow via applyPlay', () => {
     // Turn advances: p0 was current, next in turnOrder is p1
     expect(afterPick.currentPlayerIndex).toBe(1);
     expect(afterPick.pendingAction).toBeNull();
+  });
+
+  it('full flow: unbalanced exchange triggers autoDraw from deck', () => {
+    // p0 plays J♠ from hand [J♠, 4a, 4b, 6] on a pile.
+    // After playing J♠: applyPlay auto-draws nothing (hand already at 3).
+    // Manouche triggered. p0 takes Q from p1, gives 4a+4b.
+    // After exchange: hand = [6, Q] = 2 cards < minHandSize (3).
+    // Deck has cards → autoDraw should bring hand back to 3.
+    const c4a = card('4', 'hearts', 0);
+    const c4b = card('4', 'spades', 1);
+    const c6 = card('6', 'diamonds', 2);
+    const cQlocal = card('Q', 'clubs', 3);
+    const deckCard1 = card('3', 'hearts', 10);
+    const deckCard2 = card('A', 'diamonds', 11);
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [jSpade, c4a, c4b, c6] };
+      if (i === 1) return { ...p, hand: [cQlocal, cK] };
+      return { ...p, hand: [cK] };
+    });
+    const state = makeState({
+      players,
+      deck: [deckCard1, deckCard2],
+      pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'p1', playerName: 'p1', timestamp: 0 }],
+    });
+
+    // Step 1: play J♠ targeting p1
+    const afterPlay = applyPlay(state, 'p0', [jSpade.id], 0, 'p1');
+    expect(afterPlay.pendingAction?.type).toBe('manouche');
+    // After playing J♠: hand = [c4a, c4b, c6] = 3 cards
+    expect(afterPlay.players[0]!.hand).toHaveLength(3);
+    // Deck still has 2 cards (no autoDraw needed, hand was already at 3)
+    expect(afterPlay.deck).toHaveLength(2);
+
+    // Step 2: manouche exchange — take Q, give 4a+4b
+    const afterPick = applyManouchePick(afterPlay, 'p0', cQlocal.id, [c4a.id, c4b.id]);
+    // After exchange: [c6, Q] = 2 cards → autoDraw 1 card → hand = 3
+    expect(afterPick.players[0]!.hand).toHaveLength(3);
+    expect(afterPick.players[0]!.hand.map((c) => c.id)).toContain(c6.id);
+    expect(afterPick.players[0]!.hand.map((c) => c.id)).toContain(cQlocal.id);
+    expect(afterPick.players[0]!.hand.map((c) => c.id)).toContain(deckCard1.id);
+    // Deck consumed 1 card
+    expect(afterPick.deck).toHaveLength(1);
   });
 
   it('J♠ does not trigger Manouche when player finishes by playing it', () => {

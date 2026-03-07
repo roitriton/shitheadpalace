@@ -35,6 +35,7 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Étape 12D** — minHandSize et flopSize configurables dans GameVariant : ajout minHandSize? (1-5, défaut 3) et flopSize? (1-5, défaut 3) aux types, validation (plage + assez de cartes pour distribuer), sérialisation/désérialisation, dealCards paramétré (handSize + flopSize), autoDraw paramétré (targetHandSize), applyFlopRemake dynamique, configToVariant client mappé, 28 nouveaux tests (1101 tests)
 - [x] **Étape 12E** — Auth UI (inscription, connexion, JWT, RGPD, persistance session) : AuthScreen (toggle connexion/inscription, validation client, case RGPD obligatoire, liens /privacy et /terms placeholder), AuthContext + useAuth hook (login/register/logout, token localStorage, vérification GET /auth/me au chargement), socket autoConnect:false avec token auth, TopBar username + bouton déconnexion, gdprConsentAt Prisma, gdprConsent requis dans registerSchema/route, try/catch async routes serveur, proxy Vite /auth explicite, parsing JSON résilient côté client (1103 tests)
 - [x] **Étape 12F** — Améliorations visuelles : thème Foot (fond + dos), sélecteur unique "Thème" (remplace 2 dropdowns Table/Cartes), type Theme unifié (bgImage+cardBackImage), opacités doublées colonnes latérales (bg-black/20→40), cadre pile bg-black/40, effet lumière radial (centre rgba(255,255,255,0.08) + bords rgba(0,0,0,0.9)), avatar+pseudo sur même ligne horizontale positionnés absolute à gauche des cartes flop, centrage horizontal sur cartes uniquement, centrage vertical joueurs (items-center), texte statut lisible (bg-black/50 + text-shadow + taille augmentée) (1103 tests)
+- [x] **Étape 12G** — Animations échange Manouche/Super Manouche (cartes volantes entre joueurs) + overlay shifumi perdant (😭 normal / ☠️ super) sur avatar avec séquençage 3 étapes serveur (transit cimetière → overlay 2s → ramassage/fin), signal serveur shifumiLoserOverlay dans game:state, ShifumiLoserOverlay.tsx Framer Motion, PlayerAvatar data-player-avatar, useCardAnimations détecte shifumiResolved pour animation ramassage, gestion correcte des égalités (pas de transit ni overlay) (1103 tests)
 
 ### Nombre total de tests : 1103 (965 engine + 125 server + 13 client)
 
@@ -136,7 +137,7 @@ App.tsx (state principal, socket handlers, animation coordination)
 ├── TopBar.tsx (titre, sélecteurs thème Table/Cartes, debug toggle)
 ├── GameBoard.tsx (plateau de jeu, fond tileable via ThemeContext)
 │   ├── PlayerZone (×n joueurs, CSS Grid auto 1fr)
-│   │   ├── PlayerAvatar.tsx (cercle coloré, taille bot/human)
+│   │   ├── PlayerAvatar.tsx (cercle coloré, taille bot/human, data-player-avatar)
 │   │   ├── Cartes flop/dark flop (slots fixes, fuSlotRef/fdSlotRef)
 │   │   └── Main en éventail (Reorder.Group, fanStyle)
 │   ├── CardsColumn (zone centrale)
@@ -151,6 +152,7 @@ App.tsx (state principal, socket handlers, animation coordination)
 │   │   ├── ShifumiChoiceModal, ShifumiResultModal (auto-dismiss 3s)
 │   │   ├── FlopRemakeModal, MultiJackOrderModal, FlopPickUpModal
 │   │   └── RevolutionConfirm (inline)
+│   ├── ShifumiLoserOverlay.tsx (😭/☠️ sur avatar perdant, Framer Motion 2s)
 │   └── Texte statut sous la main (illegalPlayReason, noLegalMove, emptyPileBlocked)
 ├── CardAnimationLayer.tsx (fixed z-100, ghost cards Framer Motion)
 ├── BottomBar.tsx (Jouer vert/grisé, Ramasser, Passer son tour jaune)
@@ -172,7 +174,7 @@ App.tsx (state principal, socket handlers, animation coordination)
 - Effet lumière radial : overlay absolute z-[1] avec radial-gradient (centre clair, bords sombres), éléments de jeu en z-[2]
 
 ### Hooks custom
-- **useCardAnimations.ts** : compare GameState consécutifs, détecte mouvements, crée FlyingCardAnim avec timing séquencé (play→overlay→draw)
+- **useCardAnimations.ts** : compare GameState consécutifs, détecte mouvements (play, darkPlay, pickUp, darkPlayFail, shifumiResolved, manouchePick, superManouchePick), crée FlyingCardAnim avec timing séquencé (play→overlay→draw)
 
 ### Système d'animation
 - CardAnimationLayer : overlay fixed, ghost cards avec cubic bezier
@@ -188,7 +190,10 @@ App.tsx (state principal, socket handlers, animation coordination)
 - BOT_DELAY_MS = 1500ms : délai avant action bot (+ OVERLAY_DELAY_MS si lastPowerTriggered)
 - CEMETERY_TRANSIT_DELAY_MS = 2250ms : délai transit pile→cimetière
 - SHIFUMI_RESULT_DELAY_MS = 3000ms : auto-dismiss popup résultat shifumi
+- SHIFUMI_LOSER_OVERLAY_MS = 2000ms : durée overlay perdant shifumi sur avatar
+- MANOUCHE_ANIM_MS = 1600ms : délai animation échange cartes manouche
 - pendingCemeteryTransit ne se résout QUE si !state.pendingAction (guard sur 9 locations)
+- Séquençage shifumi décisif en 3 étapes serveur : (1) état intermédiaire (dismiss modal + transit cimetière), (2) signal overlay shifumiLoserOverlay, (3) état final (ramassage/fin)
 
 ### Communication Socket.IO
 
@@ -199,7 +204,7 @@ Client → Server :
   'chat:send'           { gameId, text }
 
 Server → Client :
-  'game:state'          GameState (filtré par joueur)
+  'game:state'          GameState (filtré par joueur) + optional shifumiLoserOverlay signal
   'chat:message'        { playerId, playerName, text, timestamp }
   'error'               { message }
 ```
