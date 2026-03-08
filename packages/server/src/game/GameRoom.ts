@@ -13,6 +13,8 @@ import { runBotTurns, botActOnce, resolveFirstPlayerShifumi, canBotActOnPendingA
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
+export type BotDifficulty = 'easy' | 'medium' | 'hard';
+
 export interface RoomPlayer {
   userId: string;
   username: string;
@@ -21,6 +23,8 @@ export interface RoomPlayer {
   /** Socket ID — null when disconnected */
   socketId: string | null;
   isBot: boolean;
+  /** Bot difficulty level (only for bots). */
+  botDifficulty?: BotDifficulty;
   /** Timestamp when the player disconnected, for reconnection timeout */
   disconnectedAt: number | null;
 }
@@ -116,9 +120,9 @@ export class GameRoom {
     return this.players.filter((p) => p.isBot).length;
   }
 
-  /** Whether the room can accept more human players. */
+  /** Whether the room can accept more players. */
   get canJoin(): boolean {
-    return this.status === 'waiting' && this.humanCount < this.config.maxPlayers;
+    return this.status === 'waiting' && this.players.length < this.config.maxPlayers;
   }
 
   /** Add a human player to the room. Returns the RoomPlayer. */
@@ -126,7 +130,7 @@ export class GameRoom {
     if (this.status !== 'waiting') {
       throw new Error('Game already started');
     }
-    if (this.humanCount >= this.config.maxPlayers) {
+    if (this.players.length >= this.config.maxPlayers) {
       throw new Error('Room is full');
     }
     if (this.players.some((p) => p.userId === userId && !p.isBot)) {
@@ -155,6 +159,43 @@ export class GameRoom {
     this.readyPlayers.delete(userId);
   }
 
+  /** Add a bot to the waiting room. Returns the RoomPlayer. */
+  addBot(difficulty: BotDifficulty): RoomPlayer {
+    if (this.status !== 'waiting') {
+      throw new Error('Game already started');
+    }
+    if (this.players.length >= this.config.maxPlayers) {
+      throw new Error('Room is full');
+    }
+
+    const botIndex = this.botCount + 1;
+    const diffLabel = difficulty === 'easy' ? 'Facile' : difficulty === 'medium' ? 'Moyen' : 'Expert';
+    const botId = `bot-${botIndex}-${randomBytes(3).toString('hex')}`;
+    const bot: RoomPlayer = {
+      userId: botId,
+      username: `Bot ${botIndex} (${diffLabel})`,
+      playerId: botId,
+      socketId: null,
+      isBot: true,
+      botDifficulty: difficulty,
+      disconnectedAt: null,
+    };
+    this.players.push(bot);
+    return bot;
+  }
+
+  /** Remove a bot from the waiting room. */
+  removeBot(botId: string): void {
+    if (this.status !== 'waiting') {
+      throw new Error('Game already started');
+    }
+    const idx = this.players.findIndex((p) => p.userId === botId && p.isBot);
+    if (idx === -1) {
+      throw new Error('Bot not found');
+    }
+    this.players.splice(idx, 1);
+  }
+
   /** Mark a player as ready or not ready. */
   setReady(userId: string, ready: boolean): void {
     if (this.status !== 'waiting') {
@@ -181,7 +222,7 @@ export class GameRoom {
     if (this.status !== 'waiting') {
       throw new Error('Game already started');
     }
-    if (this.humanCount > variant.playerCount) {
+    if (this.players.length > variant.playerCount) {
       throw new Error('Too many players for this variant');
     }
     this.config.variant = variant;
@@ -201,6 +242,7 @@ export class GameRoom {
         playerId: botId,
         socketId: null,
         isBot: true,
+        botDifficulty: 'easy',
         disconnectedAt: null,
       });
     }
@@ -224,7 +266,7 @@ export class GameRoom {
       id: p.playerId,
       name: p.username,
       isBot: p.isBot,
-      botDifficulty: p.isBot ? ('easy' as const) : undefined,
+      botDifficulty: p.isBot ? (p.botDifficulty ?? ('easy' as const)) : undefined,
     }));
 
     this.state = createInitialGameState(this.id, playerDefs, this.config.variant);
@@ -745,22 +787,23 @@ export class GameRoom {
     creatorId: string;
     isPublic: boolean;
     variant: GameVariant;
-    players: { userId: string; username: string; ready: boolean }[];
+    players: { userId: string; username: string; ready: boolean; isBot?: boolean; botDifficulty?: BotDifficulty }[];
   } {
     return {
       id: this.id,
       name: this.config.name,
       status: this.status,
-      playerCount: this.humanCount,
+      playerCount: this.players.length,
       maxPlayers: this.config.maxPlayers,
       variantName: this.config.variant.name,
       creatorId: this.config.creatorId,
       isPublic: this.config.isPublic,
       variant: this.config.variant,
-      players: this.players.filter((p) => !p.isBot).map((p) => ({
+      players: this.players.map((p) => ({
         userId: p.userId,
         username: p.username,
-        ready: this.readyPlayers.has(p.userId),
+        ready: p.isBot ? true : this.readyPlayers.has(p.userId),
+        ...(p.isBot ? { isBot: true, botDifficulty: p.botDifficulty } : {}),
       })),
     };
   }

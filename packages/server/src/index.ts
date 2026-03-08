@@ -981,8 +981,8 @@ io.on('connection', (rawSocket) => {
       return;
     }
 
-    if (room.humanCount < 2) {
-      socket.emit('game:error', { message: 'Il faut au moins 2 joueurs pour lancer' });
+    if (room.players.length < 2) {
+      socket.emit('game:error', { message: 'Il faut au moins 2 participants pour lancer' });
       return;
     }
 
@@ -1064,6 +1064,53 @@ io.on('connection', (rawSocket) => {
       room.updateVariant(candidate);
       io.to(`room:${room.id}`).emit('lobby:variantUpdated', {
         room: room.toLobbySummary(),
+      });
+    } catch (err) {
+      socket.emit('game:error', { message: (err as Error).message });
+    }
+  });
+
+  socket.on('lobby:addBot', (data: { difficulty: string }) => {
+    if (!userId) return;
+    const room = lobby.findRoomByUserId(userId);
+    if (!room || room.status !== 'waiting') return;
+
+    if (room.config.creatorId !== userId) {
+      socket.emit('game:error', { message: 'Seul le créateur peut ajouter un bot' });
+      return;
+    }
+
+    const difficulty = data.difficulty;
+    if (difficulty !== 'easy' && difficulty !== 'medium' && difficulty !== 'hard') {
+      socket.emit('game:error', { message: 'Difficulté invalide' });
+      return;
+    }
+
+    try {
+      room.addBot(difficulty);
+      io.to(`room:${room.id}`).emit('lobby:playerJoined', {
+        room: room.toLobbySummary(),
+      });
+    } catch (err) {
+      socket.emit('game:error', { message: (err as Error).message });
+    }
+  });
+
+  socket.on('lobby:removeBot', (data: { botId: string }) => {
+    if (!userId) return;
+    const room = lobby.findRoomByUserId(userId);
+    if (!room || room.status !== 'waiting') return;
+
+    if (room.config.creatorId !== userId) {
+      socket.emit('game:error', { message: 'Seul le créateur peut retirer un bot' });
+      return;
+    }
+
+    try {
+      room.removeBot(data.botId);
+      io.to(`room:${room.id}`).emit('lobby:playerLeft', {
+        room: room.toLobbySummary(),
+        userId: data.botId,
       });
     } catch (err) {
       socket.emit('game:error', { message: (err as Error).message });

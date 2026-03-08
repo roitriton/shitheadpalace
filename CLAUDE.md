@@ -40,8 +40,9 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Étape 12H-1** — Lobby multijoueur : navigation auth→lobby→game, RoomManager, liste rooms, création avec config variantes, join (1119 tests)
 - [x] **Étape 12H-2** — Salle d'attente : ready/start/kick/updateVariant, lancement partie multijoueur, retour lobby après game over, cleanup rooms déconnexion (1145 tests)
 - [x] **Fix 12H-ordre** — Ordre cyclique des adversaires relatif au joueur local (1145 tests)
+- [x] **Étape 12H-3** — Ajout de bots dans la salle d'attente multijoueur : addBot/removeBot, 3 niveaux difficulté, UI créateur (1158 tests)
 
-### Nombre total de tests : 1145 (969 engine + 163 server + 13 client)
+### Nombre total de tests : 1158 (969 engine + 176 server + 13 client)
 
 ### Étapes à venir
 

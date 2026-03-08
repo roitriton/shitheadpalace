@@ -13,6 +13,8 @@ interface WaitingRoomPlayer {
   userId: string;
   username: string;
   ready: boolean;
+  isBot?: boolean;
+  botDifficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export interface WaitingRoomData {
@@ -43,9 +45,11 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
   const [room, setRoom] = useState<WaitingRoomData>(initialRoom);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [botDifficulty, setBotDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
 
   const isCreator = room.creatorId === userId;
   const canStart = isCreator && room.players.length >= 2;
+  const roomFull = room.players.length >= room.maxPlayers;
 
   useEffect(() => {
     const handlePlayerJoined = (data: { room: WaitingRoomData }) => {
@@ -110,6 +114,14 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
     setShowVariantModal(false);
   };
 
+  const handleAddBot = () => {
+    socket.emit('lobby:addBot', { difficulty: botDifficulty });
+  };
+
+  const handleRemoveBot = (botId: string) => {
+    socket.emit('lobby:removeBot', { botId });
+  };
+
   return (
     <div
       className="min-h-screen flex flex-col"
@@ -166,19 +178,24 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
                     {player.userId === room.creatorId && (
                       <span className="ml-2 text-[#c9a84c] text-xs font-normal">Hote</span>
                     )}
+                    {player.isBot && (
+                      <span className="ml-2 text-xs font-mono px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-300 border border-blue-700/40">
+                        BOT
+                      </span>
+                    )}
                   </p>
                   <p className="text-gray-500 text-xs">
-                    {player.ready ? 'Pret' : 'En attente...'}
+                    {player.isBot ? 'Pret' : player.ready ? 'Pret' : 'En attente...'}
                   </p>
                 </div>
-                {/* Kick button (creator only, can't kick self) */}
+                {/* Kick / Remove bot button (creator only, can't kick self) */}
                 {isCreator && player.userId !== userId && (
                   <button
-                    onClick={() => handleKick(player.userId)}
+                    onClick={() => player.isBot ? handleRemoveBot(player.userId) : handleKick(player.userId)}
                     className="text-red-400/60 hover:text-red-400 text-xs transition-colors px-2 py-1"
-                    title="Exclure"
+                    title={player.isBot ? 'Retirer' : 'Exclure'}
                   >
-                    Exclure
+                    {player.isBot ? 'Retirer' : 'Exclure'}
                   </button>
                 )}
               </motion.div>
@@ -195,6 +212,27 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
               </div>
             ))}
           </div>
+
+          {/* Add bot (creator only, room not full) */}
+          {isCreator && !roomFull && (
+            <div className="mt-3 flex items-center gap-2">
+              <select
+                value={botDifficulty}
+                onChange={(e) => setBotDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+                className="bg-gray-800 text-gray-200 text-xs rounded px-2 py-1.5 border border-gray-600 focus:outline-none focus:border-[#c9a84c]"
+              >
+                <option value="easy">Facile</option>
+                <option value="medium">Moyen</option>
+                <option value="hard">Expert</option>
+              </select>
+              <button
+                onClick={handleAddBot}
+                className="bg-blue-900/60 hover:bg-blue-800/70 text-blue-200 text-xs font-semibold px-3 py-1.5 rounded border border-blue-700/40 transition-colors"
+              >
+                + Ajouter un bot
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Variant info */}
