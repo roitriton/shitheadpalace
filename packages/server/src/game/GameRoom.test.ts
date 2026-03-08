@@ -324,6 +324,149 @@ describe('GameRoom', () => {
       expect(player?.isBot).toBe(false);
       vi.useRealTimers();
     });
+
+    it('disconnectedPlayerIds includes disconnected players', () => {
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+      const playerId = room.getPlayerId('user-1')!;
+
+      expect(room.disconnectedPlayerIds).toEqual([]);
+
+      room.handleDisconnect('user-1');
+      expect(room.disconnectedPlayerIds).toEqual([playerId]);
+    });
+
+    it('disconnectedPlayerIds is cleared after reconnection', () => {
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+
+      room.handleDisconnect('user-1');
+      expect(room.disconnectedPlayerIds.length).toBe(1);
+
+      room.handleReconnect('user-1', 'socket-2');
+      expect(room.disconnectedPlayerIds).toEqual([]);
+    });
+
+    it('disconnectedPlayerIds is cleared after bot replacement', () => {
+      vi.useFakeTimers();
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+
+      room.handleDisconnect('user-1');
+      expect(room.disconnectedPlayerIds.length).toBe(1);
+
+      vi.advanceTimersByTime(60_001);
+      // Player is now a bot, no longer in disconnected list
+      expect(room.disconnectedPlayerIds).toEqual([]);
+      vi.useRealTimers();
+    });
+
+    it('calls onPlayerReplaced callback when bot replacement occurs', () => {
+      vi.useFakeTimers();
+      const callback = vi.fn();
+      room.setOnPlayerReplaced(callback);
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+      const playerId = room.getPlayerId('user-1')!;
+
+      room.handleDisconnect('user-1');
+      vi.advanceTimersByTime(60_001);
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith(room, playerId, 'Alice');
+      vi.useRealTimers();
+    });
+
+    it('does not call onPlayerReplaced if reconnected in time', () => {
+      vi.useFakeTimers();
+      const callback = vi.fn();
+      room.setOnPlayerReplaced(callback);
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+
+      room.handleDisconnect('user-1');
+      vi.advanceTimersByTime(30_000);
+      room.handleReconnect('user-1', 'socket-2');
+      vi.advanceTimersByTime(31_000);
+
+      expect(callback).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it('handleReconnect returns false if player was already replaced by bot', () => {
+      vi.useFakeTimers();
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+
+      room.handleDisconnect('user-1');
+      vi.advanceTimersByTime(60_001);
+
+      // Player is now a bot — reconnection should fail
+      const success = room.handleReconnect('user-1', 'socket-2');
+      expect(success).toBe(false);
+      vi.useRealTimers();
+    });
+
+    it('handleDisconnect does not start timer for non-playing rooms', () => {
+      vi.useFakeTimers();
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      // Room is in 'waiting' status — disconnect should mark but not start timer
+      room.handleDisconnect('user-1');
+
+      const player = room.players.find((p) => p.userId === 'user-1');
+      expect(player?.socketId).toBeNull();
+      expect(player?.disconnectedAt).toBeTruthy();
+
+      // Advancing time should NOT replace with bot (no timer started)
+      vi.advanceTimersByTime(120_000);
+      expect(player?.isBot).toBe(false);
+      vi.useRealTimers();
+    });
+
+    it('preserves game state on reconnection', () => {
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+      const playerId = room.getPlayerId('user-1')!;
+
+      // Get state before disconnect
+      const stateBefore = room.getStateForPlayer(playerId);
+      expect(stateBefore).not.toBeNull();
+
+      room.handleDisconnect('user-1');
+      room.handleReconnect('user-1', 'socket-2');
+
+      // State should be preserved after reconnection
+      const stateAfter = room.getStateForPlayer(playerId);
+      expect(stateAfter).not.toBeNull();
+      expect(stateAfter!.id).toBe(stateBefore!.id);
+      expect(stateAfter!.players.length).toBe(stateBefore!.players.length);
+    });
+
+    it('tracks multiple disconnected players', () => {
+      const config3 = makeConfig({ maxPlayers: 4 });
+      const room4 = new GameRoom('room-4p', config3);
+      room4.config.maxPlayers = 4;
+      room4.config.variant = { ...TEST_VARIANT, playerCount: 4 };
+
+      room4.addPlayer('user-1', 'Alice', 'socket-1');
+      room4.addPlayer('user-2', 'Bob', 'socket-2');
+      room4.start();
+
+      const pid1 = room4.getPlayerId('user-1')!;
+      const pid2 = room4.getPlayerId('user-2')!;
+
+      room4.handleDisconnect('user-1');
+      room4.handleDisconnect('user-2');
+
+      expect(room4.disconnectedPlayerIds).toContain(pid1);
+      expect(room4.disconnectedPlayerIds).toContain(pid2);
+      expect(room4.disconnectedPlayerIds.length).toBe(2);
+
+      room4.handleReconnect('user-1', 'socket-1b');
+      expect(room4.disconnectedPlayerIds).toEqual([pid2]);
+
+      room4.dispose();
+    });
   });
 
   // ── Spectators ─────────────────────────────────────────────────────────────

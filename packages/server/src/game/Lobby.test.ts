@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { Lobby } from './Lobby';
 import type { GameVariant } from '@shit-head-palace/engine';
 
@@ -21,6 +21,10 @@ describe('Lobby', () => {
 
   beforeEach(() => {
     lobbyInstance = new Lobby();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('createRoom', () => {
@@ -115,6 +119,30 @@ describe('Lobby', () => {
 
     it('returns undefined for users not in any room', () => {
       expect(lobbyInstance.findRoomByUserId('unknown')).toBeUndefined();
+    });
+
+    it('finds a playing room when player is disconnected', () => {
+      const room = lobbyInstance.createRoom('user-1', TEST_VARIANT);
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+      room.handleDisconnect('user-1');
+      // Player is disconnected but still in the room (not yet replaced by bot)
+      const found = lobbyInstance.findRoomByUserId('user-1');
+      expect(found).toBe(room);
+      expect(found!.status).toBe('playing');
+    });
+
+    it('does not find room after player is replaced by bot', () => {
+      vi.useFakeTimers();
+      const room = lobbyInstance.createRoom('user-1', TEST_VARIANT);
+      room.addPlayer('user-1', 'Alice', 'socket-1');
+      room.start();
+      room.handleDisconnect('user-1');
+      vi.advanceTimersByTime(60_001);
+
+      // Player was replaced by bot — findRoomByUserId checks !p.isBot
+      expect(lobbyInstance.findRoomByUserId('user-1')).toBeUndefined();
+      vi.useRealTimers();
     });
   });
 

@@ -413,6 +413,7 @@ function broadcastRoomState(room: GameRoom, io: Server): void {
 
   const extra = room.broadcastExtra;
   room.broadcastExtra = null;
+  const disconnectedPlayerIds = room.disconnectedPlayerIds;
 
   // Send filtered state to each connected player
   for (const player of room.players) {
@@ -422,6 +423,7 @@ function broadcastRoomState(room: GameRoom, io: Server): void {
         playerSocket.emit('game:state', {
           state: filterGameStateForPlayer(room.state, player.playerId),
           playerId: player.playerId,
+          disconnectedPlayerIds,
           ...(extra ?? {}),
         });
       }
@@ -439,6 +441,18 @@ function broadcastRoomState(room: GameRoom, io: Server): void {
       });
     }
   }
+}
+
+/** Wire broadcast + player-replaced callbacks on a room (idempotent). */
+function wireRoomCallbacks(room: GameRoom): void {
+  room.setBroadcast((r) => broadcastRoomState(r, io));
+  room.setOnPlayerReplaced((r, playerId, originalName) => {
+    const sysMsg = r.addSystemMessage(`${originalName} a été remplacé par un bot`);
+    io.to(`room:${r.id}`).emit('chat:message', sysMsg);
+    io.to(`room:${r.id}`).emit('game:playerDisconnected', {
+      disconnectedPlayerIds: r.disconnectedPlayerIds,
+    });
+  });
 }
 
 // ─── Express ───────────────────────────────────────────────────────────────────
@@ -502,9 +516,13 @@ io.on('connection', (rawSocket) => {
 
   console.log(`[+] ${socket.id}${userId ? ` (user: ${userId})` : ' (anonymous)'}`);
 
-  // Clean up stale room membership from previous connection (e.g. hard refresh)
+  // Clean up stale room membership from finished games only.
+  // Playing rooms are kept alive for reconnection (grace period handled by GameRoom).
   if (userId) {
-    cleanupUserFromActiveRoom(userId);
+    const existingRoom = lobby.findRoomByUserId(userId);
+    if (existingRoom && existingRoom.status === 'finished') {
+      cleanupUserFromActiveRoom(userId);
+    }
   }
 
   // ── Solo mode (anonymous or explicit) ─────────────────────────────────────
@@ -822,6 +840,24 @@ io.on('connection', (rawSocket) => {
     },
   );
 
+  // ── Active game check (reconnection) ─────────────────────────────────────
+
+  socket.on('lobby:checkActiveGame', () => {
+    if (!userId) {
+      socket.emit('lobby:activeGame', { roomId: null });
+      return;
+    }
+    const room = lobby.findRoomByUserId(userId);
+    if (room && room.status === 'playing') {
+      const player = room.players.find((p) => p.userId === userId && !p.isBot);
+      if (player) {
+        socket.emit('lobby:activeGame', { roomId: room.id });
+        return;
+      }
+    }
+    socket.emit('lobby:activeGame', { roomId: null });
+  });
+
   // ── Lobby events (room creation, listing, join/leave) ────────────────────
 
   socket.on('lobby:list', () => {
@@ -975,6 +1011,9 @@ io.on('connection', (rawSocket) => {
   });
 
   socket.on('lobby:leave', () => {
+    // Always clean up solo session if any
+    soloSessions.delete(socket.id);
+
     if (!userId) return;
     const room = lobby.findRoomByUserId(userId);
     if (!room) return;
@@ -1040,7 +1079,7 @@ io.on('connection', (rawSocket) => {
     }
 
     try {
-      room.setBroadcast((r) => broadcastRoomState(r, io));
+      wireRoomCallbacks(room);
       room.start();
       io.to(`room:${room.id}`).emit('room:started', { room: room.toLobbySummary() });
       const sysMsg = room.addSystemMessage('La partie commence');
@@ -1188,22 +1227,27 @@ io.on('connection', (rawSocket) => {
     const reconnected = room.handleReconnect(userId, socket.id);
     if (reconnected) {
       socket.join(`room:${room.id}`);
-      room.setBroadcast((r) => broadcastRoomState(r, io));
+      wireRoomCallbacks(room);
       // Send current state
       const playerId = room.getPlayerId(userId);
       if (playerId && room.state) {
         socket.emit('game:state', {
           state: filterGameStateForPlayer(room.state, playerId),
           playerId,
+          disconnectedPlayerIds: room.disconnectedPlayerIds,
         });
       }
       // Send chat history
       socket.emit('chat:history', room.chatMessages);
-      // System message: reconnected
+      // System message + broadcast reconnection to other players
       const reconnPlayer = room.players.find((p) => p.userId === userId);
       if (reconnPlayer) {
         const sysMsg = room.addSystemMessage(`${reconnPlayer.username} s'est reconnecté`);
         io.to(`room:${room.id}`).emit('chat:message', sysMsg);
+        io.to(`room:${room.id}`).emit('game:playerReconnected', {
+          playerId: reconnPlayer.playerId,
+          disconnectedPlayerIds: room.disconnectedPlayerIds,
+        });
       }
       socket.emit('room:joined', { room: room.toLobbySummary(), reconnected: true });
       return;
@@ -1219,7 +1263,7 @@ io.on('connection', (rawSocket) => {
       const playerName = `Player ${room.humanCount + 1}`;
       room.addPlayer(userId, playerName, socket.id);
       socket.join(`room:${room.id}`);
-      room.setBroadcast((r) => broadcastRoomState(r, io));
+      wireRoomCallbacks(room);
       socket.emit('room:joined', { room: room.toLobbySummary(), reconnected: false });
       io.to(`room:${room.id}`).emit('room:updated', { room: room.toLobbySummary() });
       // System message: player joined
@@ -1272,7 +1316,7 @@ io.on('connection', (rawSocket) => {
     }
 
     try {
-      room.setBroadcast((r) => broadcastRoomState(r, io));
+      wireRoomCallbacks(room);
       room.start();
       io.to(`room:${room.id}`).emit('room:started', { room: room.toLobbySummary() });
       // System message: game started
@@ -1391,8 +1435,20 @@ io.on('connection', (rawSocket) => {
               username: leavingPlayer?.username,
             });
           }
+        } else if (room.status === 'playing') {
+          // Playing: start grace period for reconnection (60s)
+          const disconnectingPlayer = room.players.find((p) => p.userId === userId && !p.isBot);
+          room.handleDisconnect(userId);
+          if (disconnectingPlayer) {
+            const sysMsg = room.addSystemMessage(`${disconnectingPlayer.username} s'est déconnecté`);
+            io.to(`room:${room.id}`).emit('chat:message', sysMsg);
+            io.to(`room:${room.id}`).emit('game:playerDisconnected', {
+              playerId: disconnectingPlayer.playerId,
+              disconnectedPlayerIds: room.disconnectedPlayerIds,
+            });
+          }
         } else {
-          // Playing or finished: replace with bot and clean up
+          // Finished: clean up immediately
           cleanupUserFromActiveRoom(userId);
         }
         room.removeSpectator(socket.id);

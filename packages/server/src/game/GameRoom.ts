@@ -53,7 +53,7 @@ export interface ChatMessage {
 }
 
 /** Reconnection timeout in milliseconds (60 seconds). */
-const RECONNECT_TIMEOUT_MS = 60_000;
+export const RECONNECT_TIMEOUT_MS = 60_000;
 
 /** Bot turn delay in milliseconds. */
 const BOT_DELAY_MS = 1500;
@@ -96,6 +96,7 @@ export class GameRoom {
 
   /** Callbacks set by the Socket.IO layer to broadcast state. */
   private onBroadcast: ((room: GameRoom) => void) | null = null;
+  private onPlayerReplacedCallback: ((room: GameRoom, playerId: string, originalName: string) => void) | null = null;
   private reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(id: string, config: RoomConfig) {
@@ -108,6 +109,11 @@ export class GameRoom {
     this.onBroadcast = fn;
   }
 
+  /** Register callback for when a disconnected player is replaced by a bot. */
+  setOnPlayerReplaced(fn: (room: GameRoom, playerId: string, originalName: string) => void): void {
+    this.onPlayerReplacedCallback = fn;
+  }
+
   // ─── Lobby ──────────────────────────────────────────────────────────────────
 
   /** Number of human player slots currently filled. */
@@ -118,6 +124,13 @@ export class GameRoom {
   /** Number of bot player slots currently filled. */
   get botCount(): number {
     return this.players.filter((p) => p.isBot).length;
+  }
+
+  /** Player IDs of currently disconnected human players (for client display). */
+  get disconnectedPlayerIds(): string[] {
+    return this.players
+      .filter((p) => !p.isBot && p.disconnectedAt !== null)
+      .map((p) => p.playerId);
   }
 
   /** Whether the room can accept more players. */
@@ -662,11 +675,18 @@ export class GameRoom {
     const player = this.players.find((p) => p.userId === userId && !p.isBot);
     if (!player) return;
 
+    const originalName = player.username;
+    const playerId = player.playerId;
+
     this.reconnectTimers.delete(userId);
     player.isBot = true;
     player.username = `Bot (${player.username})`;
     player.socketId = null;
     player.disconnectedAt = null;
+
+    if (this.onPlayerReplacedCallback) {
+      this.onPlayerReplacedCallback(this, playerId, originalName);
+    }
 
     // If it's now the bot's turn, schedule bot action
     this.scheduleBotIfNeeded();

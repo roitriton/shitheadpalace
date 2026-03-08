@@ -45,6 +45,8 @@ interface PlayerZoneProps {
   flopRemakeAnimating?: boolean;
   /** Callback when flop remake animation completes */
   onFlopRemakeAnimComplete?: () => void;
+  /** Whether this player is currently disconnected */
+  isDisconnected?: boolean;
 }
 
 function PlayerZone({
@@ -64,6 +66,7 @@ function PlayerZone({
   flopFlipAnimating,
   flopRemakeAnimating,
   onFlopRemakeAnimComplete,
+  isDisconnected,
 }: PlayerZoneProps) {
   const canClickHand = isActive && activeZone === 'hand' && !isBot;
   const canClickFaceUp = isActive && activeZone === 'faceUp' && !isBot;
@@ -314,8 +317,8 @@ function PlayerZone({
       <div className="relative">
         {/* Avatar + Name — outside flow, to the left of cards */}
         <div className={`absolute right-full top-1/2 -translate-y-1/2 flex items-center ${isBot ? 'gap-1 mr-1.5' : 'gap-1.5 mr-2 sm:mr-3'}`}>
-          <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} playerId={player.id} />
-          <span className={`${isBot ? 'text-[10px] max-w-[48px]' : 'text-sm max-w-[64px]'} font-semibold truncate whitespace-nowrap ${isActive ? 'text-gold' : 'text-gray-400'}`}>
+          <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} playerId={player.id} isDisconnected={isDisconnected} />
+          <span className={`${isBot ? 'text-[10px] max-w-[48px]' : 'text-sm max-w-[64px]'} font-semibold truncate whitespace-nowrap ${isDisconnected ? 'text-red-400/60' : isActive ? 'text-gold' : 'text-gray-400'}`}>
             {player.name}
           </span>
         </div>
@@ -1432,6 +1435,8 @@ interface GameBoardProps {
   shifumiLoserOverlay?: { loserId: string; isSuper: boolean } | null;
   /** Callback when shifumi loser overlay animation completes */
   onShifumiLoserOverlayComplete?: () => void;
+  /** Player IDs of currently disconnected players */
+  disconnectedPlayerIds?: string[];
   /** Callback to return to lobby from game over screen */
   onBackToLobby?: () => void;
 }
@@ -1474,6 +1479,7 @@ export function GameBoard({
   onFlopRemakeAnimComplete,
   shifumiLoserOverlay,
   onShifumiLoserOverlayComplete,
+  disconnectedPlayerIds,
   onBackToLobby,
 }: GameBoardProps) {
   const { theme } = useTheme();
@@ -1735,6 +1741,7 @@ export function GameBoard({
                 flopFlipAnimating={flopFlipPlayerId === bot.id}
                 flopRemakeAnimating={flopRemakePlayerId === bot.id}
                 onFlopRemakeAnimComplete={onFlopRemakeAnimComplete}
+                isDisconnected={disconnectedPlayerIds?.includes(bot.id)}
               />
             </div>
           );

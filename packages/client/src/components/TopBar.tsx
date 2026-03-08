@@ -17,6 +17,8 @@ interface TopBarProps {
   username?: string;
   /** Logout callback */
   onLogout?: () => void;
+  /** Leave current game and return to lobby */
+  onLeaveGame?: () => void;
 }
 
 function ThemeDropdown<T extends { id: string; label: string; bgImage: string }>({
@@ -80,8 +82,29 @@ export function TopBar({
   onToggleRevealHands,
   username,
   onLogout,
+  onLeaveGame,
 }: TopBarProps) {
   const { theme, setTheme } = useTheme();
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLeaveClick = () => {
+    if (!onLeaveGame) return;
+    if (confirmLeave) {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      setConfirmLeave(false);
+      onLeaveGame();
+    } else {
+      setConfirmLeave(true);
+      confirmTimerRef.current = setTimeout(() => setConfirmLeave(false), 3000);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    };
+  }, []);
 
   return (
     <div className="fixed top-0 left-0 right-0 h-14 z-50 bg-gray-900/95 backdrop-blur border-b border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
@@ -97,6 +120,20 @@ export function TopBar({
           </span>
         )}
       </div>
+
+      {/* Quitter la partie */}
+      {onLeaveGame && (
+        <button
+          onClick={handleLeaveClick}
+          className={`ml-3 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            confirmLeave
+              ? 'bg-red-600 hover:bg-red-500 text-white'
+              : 'bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          {confirmLeave ? 'Confirmer ?' : 'Quitter la partie'}
+        </button>
+      )}
 
       {/* Spacer */}
       <div className="flex-1" />

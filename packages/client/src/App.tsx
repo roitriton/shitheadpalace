@@ -38,6 +38,7 @@ function App() {
   const [humanId, setHumanId] = useState('');
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [disconnectedPlayerIds, setDisconnectedPlayerIds] = useState<string[]>([]);
 
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -95,7 +96,26 @@ function App() {
       // Reconnect with new token
       socket.disconnect().connect();
     }
+
+    // Check for active game to rejoin on connect
+    const handleConnect = () => {
+      socket.emit('lobby:checkActiveGame');
+    };
+    const handleActiveGame = ({ roomId }: { roomId: string | null }) => {
+      if (roomId) {
+        socket.emit('room:join', { roomId });
+      }
+    };
+    socket.on('connect', handleConnect);
+    socket.on('lobby:activeGame', handleActiveGame);
+    // Also check immediately if already connected
+    if (socket.connected) {
+      socket.emit('lobby:checkActiveGame');
+    }
+
     return () => {
+      socket.off('connect', handleConnect);
+      socket.off('lobby:activeGame', handleActiveGame);
       socket.disconnect();
     };
   }, [token, loading]);
@@ -103,11 +123,12 @@ function App() {
   useEffect(() => {
     socket.on(
       'game:state',
-      ({ state, playerId, shifumiLoserOverlay: overlaySignal }: { state: GameState; playerId: string; shifumiLoserOverlay?: { loserId: string; isSuper: boolean } }) => {
+      ({ state, playerId, shifumiLoserOverlay: overlaySignal, disconnectedPlayerIds: dcIds }: { state: GameState; playerId: string; shifumiLoserOverlay?: { loserId: string; isSuper: boolean }; disconnectedPlayerIds?: string[] }) => {
         setGameState(state);
         setHumanId(playerId);
         setSelectedCards([]);
         setCurrentScreen('game');
+        if (dcIds) setDisconnectedPlayerIds(dcIds);
 
         // Save old log length BEFORE updating — needed for overlay delay calculation
         const oldLogLength = prevLogLengthRef.current;
@@ -200,11 +221,21 @@ function App() {
       setChatMessages(msgs);
     });
 
+    socket.on('game:playerDisconnected', ({ disconnectedPlayerIds: dcIds }: { disconnectedPlayerIds: string[] }) => {
+      setDisconnectedPlayerIds(dcIds);
+    });
+
+    socket.on('game:playerReconnected', ({ disconnectedPlayerIds: dcIds }: { disconnectedPlayerIds: string[] }) => {
+      setDisconnectedPlayerIds(dcIds);
+    });
+
     return () => {
       socket.off('game:state');
       socket.off('game:error');
       socket.off('chat:message');
       socket.off('chat:history');
+      socket.off('game:playerDisconnected');
+      socket.off('game:playerReconnected');
       if (powerTimerRef.current) clearTimeout(powerTimerRef.current);
       if (flopRemakeSwitchTimerRef.current) clearTimeout(flopRemakeSwitchTimerRef.current);
     };
@@ -379,6 +410,7 @@ function App() {
     setFlopRemakeOldFaceUp(null);
     prevLogLenForRemakeRef.current = 0;
     setShifumiLoserOverlay(null);
+    setDisconnectedPlayerIds([]);
     gameStateRef.current = null;
     if (powerTimerRef.current) { clearTimeout(powerTimerRef.current); powerTimerRef.current = null; }
     if (flopRemakeSwitchTimerRef.current) { clearTimeout(flopRemakeSwitchTimerRef.current); flopRemakeSwitchTimerRef.current = null; }
@@ -697,6 +729,7 @@ function App() {
           onToggleRevealHands={isDev ? () => setDebugRevealHands((v) => !v) : undefined}
           username={user.username}
           onLogout={logout}
+          onLeaveGame={handleRestart}
         />
         <GameBoard
           state={gameState}
@@ -736,6 +769,7 @@ function App() {
           onFlopRemakeAnimComplete={handleFlopRemakeAnimComplete}
           shifumiLoserOverlay={shifumiLoserOverlay}
           onShifumiLoserOverlayComplete={handleShifumiLoserOverlayComplete}
+          disconnectedPlayerIds={disconnectedPlayerIds}
           onBackToLobby={handleRestart}
         />
         <ChatPanel
