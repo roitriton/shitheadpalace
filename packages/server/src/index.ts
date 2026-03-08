@@ -468,12 +468,44 @@ app.use('/messages', createMessagesRouter(io));
 
 io.use(socketAuthMiddleware);
 
+/**
+ * Remove a user from a non-waiting room (playing or finished).
+ * For playing rooms: replaces with bot. For finished rooms: removes from player list.
+ * Cleans up empty rooms. Returns true if the user was cleaned up.
+ */
+function cleanupUserFromActiveRoom(userId: string, socketToLeave?: { leave: (room: string) => void }): boolean {
+  const room = lobby.findRoomByUserId(userId);
+  if (!room || room.status === 'waiting') return false;
+
+  if (room.status === 'playing') {
+    room.forceRemovePlayer(userId);
+  } else {
+    room.players = room.players.filter((p) => p.userId !== userId || p.isBot);
+  }
+
+  if (socketToLeave) {
+    socketToLeave.leave(`room:${room.id}`);
+  }
+
+  if (room.humanCount === 0) {
+    if (room.status !== 'finished') room.status = 'finished';
+    lobby.removeRoom(room.id);
+  }
+
+  return true;
+}
+
 io.on('connection', (rawSocket) => {
   const socket = rawSocket as AuthenticatedSocket;
   const userId = socket.data.userId;
   const isAnonymous = socket.data.anonymous;
 
   console.log(`[+] ${socket.id}${userId ? ` (user: ${userId})` : ' (anonymous)'}`);
+
+  // Clean up stale room membership from previous connection (e.g. hard refresh)
+  if (userId) {
+    cleanupUserFromActiveRoom(userId);
+  }
 
   // ── Solo mode (anonymous or explicit) ─────────────────────────────────────
 
@@ -805,8 +837,12 @@ io.on('connection', (rawSocket) => {
 
     const existing = lobby.findRoomByUserId(userId);
     if (existing) {
-      socket.emit('game:error', { message: 'Vous êtes déjà dans une room' });
-      return;
+      if (existing.status === 'finished' || existing.status === 'playing') {
+        cleanupUserFromActiveRoom(userId, socket);
+      } else {
+        socket.emit('game:error', { message: 'Vous êtes déjà dans une room' });
+        return;
+      }
     }
 
     const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
@@ -846,8 +882,12 @@ io.on('connection', (rawSocket) => {
 
     const existing = lobby.findRoomByUserId(userId);
     if (existing) {
-      socket.emit('game:error', { message: 'Vous êtes déjà dans une room. Quittez-la d\'abord.' });
-      return;
+      if (existing.status === 'finished' || existing.status === 'playing') {
+        cleanupUserFromActiveRoom(userId, socket);
+      } else {
+        socket.emit('game:error', { message: 'Vous êtes déjà dans une room. Quittez-la d\'abord.' });
+        return;
+      }
     }
 
     const room = lobby.getRoom(data.roomId);
@@ -884,13 +924,24 @@ io.on('connection', (rawSocket) => {
   socket.on('lobby:leave', () => {
     if (!userId) return;
     const room = lobby.findRoomByUserId(userId);
-    if (!room || room.status !== 'waiting') return;
+    if (!room) return;
 
+    if (room.status === 'finished' || room.status === 'playing') {
+      cleanupUserFromActiveRoom(userId, socket);
+      socket.emit('lobby:left');
+      return;
+    }
+
+    if (room.status !== 'waiting') return;
+
+    const isCreator = room.config.creatorId === userId;
     const leavingPlayer = room.players.find((p) => p.userId === userId);
     room.removePlayer(userId);
     socket.leave(`room:${room.id}`);
 
-    if (room.humanCount === 0) {
+    if (isCreator || room.humanCount === 0) {
+      // Creator leaving or empty room → close the room
+      io.to(`room:${room.id}`).emit('lobby:roomClosed', { roomId: room.id });
       lobby.removeRoom(room.id);
     } else {
       io.to(`room:${room.id}`).emit('lobby:playerLeft', {
@@ -901,6 +952,122 @@ io.on('connection', (rawSocket) => {
     }
 
     socket.emit('lobby:left');
+  });
+
+  socket.on('lobby:ready', (data: { ready: boolean }) => {
+    if (!userId) return;
+    const room = lobby.findRoomByUserId(userId);
+    if (!room || room.status !== 'waiting') return;
+
+    try {
+      room.setReady(userId, !!data.ready);
+      io.to(`room:${room.id}`).emit('lobby:playerReady', {
+        room: room.toLobbySummary(),
+        userId,
+        ready: !!data.ready,
+      });
+    } catch (err) {
+      socket.emit('game:error', { message: (err as Error).message });
+    }
+  });
+
+  socket.on('lobby:start', () => {
+    if (!userId) return;
+    const room = lobby.findRoomByUserId(userId);
+    if (!room || room.status !== 'waiting') return;
+
+    if (room.config.creatorId !== userId) {
+      socket.emit('game:error', { message: 'Seul le créateur peut lancer la partie' });
+      return;
+    }
+
+    if (room.humanCount < 2) {
+      socket.emit('game:error', { message: 'Il faut au moins 2 joueurs pour lancer' });
+      return;
+    }
+
+    try {
+      room.setBroadcast((r) => broadcastRoomState(r, io));
+      room.start();
+      io.to(`room:${room.id}`).emit('room:started', { room: room.toLobbySummary() });
+      const sysMsg = room.addSystemMessage('La partie commence');
+      io.to(`room:${room.id}`).emit('chat:message', sysMsg);
+      broadcastRoomState(room, io);
+    } catch (err) {
+      socket.emit('game:error', { message: (err as Error).message });
+    }
+  });
+
+  socket.on('lobby:kick', (data: { userId: string }) => {
+    if (!userId) return;
+    const room = lobby.findRoomByUserId(userId);
+    if (!room || room.status !== 'waiting') return;
+
+    if (room.config.creatorId !== userId) {
+      socket.emit('game:error', { message: 'Seul le créateur peut exclure un joueur' });
+      return;
+    }
+
+    const targetUserId = data.userId;
+    if (targetUserId === userId) {
+      socket.emit('game:error', { message: 'Vous ne pouvez pas vous exclure vous-même' });
+      return;
+    }
+
+    const targetPlayer = room.players.find((p) => p.userId === targetUserId && !p.isBot);
+    if (!targetPlayer) {
+      socket.emit('game:error', { message: 'Joueur introuvable' });
+      return;
+    }
+
+    room.removePlayer(targetUserId);
+
+    // Notify the kicked player
+    if (targetPlayer.socketId) {
+      io.to(targetPlayer.socketId).emit('lobby:kicked', { roomId: room.id });
+      const targetSocket = io.sockets.sockets.get(targetPlayer.socketId);
+      targetSocket?.leave(`room:${room.id}`);
+    }
+
+    // Notify remaining players
+    io.to(`room:${room.id}`).emit('lobby:playerLeft', {
+      room: room.toLobbySummary(),
+      userId: targetUserId,
+      username: targetPlayer.username,
+      kicked: true,
+    });
+  });
+
+  socket.on('lobby:updateVariant', (data: { variant: unknown }) => {
+    if (!userId) return;
+    const room = lobby.findRoomByUserId(userId);
+    if (!room || room.status !== 'waiting') return;
+
+    if (room.config.creatorId !== userId) {
+      socket.emit('game:error', { message: 'Seul le créateur peut modifier la variante' });
+      return;
+    }
+
+    if (!data.variant || typeof data.variant !== 'object') {
+      socket.emit('game:error', { message: 'Variante invalide' });
+      return;
+    }
+
+    const candidate = data.variant as GameVariant;
+    const errors = validateVariant(candidate);
+    if (errors.length > 0) {
+      socket.emit('game:error', { message: `Variante invalide: ${errors.map((e) => e.message).join('; ')}` });
+      return;
+    }
+
+    try {
+      room.updateVariant(candidate);
+      io.to(`room:${room.id}`).emit('lobby:variantUpdated', {
+        room: room.toLobbySummary(),
+      });
+    } catch (err) {
+      socket.emit('game:error', { message: (err as Error).message });
+    }
   });
 
   // ── Room events (multiplayer) ─────────────────────────────────────────────
@@ -1108,7 +1275,26 @@ io.on('connection', (rawSocket) => {
     if (userId) {
       const room = lobby.findRoomByUserId(userId);
       if (room) {
-        room.handleDisconnect(userId);
+        if (room.status === 'waiting') {
+          // In waiting room: treat like lobby:leave
+          const isCreator = room.config.creatorId === userId;
+          const leavingPlayer = room.players.find((p) => p.userId === userId);
+          room.removePlayer(userId);
+
+          if (isCreator || room.humanCount === 0) {
+            io.to(`room:${room.id}`).emit('lobby:roomClosed', { roomId: room.id });
+            lobby.removeRoom(room.id);
+          } else {
+            io.to(`room:${room.id}`).emit('lobby:playerLeft', {
+              room: room.toLobbySummary(),
+              userId,
+              username: leavingPlayer?.username,
+            });
+          }
+        } else {
+          // Playing or finished: replace with bot and clean up
+          cleanupUserFromActiveRoom(userId);
+        }
         room.removeSpectator(socket.id);
       }
     }

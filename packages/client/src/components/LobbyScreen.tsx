@@ -19,7 +19,8 @@ interface RoomSummary {
   variantName: string;
   creatorId: string;
   isPublic: boolean;
-  players: { userId: string; username: string }[];
+  variant: GameVariant;
+  players: { userId: string; username: string; ready: boolean }[];
 }
 
 interface LobbyScreenProps {

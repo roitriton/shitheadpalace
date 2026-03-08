@@ -38,8 +38,9 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Étape 12G-1** — Popup ramassage flop : timing + affichage pile complète (1103 tests)
 - [x] **Étape 12G** — Animations échange Manouche + overlay shifumi perdant + séquençage 3 étapes (1107 tests)
 - [x] **Étape 12H-1** — Lobby multijoueur : navigation auth→lobby→game, RoomManager, liste rooms, création avec config variantes, join (1119 tests)
+- [x] **Étape 12H-2** — Salle d'attente : ready/start/kick/updateVariant, lancement partie multijoueur, retour lobby après game over, cleanup rooms déconnexion (1145 tests)
 
-### Nombre total de tests : 1119 (969 engine + 137 server + 13 client)
+### Nombre total de tests : 1145 (969 engine + 163 server + 13 client)
 
 ### Étapes à venir
 
@@ -51,6 +52,7 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 ### Bugs connus
 
 - Responsive mobile (portrait + paysage) → à résoudre étape 15 avec Capacitor.
+- Ordre d'affichage des adversaires incorrect pour les joueurs non-créateur en multijoueur.
 
 IMPORTANT : Mettre à jour cette section DEUX FOIS par tâche — au début (marquer EN COURS) et à la fin (cocher terminé + nombre de tests).
 

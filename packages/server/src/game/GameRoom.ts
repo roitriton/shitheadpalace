@@ -82,6 +82,7 @@ export class GameRoom {
   readonly config: RoomConfig;
   status: RoomStatus = 'waiting';
   players: RoomPlayer[] = [];
+  readyPlayers = new Set<string>();
   spectatorSocketIds: Set<string> = new Set();
   state: GameState | null = null;
   chatMessages: ChatMessage[] = [];
@@ -151,6 +152,41 @@ export class GameRoom {
       throw new Error('Cannot leave a game in progress');
     }
     this.players = this.players.filter((p) => p.userId !== userId || p.isBot);
+    this.readyPlayers.delete(userId);
+  }
+
+  /** Mark a player as ready or not ready. */
+  setReady(userId: string, ready: boolean): void {
+    if (this.status !== 'waiting') {
+      throw new Error('Game already started');
+    }
+    const player = this.players.find((p) => p.userId === userId && !p.isBot);
+    if (!player) {
+      throw new Error('Player not found');
+    }
+    if (ready) {
+      this.readyPlayers.add(userId);
+    } else {
+      this.readyPlayers.delete(userId);
+    }
+  }
+
+  /** Check if a player is ready. */
+  isReady(userId: string): boolean {
+    return this.readyPlayers.has(userId);
+  }
+
+  /** Update the game variant (creator only, waiting room only). */
+  updateVariant(variant: GameVariant): void {
+    if (this.status !== 'waiting') {
+      throw new Error('Game already started');
+    }
+    if (this.humanCount > variant.playerCount) {
+      throw new Error('Too many players for this variant');
+    }
+    this.config.variant = variant;
+    this.config.maxPlayers = variant.playerCount;
+    this.readyPlayers.clear();
   }
 
   /** Fill remaining slots with bots. */
@@ -595,6 +631,35 @@ export class GameRoom {
     this.broadcast();
   }
 
+  /**
+   * Force-remove a human player from an active game by replacing with a bot.
+   * Clears any pending reconnection timer. If other humans remain, schedules
+   * bot turns and broadcasts. Returns true if a player was replaced.
+   */
+  forceRemovePlayer(userId: string): boolean {
+    const player = this.players.find((p) => p.userId === userId && !p.isBot);
+    if (!player) return false;
+
+    const timer = this.reconnectTimers.get(userId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(userId);
+    }
+
+    player.isBot = true;
+    player.username = `Bot (${player.username})`;
+    player.socketId = null;
+    player.disconnectedAt = null;
+
+    // Continue the game for remaining humans
+    if (this.humanCount > 0 && this.status === 'playing') {
+      this.scheduleBotIfNeeded();
+      this.broadcast();
+    }
+
+    return true;
+  }
+
   // ─── Spectators ─────────────────────────────────────────────────────────────
 
   addSpectator(socketId: string): void {
@@ -679,7 +744,8 @@ export class GameRoom {
     variantName: string;
     creatorId: string;
     isPublic: boolean;
-    players: { userId: string; username: string }[];
+    variant: GameVariant;
+    players: { userId: string; username: string; ready: boolean }[];
   } {
     return {
       id: this.id,
@@ -690,9 +756,11 @@ export class GameRoom {
       variantName: this.config.variant.name,
       creatorId: this.config.creatorId,
       isPublic: this.config.isPublic,
+      variant: this.config.variant,
       players: this.players.filter((p) => !p.isBot).map((p) => ({
         userId: p.userId,
         username: p.username,
+        ready: this.readyPlayers.has(p.userId),
       })),
     };
   }

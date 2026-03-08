@@ -1308,9 +1308,10 @@ interface GameOverProps {
   humanId: string;
   onRestart: () => void;
   onClose: () => void;
+  onBackToLobby?: () => void;
 }
 
-function GameOver({ state, humanId, onRestart, onClose }: GameOverProps) {
+function GameOver({ state, humanId, onRestart, onClose, onBackToLobby }: GameOverProps) {
   const humanFinishPos = state.finishOrder.indexOf(humanId);
   const isWinner = humanFinishPos === 0;
   const isLoser = humanFinishPos === state.finishOrder.length - 1;
@@ -1355,6 +1356,16 @@ function GameOver({ state, humanId, onRestart, onClose }: GameOverProps) {
             Fermer
           </motion.button>
         </div>
+        {onBackToLobby && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onBackToLobby}
+            className="text-gray-500 hover:text-gray-300 text-xs transition-colors mt-1"
+          >
+            Retour au lobby
+          </motion.button>
+        )}
       </div>
     </motion.div>
   );
@@ -1421,6 +1432,8 @@ interface GameBoardProps {
   shifumiLoserOverlay?: { loserId: string; isSuper: boolean } | null;
   /** Callback when shifumi loser overlay animation completes */
   onShifumiLoserOverlayComplete?: () => void;
+  /** Callback to return to lobby from game over screen */
+  onBackToLobby?: () => void;
 }
 
 export function GameBoard({
@@ -1461,6 +1474,7 @@ export function GameBoard({
   onFlopRemakeAnimComplete,
   shifumiLoserOverlay,
   onShifumiLoserOverlayComplete,
+  onBackToLobby,
 }: GameBoardProps) {
   const { theme } = useTheme();
   const [gameOverDismissed, setGameOverDismissed] = React.useState(false);
@@ -1832,6 +1846,7 @@ export function GameBoard({
             humanId={humanId}
             onRestart={onRestart}
             onClose={() => setGameOverDismissed(true)}
+            onBackToLobby={onBackToLobby}
           />
         )}
       </AnimatePresence>

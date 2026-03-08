@@ -15,6 +15,7 @@ import { CardAnimationLayer } from './components/CardAnimationLayer';
 import { useCardAnimations, CardAnimationContext } from './hooks/useCardAnimations';
 import { AuthScreen } from './components/AuthScreen';
 import { LobbyScreen } from './components/LobbyScreen';
+import { WaitingRoomScreen, type WaitingRoomData } from './components/WaitingRoomScreen';
 import { useAuth } from './auth/authContext';
 
 type AppScreen = 'lobby' | 'waitingRoom' | 'game';
@@ -31,6 +32,7 @@ function App() {
   // Screen navigation
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('lobby');
   const [currentRoomName, setCurrentRoomName] = useState<string | null>(null);
+  const [currentRoomData, setCurrentRoomData] = useState<WaitingRoomData | null>(null);
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [humanId, setHumanId] = useState('');
@@ -383,10 +385,12 @@ function App() {
   };
 
   const handleRestart = () => {
+    socket.emit('lobby:leave');
     resetLocalState();
     setGameState(null);
     setCurrentScreen('lobby');
     setCurrentRoomName(null);
+    setCurrentRoomData(null);
   };
 
   const handleStartSolo = (variant: GameVariant, _playerCount: number) => {
@@ -398,6 +402,7 @@ function App() {
     socket.emit('lobby:leave');
     setCurrentScreen('lobby');
     setCurrentRoomName(null);
+    setCurrentRoomData(null);
   };
 
   const handleFlopRemakeAnimComplete = () => {
@@ -500,38 +505,27 @@ function App() {
         onSoloStart={handleStartSolo}
         onRoomCreated={(room) => {
           setCurrentRoomName(room.name);
+          setCurrentRoomData(room as WaitingRoomData);
           setCurrentScreen('waitingRoom');
         }}
         onRoomJoined={(room) => {
           setCurrentRoomName(room.name);
+          setCurrentRoomData(room as WaitingRoomData);
           setCurrentScreen('waitingRoom');
         }}
       />
     );
   }
 
-  // ── Salle d'attente (placeholder) ──────────────────────────────────────────
+  // ── Salle d'attente ─────────────────────────────────────────────────────────
 
-  if (currentScreen === 'waitingRoom') {
+  if (currentScreen === 'waitingRoom' && currentRoomData) {
     return (
-      <div className="min-h-screen bg-casino-room flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <h1 className="font-serif text-2xl text-gold mb-2">{currentRoomName ?? 'Salle d\'attente'}</h1>
-          <p className="text-gray-400 mb-6">Salle d'attente — en construction</p>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleBackToLobby}
-            className="px-6 py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
-          >
-            Retour au lobby
-          </motion.button>
-        </motion.div>
-      </div>
+      <WaitingRoomScreen
+        socket={socket}
+        initialRoom={currentRoomData}
+        onBackToLobby={handleBackToLobby}
+      />
     );
   }
 
@@ -548,7 +542,7 @@ function App() {
   // ── Phase de swap ────────────────────────────────────────────────────────────
 
   if (gameState.phase === 'swapping') {
-    const swapIsDev = import.meta.env.DEV;
+    const swapIsDev = import.meta.env.DEV && currentRoomData === null;
     return (
       <AnimatePresence mode="wait">
         <motion.div
@@ -742,6 +736,7 @@ function App() {
           onFlopRemakeAnimComplete={handleFlopRemakeAnimComplete}
           shifumiLoserOverlay={shifumiLoserOverlay}
           onShifumiLoserOverlayComplete={handleShifumiLoserOverlayComplete}
+          onBackToLobby={handleRestart}
         />
         <ChatPanel
           messages={chatMessages}
