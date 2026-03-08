@@ -1525,7 +1525,11 @@ export function GameBoard({
 
   const humanIdx = state.players.findIndex((p) => p.id === humanId);
   const human = state.players[humanIdx];
-  const bots = state.players.filter((_, i) => i !== humanIdx);
+  // Opponents in cyclic play order starting from the seat after the human
+  const bots: typeof state.players = [];
+  for (let i = 1; i < state.players.length; i++) {
+    bots.push(state.players[(humanIdx + i) % state.players.length]);
+  }
 
   if (!human) {
     return (
