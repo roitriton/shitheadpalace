@@ -786,6 +786,7 @@ export class GameRoom {
     variantName: string;
     creatorId: string;
     isPublic: boolean;
+    joinCode: string | null;
     variant: GameVariant;
     players: { userId: string; username: string; ready: boolean; isBot?: boolean; botDifficulty?: BotDifficulty }[];
   } {
@@ -798,6 +799,7 @@ export class GameRoom {
       variantName: this.config.variant.name,
       creatorId: this.config.creatorId,
       isPublic: this.config.isPublic,
+      joinCode: this.config.joinCode,
       variant: this.config.variant,
       players: this.players.map((p) => ({
         userId: p.userId,

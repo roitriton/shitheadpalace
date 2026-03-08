@@ -24,11 +24,12 @@ describe('Lobby', () => {
   });
 
   describe('createRoom', () => {
-    it('creates a public room', () => {
+    it('creates a public room with join code', () => {
       const room = lobbyInstance.createRoom('user-1', TEST_VARIANT, { isPublic: true });
       expect(room.id).toBeTruthy();
       expect(room.config.isPublic).toBe(true);
-      expect(room.config.joinCode).toBeNull();
+      expect(room.config.joinCode).toBeTruthy();
+      expect(room.config.joinCode).toHaveLength(6);
       expect(room.config.maxPlayers).toBe(3);
     });
 
@@ -59,6 +60,12 @@ describe('Lobby', () => {
   describe('getRoomByCode', () => {
     it('finds private room by code', () => {
       const room = lobbyInstance.createRoom('user-1', TEST_VARIANT, { isPublic: false });
+      const found = lobbyInstance.getRoomByCode(room.config.joinCode!);
+      expect(found).toBe(room);
+    });
+
+    it('finds public room by code', () => {
+      const room = lobbyInstance.createRoom('user-1', TEST_VARIANT, { isPublic: true });
       const found = lobbyInstance.getRoomByCode(room.config.joinCode!);
       expect(found).toBe(room);
     });

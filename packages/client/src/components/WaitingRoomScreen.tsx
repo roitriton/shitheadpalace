@@ -26,6 +26,7 @@ export interface WaitingRoomData {
   variantName: string;
   creatorId: string;
   isPublic: boolean;
+  joinCode: string | null;
   variant: GameVariant;
   players: WaitingRoomPlayer[];
 }
@@ -46,10 +47,19 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const isCreator = room.creatorId === userId;
   const canStart = isCreator && room.players.length >= 2;
   const roomFull = room.players.length >= room.maxPlayers;
+
+  const handleCopyCode = () => {
+    if (!room.joinCode) return;
+    navigator.clipboard.writeText(room.joinCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
+  };
 
   useEffect(() => {
     const handlePlayerJoined = (data: { room: WaitingRoomData }) => {
@@ -141,10 +151,15 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
       />
 
       {/* Header */}
-      <header className="relative z-10 bg-gray-900/90 backdrop-blur border-b border-[#c9a84c]/20 px-4 py-3 flex items-center">
+      <header className="relative z-10 bg-gray-900/90 backdrop-blur border-b border-[#c9a84c]/20 px-4 py-3 flex items-center gap-2">
         <h1 className="font-serif text-[#c9a84c] text-lg sm:text-xl font-bold tracking-wide truncate">
           {room.name}
         </h1>
+        {!room.isPublic && (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/40 font-mono flex-shrink-0">
+            Privee
+          </span>
+        )}
         <div className="flex-1" />
         <span className="text-gray-400 text-xs font-mono">
           {room.players.length}/{room.maxPlayers} joueurs
@@ -234,6 +249,27 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
             </div>
           )}
         </div>
+
+        {/* Invite code */}
+        {room.joinCode && (
+          <div className="w-full max-w-md">
+            <h2 className="text-gray-300 text-sm font-semibold mb-3 uppercase tracking-wider">
+              Code d'invitation
+            </h2>
+            <div className="bg-gray-900/70 backdrop-blur rounded-lg px-4 py-3 border border-gray-700/50 flex items-center gap-3">
+              <span className="font-mono text-lg text-[#c9a84c] tracking-[0.3em] font-bold select-all">
+                {room.joinCode}
+              </span>
+              <div className="flex-1" />
+              <button
+                onClick={handleCopyCode}
+                className="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600 transition-colors"
+              >
+                {codeCopied ? 'Copie !' : 'Copier'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Variant info */}
         <div className="w-full max-w-md">

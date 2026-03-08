@@ -67,7 +67,8 @@ describe('POST /lobby/create', () => {
     expect(res.body.room).toBeDefined();
     expect(res.body.room.isPublic).toBe(true);
     expect(res.body.room.status).toBe('waiting');
-    expect(res.body.joinCode).toBeNull();
+    expect(res.body.joinCode).toBeTruthy();
+    expect(res.body.joinCode).toHaveLength(6);
   });
 
   it('creates a private room with join code', async () => {

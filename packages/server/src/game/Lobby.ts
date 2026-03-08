@@ -20,7 +20,7 @@ export class Lobby {
       maxPlayers,
       variant,
       isPublic,
-      joinCode: isPublic ? null : generateJoinCode(),
+      joinCode: generateJoinCode(),
       creatorId,
       name: options.name ?? `Partie de ${creatorId.slice(0, 8)}`,
     };

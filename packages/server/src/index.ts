@@ -921,6 +921,59 @@ io.on('connection', (rawSocket) => {
     }
   });
 
+  socket.on('lobby:joinByCode', async (data: { code: string }) => {
+    if (!userId) {
+      socket.emit('game:error', { message: 'Authentification requise' });
+      return;
+    }
+
+    const code = typeof data.code === 'string' ? data.code.trim().toUpperCase() : '';
+    if (!code || code.length !== 6) {
+      socket.emit('game:error', { message: 'Code invalide (6 caractères attendus)' });
+      return;
+    }
+
+    const existing = lobby.findRoomByUserId(userId);
+    if (existing) {
+      if (existing.status === 'finished' || existing.status === 'playing') {
+        cleanupUserFromActiveRoom(userId, socket);
+      } else {
+        socket.emit('game:error', { message: 'Vous êtes déjà dans une room. Quittez-la d\'abord.' });
+        return;
+      }
+    }
+
+    const room = lobby.getRoomByCode(code);
+    if (!room) {
+      socket.emit('game:error', { message: 'Aucune partie trouvée avec ce code' });
+      return;
+    }
+
+    if (!room.canJoin) {
+      socket.emit('game:error', { message: 'Room pleine ou partie déjà lancée' });
+      return;
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+    if (!dbUser) {
+      socket.emit('game:error', { message: 'Utilisateur introuvable' });
+      return;
+    }
+
+    try {
+      room.addPlayer(userId, dbUser.username, socket.id);
+      socket.join(`room:${room.id}`);
+      socket.emit('lobby:joined', { room: room.toLobbySummary() });
+      io.to(`room:${room.id}`).emit('lobby:playerJoined', {
+        room: room.toLobbySummary(),
+        userId,
+        username: dbUser.username,
+      });
+    } catch (err) {
+      socket.emit('game:error', { message: (err as Error).message });
+    }
+  });
+
   socket.on('lobby:leave', () => {
     if (!userId) return;
     const room = lobby.findRoomByUserId(userId);

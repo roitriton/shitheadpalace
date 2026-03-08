@@ -351,6 +351,15 @@ describe('GameRoom', () => {
       expect(summary.isPublic).toBe(true);
     });
 
+    it('includes joinCode in summary', () => {
+      const configWithCode = makeConfig({ joinCode: 'ABC123' });
+      const roomWithCode = new GameRoom('room-code', configWithCode);
+      roomWithCode.addPlayer('user-1', 'Alice', 'socket-1');
+      const summary = roomWithCode.toLobbySummary();
+      expect(summary.joinCode).toBe('ABC123');
+      roomWithCode.dispose();
+    });
+
     it('includes bots in player list with isBot flag', () => {
       room.addPlayer('user-1', 'Alice', 'socket-1');
       room.addBot('easy');

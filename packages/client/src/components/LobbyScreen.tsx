@@ -184,6 +184,8 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined }
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSoloConfig, setShowSoloConfig] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [joinCodeError, setJoinCodeError] = useState('');
 
   // Fetch rooms on mount + poll every 3s
   const fetchRooms = useCallback(() => {
@@ -210,14 +212,20 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined }
       onRoomJoined(data.room);
     };
 
+    const handleError = (data: { message: string }) => {
+      setJoinCodeError(data.message);
+    };
+
     socket.on('lobby:rooms', handleRooms);
     socket.on('lobby:roomCreated', handleRoomCreated);
     socket.on('lobby:joined', handleRoomJoined);
+    socket.on('game:error', handleError);
 
     return () => {
       socket.off('lobby:rooms', handleRooms);
       socket.off('lobby:roomCreated', handleRoomCreated);
       socket.off('lobby:joined', handleRoomJoined);
+      socket.off('game:error', handleError);
     };
   }, [socket, onRoomCreated, onRoomJoined]);
 
@@ -227,6 +235,16 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined }
 
   const handleJoinRoom = (roomId: string) => {
     socket.emit('lobby:join', { roomId });
+  };
+
+  const handleJoinByCode = () => {
+    const code = joinCode.trim().toUpperCase();
+    if (code.length !== 6) {
+      setJoinCodeError('Le code doit contenir 6 caractères');
+      return;
+    }
+    setJoinCodeError('');
+    socket.emit('lobby:joinByCode', { code });
   };
 
   return (
@@ -289,6 +307,37 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined }
           >
             Partie solo
           </motion.button>
+        </div>
+
+        {/* Join by code */}
+        <div className="w-full max-w-lg mb-6">
+          <div className="bg-gray-900/60 backdrop-blur rounded-lg p-4 border border-gray-700/50">
+            <label className="block text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2">
+              Rejoindre par code
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => { setJoinCode(e.target.value.toUpperCase().slice(0, 6)); setJoinCodeError(''); }}
+                placeholder="Ex : A1B2C3"
+                maxLength={6}
+                className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-600 text-gray-100 text-sm font-mono tracking-widest focus:border-[#c9a84c] focus:outline-none transition-colors uppercase"
+              />
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleJoinByCode}
+                disabled={joinCode.trim().length !== 6}
+                className="px-4 py-2 rounded bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Rejoindre
+              </motion.button>
+            </div>
+            {joinCodeError && (
+              <p className="text-red-400 text-xs mt-2">{joinCodeError}</p>
+            )}
+          </div>
         </div>
 
         {/* Room list */}
