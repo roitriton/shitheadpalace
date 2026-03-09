@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { GameVariant, Power, Rank, Suit, UniquePowerType } from '@shit-head-palace/engine';
 import { validateVariant, DEFAULT_UNIQUE_POWER_SUITS } from '@shit-head-palace/engine';
 import { useTheme } from '../themes/ThemeContext';
-import { SiteLogo } from './SiteLogo';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -425,8 +424,7 @@ function UniquePowersPanel({ config, onChange }: {
 
 // ─── Full-page variant config screen ────────────────────────────────────────
 
-const RANKS_LEFT: Rank[] = ['2', '3', '4', '5', '6', '7'];
-const RANKS_RIGHT: Rank[] = ['8', '9', '10', 'J', 'Q', 'K', 'A'];
+const ALL_RANKS_ORDERED: Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
 export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalProps) {
   const { theme } = useTheme();
@@ -469,26 +467,26 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
     onConfirm(variant, config.playerCount);
   }, [config, onConfirm]);
 
-  const renderRankColumn = (ranks: Rank[]) => (
-    <div className="space-y-0.5">
-      {ranks.map((rank) => (
-        <React.Fragment key={rank}>
-          <PowerDropdown
-            rank={rank}
-            value={config.rankPowers[rank]}
-            onChange={(power) => handleRankPowerChange(rank, power)}
-          />
-          <AnimatePresence>
-            {config.rankPowers[rank] === 'unique' && config.uniquePowers[rank] && (
-              <UniquePowersPanel
-                key={`unique-${rank}`}
-                config={config.uniquePowers[rank]!}
-                onChange={(uc) => handleUniquePowerChange(rank, uc)}
-              />
-            )}
-          </AnimatePresence>
-        </React.Fragment>
-      ))}
+  const renderActionButtons = () => (
+    <div className="flex gap-3">
+      <button
+        onClick={onCancel}
+        className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+      >
+        Annuler
+      </button>
+      <button
+        onClick={handleReset}
+        className="py-2 px-4 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+      >
+        Par défaut
+      </button>
+      <button
+        onClick={handleConfirm}
+        className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
+      >
+        Valider
+      </button>
     </div>
   );
 
@@ -511,25 +509,12 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
         }}
       />
 
-      {/* Header bar */}
-      <header className="sticky top-0 z-20 bg-black border-b border-[#c9a84c]/20 px-3 sm:px-4 h-14 flex items-center flex-shrink-0">
-        <SiteLogo size="compact" />
-        <div className="flex-1 flex justify-center">
-          <h2 className="font-serif text-sm sm:text-base text-amber-400 font-bold">
-            Configuration des règles
-          </h2>
-        </div>
-        <button
-          onClick={handleReset}
-          className="text-xs text-gray-400 hover:text-amber-400 transition-colors px-2 py-1 rounded border border-gray-600/50 hover:border-amber-400/50 mr-2"
-        >
-          Par défaut
-        </button>
-      </header>
-
       {/* Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-4">
-        <div className="w-full max-w-4xl space-y-4">
+      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-6">
+        {/* Page title */}
+        <h1 className="font-serif text-3xl text-[#c9a84c] mb-4 text-center">Configuration des règles</h1>
+
+        <div className="w-full max-w-2xl space-y-4">
           {/* General options */}
           <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
             <h4 className="font-serif text-xs text-amber-400/80 font-semibold uppercase tracking-wide mb-2">
@@ -567,16 +552,8 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
             </div>
           </div>
 
-          {/* Powers — 2 columns on desktop */}
-          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
-            <h4 className="font-serif text-xs text-amber-400/80 font-semibold uppercase tracking-wide mb-2">
-              Attribution des pouvoirs
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-              {renderRankColumn(RANKS_LEFT)}
-              {renderRankColumn(RANKS_RIGHT)}
-            </div>
-          </div>
+          {/* Action buttons (top) */}
+          {renderActionButtons()}
 
           {/* Validation error */}
           {validationError && (
@@ -585,20 +562,36 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
             </div>
           )}
 
-          {/* Footer buttons */}
-          <div className="flex gap-3 pb-4">
-            <button
-              onClick={onCancel}
-              className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleConfirm}
-              className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
-            >
-              Valider
-            </button>
+          {/* Powers — single column */}
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
+            <h4 className="font-serif text-xs text-amber-400/80 font-semibold uppercase tracking-wide mb-2">
+              Attribution des pouvoirs
+            </h4>
+            <div className="space-y-0.5">
+              {ALL_RANKS_ORDERED.map((rank) => (
+                <React.Fragment key={rank}>
+                  <PowerDropdown
+                    rank={rank}
+                    value={config.rankPowers[rank]}
+                    onChange={(power) => handleRankPowerChange(rank, power)}
+                  />
+                  <AnimatePresence>
+                    {config.rankPowers[rank] === 'unique' && config.uniquePowers[rank] && (
+                      <UniquePowersPanel
+                        key={`unique-${rank}`}
+                        config={config.uniquePowers[rank]!}
+                        onChange={(uc) => handleUniquePowerChange(rank, uc)}
+                      />
+                    )}
+                  </AnimatePresence>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* Action buttons (bottom) */}
+          <div className="pb-4">
+            {renderActionButtons()}
           </div>
         </div>
       </main>
