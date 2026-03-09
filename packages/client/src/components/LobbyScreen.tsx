@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Socket } from 'socket.io-client';
 import type { GameVariant } from '@shit-head-palace/engine';
+import { useAuth } from '../auth/authContext';
 import { useTheme } from '../themes/ThemeContext';
 import { VariantConfigModal } from './VariantConfigModal';
 import { SiteHeader } from './SiteHeader';
@@ -120,6 +121,7 @@ function CreateRoomModal({
 // ─── LobbyScreen ────────────────────────────────────────────────────────────
 
 export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, notification, onClearNotification, onNavigate }: LobbyScreenProps) {
+  const { user } = useAuth();
   const { theme } = useTheme();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -266,14 +268,14 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
       <SiteHeader currentScreen="lobby" onNavigate={onNavigate} />
 
       {/* Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-8 overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-6 overflow-y-auto">
         {/* Action buttons */}
-        <div className="flex gap-3 mb-8">
+        <div className="flex gap-3 mb-6">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowCreateModal(true)}
-            className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
+            className="px-6 py-2.5 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
           >
             Creer une partie
           </motion.button>
@@ -281,84 +283,109 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowSoloConfig(true)}
-            className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+            className="px-6 py-2.5 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
           >
             Partie solo
           </motion.button>
         </div>
 
-        {/* Join by code */}
-        <div className="w-full max-w-lg mb-6">
-          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
-            <label className="block text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2">
-              Rejoindre par code
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={joinCode}
-                onChange={(e) => { setJoinCode(e.target.value.toUpperCase().slice(0, 6)); setJoinCodeError(''); }}
-                placeholder="Ex : A1B2C3"
-                maxLength={6}
-                className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-gray-100 text-sm font-mono tracking-widest focus:border-[#c9a84c] focus:outline-none transition-colors uppercase"
-              />
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleJoinByCode}
-                disabled={joinCode.trim().length !== 6}
-                className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Rejoindre
-              </motion.button>
-            </div>
-            {joinCodeError && (
-              <p className="text-red-400 text-xs mt-2">{joinCodeError}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Room list */}
-        <div className="w-full max-w-lg">
-          <h2 className="text-gray-300 text-sm font-semibold mb-3 uppercase tracking-wider">
-            Parties en attente
-          </h2>
-
-          {rooms.length === 0 ? (
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-8 text-center border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
-              <p className="text-gray-500 text-sm">Aucune partie en attente</p>
-              <p className="text-gray-600 text-xs mt-1">Creez une partie ou attendez qu'un joueur en cree une</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {rooms.map((room) => (
-                <motion.div
-                  key={room.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] flex items-center gap-4"
+        {/* 2-column layout */}
+        <div className="w-full max-w-4xl flex-1 grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4">
+          {/* ── Left column: join by code + room list ── */}
+          <div className="flex flex-col gap-4">
+            {/* Join by code */}
+            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
+              <label className="block text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2">
+                Rejoindre par code
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => { setJoinCode(e.target.value.toUpperCase().slice(0, 6)); setJoinCodeError(''); }}
+                  placeholder="Ex : A1B2C3"
+                  maxLength={6}
+                  className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-gray-100 text-sm font-mono tracking-widest focus:border-[#c9a84c] focus:outline-none transition-colors uppercase"
+                />
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleJoinByCode}
+                  disabled={joinCode.trim().length !== 6}
+                  className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-100 text-sm font-semibold truncate">{room.name}</p>
-                    <p className="text-gray-500 text-xs mt-0.5">
-                      {room.variantName} — par {room.players[0]?.username ?? '?'}
-                    </p>
-                  </div>
-                  <div className="text-gray-400 text-sm font-mono whitespace-nowrap">
-                    {room.playerCount}/{room.maxPlayers}
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleJoinRoom(room.id)}
-                    className="px-5 py-1.5 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
-                  >
-                    Rejoindre
-                  </motion.button>
-                </motion.div>
-              ))}
+                  Rejoindre
+                </motion.button>
+              </div>
+              {joinCodeError && (
+                <p className="text-red-400 text-xs mt-2">{joinCodeError}</p>
+              )}
             </div>
-          )}
+
+            {/* Room list */}
+            <div className="flex-1">
+              <h2 className="text-gray-300 text-xs font-semibold mb-2 uppercase tracking-wider">
+                Parties en attente
+              </h2>
+
+              {rooms.length === 0 ? (
+                <div className="bg-black/40 backdrop-blur-sm rounded-xl p-8 text-center border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
+                  <p className="text-gray-400 text-sm">Aucune partie en attente</p>
+                  <p className="text-gray-600 text-xs mt-1">Creez la premiere !</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {rooms.map((room) => (
+                    <motion.div
+                      key={room.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-black/40 backdrop-blur-sm rounded-xl px-4 py-3 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] flex items-center gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-gray-100 text-sm font-semibold truncate">{room.name}</p>
+                          {!room.isPublic && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/40 font-mono flex-shrink-0">
+                              Privee
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-500 text-xs mt-0.5">
+                          {room.variantName} — par {room.players[0]?.username ?? '?'}
+                        </p>
+                      </div>
+                      <div className="text-gray-400 text-sm font-mono whitespace-nowrap">
+                        {room.playerCount}/{room.maxPlayers}
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleJoinRoom(room.id)}
+                        className="px-4 py-1.5 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
+                      >
+                        Rejoindre
+                      </motion.button>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Right column: player panel ── */}
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] flex flex-col items-center gap-3 self-start">
+            {/* Avatar */}
+            <div className="w-16 h-16 rounded-full bg-[#c9a84c]/20 border-2 border-[#c9a84c]/40 flex items-center justify-center">
+              <span className="text-[#c9a84c] font-serif font-bold text-2xl">
+                {(user?.username ?? '?')[0].toUpperCase()}
+              </span>
+            </div>
+            <div className="text-center">
+              <p className="text-gray-100 font-semibold text-sm">{user?.username ?? '?'}</p>
+              <p className="text-gray-500 text-xs mt-0.5">Bienvenue !</p>
+            </div>
+          </div>
         </div>
       </main>
 
