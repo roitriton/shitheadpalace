@@ -269,6 +269,9 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
 
       {/* Content */}
       <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-6 overflow-y-auto">
+        {/* Page title */}
+        <h1 className="font-serif text-3xl text-[#c9a84c] mb-4 text-center">Salon de jeu</h1>
+
         {/* Action buttons */}
         <div className="flex gap-3 mb-6">
           <motion.button
@@ -277,7 +280,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
             onClick={() => setShowCreateModal(true)}
             className="px-6 py-2.5 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
           >
-            Creer une partie
+            Créer une partie
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -291,37 +294,8 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
 
         {/* 2-column layout */}
         <div className="w-full max-w-4xl flex-1 grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4">
-          {/* ── Left column: join by code + room list ── */}
+          {/* ── Left column: room list + join by code ── */}
           <div className="flex flex-col gap-4">
-            {/* Join by code */}
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
-              <label className="block text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2">
-                Rejoindre par code
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={joinCode}
-                  onChange={(e) => { setJoinCode(e.target.value.toUpperCase().slice(0, 6)); setJoinCodeError(''); }}
-                  placeholder="Ex : A1B2C3"
-                  maxLength={6}
-                  className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-gray-100 text-sm font-mono tracking-widest focus:border-[#c9a84c] focus:outline-none transition-colors uppercase"
-                />
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleJoinByCode}
-                  disabled={joinCode.trim().length !== 6}
-                  className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Rejoindre
-                </motion.button>
-              </div>
-              {joinCodeError && (
-                <p className="text-red-400 text-xs mt-2">{joinCodeError}</p>
-              )}
-            </div>
-
             {/* Room list */}
             <div className="flex-1">
               <h2 className="text-gray-300 text-xs font-semibold mb-2 uppercase tracking-wider">
@@ -331,7 +305,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
               {rooms.length === 0 ? (
                 <div className="bg-black/40 backdrop-blur-sm rounded-xl p-8 text-center border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
                   <p className="text-gray-400 text-sm">Aucune partie en attente</p>
-                  <p className="text-gray-600 text-xs mt-1">Creez la premiere !</p>
+                  <p className="text-gray-600 text-xs mt-1">Créez la première !</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -369,6 +343,35 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
                     </motion.div>
                   ))}
                 </div>
+              )}
+            </div>
+
+            {/* Join by code */}
+            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
+              <label className="block text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2">
+                Rejoindre par code
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => { setJoinCode(e.target.value.toUpperCase().slice(0, 6)); setJoinCodeError(''); }}
+                  placeholder="Ex : A1B2C3"
+                  maxLength={6}
+                  className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-gray-100 text-sm font-mono tracking-widest focus:border-[#c9a84c] focus:outline-none transition-colors uppercase"
+                />
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleJoinByCode}
+                  disabled={joinCode.trim().length !== 6}
+                  className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Rejoindre
+                </motion.button>
+              </div>
+              {joinCodeError && (
+                <p className="text-red-400 text-xs mt-2">{joinCodeError}</p>
               )}
             </div>
           </div>

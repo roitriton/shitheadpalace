@@ -67,7 +67,10 @@ export function RulesScreen({ onNavigate }: RulesScreenProps) {
 
       <SiteHeader currentScreen="rules" onNavigate={onNavigate} />
 
-      <main className="relative z-10 flex-1 flex justify-center px-4 py-6 overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-6 overflow-y-auto">
+        {/* Page title */}
+        <h1 className="font-serif text-3xl text-[#c9a84c] mb-4 text-center">Règles du jeu</h1>
+
         <div className="w-full max-w-3xl flex flex-col gap-4 pb-8">
 
           {/* 1. Objectif */}

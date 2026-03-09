@@ -156,24 +156,22 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
       {/* Header */}
       <SiteHeader currentScreen="lobby" onNavigate={(screen) => { handleLeave(); onNavigate(screen); }} inWaitingRoom />
 
-      {/* Room info bar */}
-      <div className="relative z-20 bg-black/40 border-b border-gold/10 px-4 py-2 flex items-center gap-2">
-        <h2 className="font-serif text-[#c9a84c] text-base sm:text-lg font-bold tracking-wide truncate">
-          {room.name}
-        </h2>
-        {!room.isPublic && (
-          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/40 font-mono flex-shrink-0">
-            Privee
-          </span>
-        )}
-        <div className="flex-1" />
-        <span className="text-gray-400 text-xs font-mono">
-          {room.players.length}/{room.maxPlayers} joueurs
-        </span>
-      </div>
-
       {/* Content — 2-column layout on desktop, single column on mobile */}
-      <main className="relative z-10 flex-1 flex justify-center px-4 py-3 overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-4 overflow-y-auto">
+        {/* Page title */}
+        <h1 className="font-serif text-3xl text-[#c9a84c] mb-1 text-center">Salle d'attente</h1>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-gray-300 text-sm">{room.name}</span>
+          {!room.isPublic && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/40 font-mono">
+              Privée
+            </span>
+          )}
+          <span className="text-gray-500 text-sm">—</span>
+          <span className="text-gray-400 text-sm font-mono">
+            {room.players.length}/{room.maxPlayers} joueurs
+          </span>
+        </div>
         <div className="w-full max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* ── Left column: players + actions ── */}
           <div className="flex flex-col gap-2">
