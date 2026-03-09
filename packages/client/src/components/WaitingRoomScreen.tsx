@@ -76,29 +76,19 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
       // Variant change resets ready status
       setIsReady(false);
     };
-    const handleKicked = () => {
-      onBackToLobby();
-    };
-    const handleRoomClosed = () => {
-      onBackToLobby();
-    };
 
     socket.on('lobby:playerJoined', handlePlayerJoined);
     socket.on('lobby:playerLeft', handlePlayerLeft);
     socket.on('lobby:playerReady', handlePlayerReady);
     socket.on('lobby:variantUpdated', handleVariantUpdated);
-    socket.on('lobby:kicked', handleKicked);
-    socket.on('lobby:roomClosed', handleRoomClosed);
 
     return () => {
       socket.off('lobby:playerJoined', handlePlayerJoined);
       socket.off('lobby:playerLeft', handlePlayerLeft);
       socket.off('lobby:playerReady', handlePlayerReady);
       socket.off('lobby:variantUpdated', handleVariantUpdated);
-      socket.off('lobby:kicked', handleKicked);
-      socket.off('lobby:roomClosed', handleRoomClosed);
     };
-  }, [socket, onBackToLobby]);
+  }, [socket]);
 
   const toggleReady = () => {
     const newReady = !isReady;
@@ -137,8 +127,9 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
       className="min-h-screen flex flex-col"
       style={{
         backgroundImage: `url(${theme.bgImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        backgroundRepeat: 'repeat',
+        backgroundPosition: '0 0',
+        backgroundSize: '512px 512px',
         backgroundColor: theme.bgColor,
       }}
     >
@@ -151,7 +142,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
       />
 
       {/* Header */}
-      <header className="relative z-10 bg-gray-900/90 backdrop-blur border-b border-[#c9a84c]/20 px-4 py-3 flex items-center gap-2">
+      <header className="relative z-20 bg-gray-900/90 backdrop-blur border-b border-[#c9a84c]/20 px-4 py-3 flex items-center gap-2">
         <h1 className="font-serif text-[#c9a84c] text-lg sm:text-xl font-bold tracking-wide truncate">
           {room.name}
         </h1>

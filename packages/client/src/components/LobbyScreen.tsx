@@ -28,6 +28,8 @@ interface LobbyScreenProps {
   onSoloStart: (variant: GameVariant, playerCount: number) => void;
   onRoomCreated: (room: RoomSummary) => void;
   onRoomJoined: (room: RoomSummary) => void;
+  notification?: string | null;
+  onClearNotification?: () => void;
 }
 
 // ─── ThemeSelector (extracted from TopBar pattern) ──────────────────────────
@@ -178,7 +180,7 @@ function CreateRoomModal({
 
 // ─── LobbyScreen ────────────────────────────────────────────────────────────
 
-export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined }: LobbyScreenProps) {
+export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, notification, onClearNotification }: LobbyScreenProps) {
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
@@ -186,6 +188,15 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined }
   const [showSoloConfig, setShowSoloConfig] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [joinCodeError, setJoinCodeError] = useState('');
+
+  // Auto-clear notification after 4 seconds
+  useEffect(() => {
+    if (!notification) return;
+    const timer = setTimeout(() => {
+      onClearNotification?.();
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [notification, onClearNotification]);
 
   // Fetch rooms on mount + poll every 3s
   const fetchRooms = useCallback(() => {
@@ -252,8 +263,9 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined }
       className="min-h-screen flex flex-col"
       style={{
         backgroundImage: `url(${theme.bgImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        backgroundRepeat: 'repeat',
+        backgroundPosition: '0 0',
+        backgroundSize: '512px 512px',
         backgroundColor: theme.bgColor,
       }}
     >
@@ -265,8 +277,22 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined }
         }}
       />
 
+      {/* Notification toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 backdrop-blur border border-[#c9a84c]/40 text-gray-200 text-sm px-5 py-3 rounded-lg shadow-xl"
+          >
+            {notification}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
-      <header className="relative z-10 bg-gray-900/90 backdrop-blur border-b border-[#c9a84c]/20 px-4 py-3 flex items-center">
+      <header className="relative z-20 bg-gray-900/90 backdrop-blur border-b border-[#c9a84c]/20 px-4 py-3 flex items-center">
         <h1 className="font-serif text-[#c9a84c] text-lg sm:text-xl font-bold tracking-wide">
           Shit Head Palace
         </h1>

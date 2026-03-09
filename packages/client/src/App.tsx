@@ -79,6 +79,10 @@ function App() {
   const humanIdRef = useRef(humanId);
   humanIdRef.current = humanId;
 
+  // Ref for current screen (needed by socket handlers registered with [] deps)
+  const currentScreenRef = useRef(currentScreen);
+  currentScreenRef.current = currentScreen;
+
   // Card flight animations
   const { animations: cardAnimations, hiddenCardIds, onAnimationComplete: onCardAnimComplete, isAnimating: isCardAnimating } = useCardAnimations(gameState, humanId);
 
@@ -229,6 +233,26 @@ function App() {
       setDisconnectedPlayerIds(dcIds);
     });
 
+    // Lobby: creator left → room closed (handled at App level for stable lifecycle)
+    socket.on('lobby:roomClosed', () => {
+      if (currentScreenRef.current === 'waitingRoom') {
+        setCurrentScreen('lobby');
+        setCurrentRoomName(null);
+        setCurrentRoomData(null);
+        setLobbyNotification('Le créateur de la salle a quitté');
+      }
+    });
+
+    // Lobby: kicked from room
+    socket.on('lobby:kicked', () => {
+      if (currentScreenRef.current === 'waitingRoom') {
+        setCurrentScreen('lobby');
+        setCurrentRoomName(null);
+        setCurrentRoomData(null);
+        setLobbyNotification('Vous avez été exclu de la salle');
+      }
+    });
+
     return () => {
       socket.off('game:state');
       socket.off('game:error');
@@ -236,6 +260,8 @@ function App() {
       socket.off('chat:history');
       socket.off('game:playerDisconnected');
       socket.off('game:playerReconnected');
+      socket.off('lobby:roomClosed');
+      socket.off('lobby:kicked');
       if (powerTimerRef.current) clearTimeout(powerTimerRef.current);
       if (flopRemakeSwitchTimerRef.current) clearTimeout(flopRemakeSwitchTimerRef.current);
     };
@@ -430,6 +456,9 @@ function App() {
     emit('solo:start', { variant });
   };
 
+  // Lobby notification (toast)
+  const [lobbyNotification, setLobbyNotification] = useState<string | null>(null);
+
   const handleBackToLobby = () => {
     socket.emit('lobby:leave');
     setCurrentScreen('lobby');
@@ -535,6 +564,8 @@ function App() {
       <LobbyScreen
         socket={socket}
         onSoloStart={handleStartSolo}
+        notification={lobbyNotification}
+        onClearNotification={() => setLobbyNotification(null)}
         onRoomCreated={(room) => {
           setCurrentRoomName(room.name);
           setCurrentRoomData(room as WaitingRoomData);
