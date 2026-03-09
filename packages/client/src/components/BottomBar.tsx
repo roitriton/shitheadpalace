@@ -41,7 +41,7 @@ export function BottomBar({
   const effectiveCanPlay = canPlay && !overlayActive && isSelectionLegal;
   const effectiveCanPickUp = canPickUp && !overlayActive;
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-14 z-50 bg-gray-900/95 backdrop-blur border-t border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
+    <div className="fixed bottom-0 left-0 right-0 h-14 z-50 bg-black border-t border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
       {/* Gauche : Chat */}
       <div className="flex-none">
         <button

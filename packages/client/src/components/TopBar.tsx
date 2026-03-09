@@ -107,7 +107,7 @@ export function TopBar({
   }, []);
 
   return (
-    <div className="fixed top-0 left-0 right-0 h-14 z-50 bg-gray-900/95 backdrop-blur border-b border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
+    <div className="fixed top-0 left-0 right-0 h-14 z-50 bg-black border-b border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
       {/* Gauche : Titre + type de partie */}
       <div className="flex items-center gap-2 min-w-0">
         <span className="font-serif text-[#c9a84c] text-sm sm:text-base font-bold tracking-wide whitespace-nowrap">

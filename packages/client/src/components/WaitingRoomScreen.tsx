@@ -142,7 +142,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
       />
 
       {/* Header */}
-      <header className="relative z-20 bg-gray-900/90 backdrop-blur border-b border-[#c9a84c]/20 px-4 py-3 flex items-center gap-2">
+      <header className="relative z-20 bg-black border-b border-[#c9a84c]/20 px-4 py-3 flex items-center gap-2">
         <h1 className="font-serif text-[#c9a84c] text-lg sm:text-xl font-bold tracking-wide truncate">
           {room.name}
         </h1>

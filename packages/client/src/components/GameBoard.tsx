@@ -1701,7 +1701,7 @@ export function GameBoard({
     <div className="flex-1 flex flex-col relative overflow-hidden select-none z-[1]
       rounded-xl sm:rounded-[2rem] md:rounded-[2.5rem]
       mx-1 my-1 sm:mx-2 sm:my-1.5 md:mx-3 md:my-2
-      border-4 sm:border-[5px] md:border-[6px] border-casino-wood
+      border-4 sm:border-[5px] md:border-[6px] border-[#333333]
       shadow-[inset_0_0_40px_rgba(0,0,0,0.4),0_4px_16px_rgba(0,0,0,0.7)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.7)]"
       style={{
         backgroundColor: theme.bgColor,
