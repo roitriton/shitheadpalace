@@ -14,7 +14,7 @@ function PlaceholderPage({ title, onBack }: { title: string; onBack: () => void 
         <p className="text-gray-400 mb-6">Page en construction</p>
         <button
           onClick={onBack}
-          className="px-6 py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
+          className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
         >
           Retour
         </button>
@@ -97,7 +97,7 @@ export function AuthScreen() {
           {mode === 'login' ? 'Connexion' : 'Inscription'}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] space-y-4">
           <div>
             <label htmlFor="email" className="block text-xs text-gray-400 mb-1">Email</label>
             <input
@@ -231,7 +231,7 @@ export function AuthScreen() {
           <button
             type="submit"
             disabled={mode === 'login' ? loginDisabled : registerDisabled}
-            className="w-full py-2.5 rounded font-semibold text-sm transition-colors bg-gold text-gray-900 hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] text-gray-900 hover:bg-[#d4b85c] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting
               ? '...'

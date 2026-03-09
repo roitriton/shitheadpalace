@@ -109,7 +109,7 @@ function CreateRoomModal({
         <div className="flex gap-3 mt-6">
           <button
             onClick={onCancel}
-            className="flex-1 py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors"
+            className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
           >
             Annuler
           </button>
@@ -119,7 +119,7 @@ function CreateRoomModal({
               setStep('variant');
             }}
             disabled={!roomName.trim()}
-            className="flex-1 py-2 rounded bg-green-600 hover:bg-green-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Suivant
           </button>
@@ -252,7 +252,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowCreateModal(true)}
-            className="px-6 py-3 rounded-full bg-green-600 hover:bg-green-500 text-white font-semibold shadow-lg transition-colors"
+            className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
           >
             Creer une partie
           </motion.button>
@@ -260,7 +260,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowSoloConfig(true)}
-            className="px-6 py-3 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold shadow-lg transition-colors border border-gray-500"
+            className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
           >
             Partie solo
           </motion.button>
@@ -268,7 +268,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
 
         {/* Join by code */}
         <div className="w-full max-w-lg mb-6">
-          <div className="bg-gray-900/60 backdrop-blur rounded-lg p-4 border border-gray-700/50">
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
             <label className="block text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2">
               Rejoindre par code
             </label>
@@ -279,14 +279,14 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
                 onChange={(e) => { setJoinCode(e.target.value.toUpperCase().slice(0, 6)); setJoinCodeError(''); }}
                 placeholder="Ex : A1B2C3"
                 maxLength={6}
-                className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-600 text-gray-100 text-sm font-mono tracking-widest focus:border-[#c9a84c] focus:outline-none transition-colors uppercase"
+                className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-gray-100 text-sm font-mono tracking-widest focus:border-[#c9a84c] focus:outline-none transition-colors uppercase"
               />
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleJoinByCode}
                 disabled={joinCode.trim().length !== 6}
-                className="px-4 py-2 rounded bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-5 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Rejoindre
               </motion.button>
@@ -304,7 +304,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
           </h2>
 
           {rooms.length === 0 ? (
-            <div className="bg-gray-900/60 backdrop-blur rounded-lg p-8 text-center border border-gray-700/50">
+            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-8 text-center border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
               <p className="text-gray-500 text-sm">Aucune partie en attente</p>
               <p className="text-gray-600 text-xs mt-1">Creez une partie ou attendez qu'un joueur en cree une</p>
             </div>
@@ -315,7 +315,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
                   key={room.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-gray-900/70 backdrop-blur rounded-lg p-4 border border-gray-700/50 flex items-center gap-4"
+                  className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] flex items-center gap-4"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-gray-100 text-sm font-semibold truncate">{room.name}</p>
@@ -330,7 +330,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleJoinRoom(room.id)}
-                    className="px-4 py-1.5 rounded bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 text-sm font-semibold transition-colors"
+                    className="px-5 py-1.5 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
                   >
                     Rejoindre
                   </motion.button>

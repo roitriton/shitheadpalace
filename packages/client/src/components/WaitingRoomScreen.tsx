@@ -147,7 +147,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
       <SiteHeader currentScreen="lobby" onNavigate={(screen) => { handleLeave(); onNavigate(screen); }} inWaitingRoom />
 
       {/* Room info bar */}
-      <div className="relative z-20 bg-black/60 border-b border-gray-700/50 px-4 py-2 flex items-center gap-2">
+      <div className="relative z-20 bg-black/40 border-b border-gold/10 px-4 py-2 flex items-center gap-2">
         <h2 className="font-serif text-[#c9a84c] text-base sm:text-lg font-bold tracking-wide truncate">
           {room.name}
         </h2>
@@ -175,7 +175,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
                 key={player.userId}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="bg-gray-900/70 backdrop-blur rounded-lg px-4 py-3 border border-gray-700/50 flex items-center gap-3"
+                className="bg-black/40 backdrop-blur-sm rounded-xl px-4 py-3 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] flex items-center gap-3"
               >
                 {/* Ready indicator */}
                 <div
@@ -216,7 +216,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
             {Array.from({ length: room.maxPlayers - room.players.length }).map((_, i) => (
               <div
                 key={`empty-${i}`}
-                className="bg-gray-900/30 rounded-lg px-4 py-3 border border-gray-700/30 border-dashed flex items-center gap-3"
+                className="bg-black/20 rounded-xl px-4 py-3 border border-gray-700/30 border-dashed flex items-center gap-3"
               >
                 <div className="w-3 h-3 rounded-full bg-gray-800" />
                 <p className="text-gray-600 text-sm italic">En attente d'un joueur...</p>
@@ -238,7 +238,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
               </select>
               <button
                 onClick={handleAddBot}
-                className="bg-blue-900/60 hover:bg-blue-800/70 text-blue-200 text-xs font-semibold px-3 py-1.5 rounded border border-blue-700/40 transition-colors"
+                className="px-4 py-1.5 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
               >
                 + Ajouter un bot
               </button>
@@ -252,14 +252,14 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
             <h2 className="text-gray-300 text-sm font-semibold mb-3 uppercase tracking-wider">
               Code d'invitation
             </h2>
-            <div className="bg-gray-900/70 backdrop-blur rounded-lg px-4 py-3 border border-gray-700/50 flex items-center gap-3">
+            <div className="bg-black/40 backdrop-blur-sm rounded-xl px-4 py-3 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] flex items-center gap-3">
               <span className="font-mono text-lg text-[#c9a84c] tracking-[0.3em] font-bold select-all">
                 {room.joinCode}
               </span>
               <div className="flex-1" />
               <button
                 onClick={handleCopyCode}
-                className="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600 transition-colors"
+                className="px-4 py-1.5 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
               >
                 {codeCopied ? 'Copie !' : 'Copier'}
               </button>
@@ -282,7 +282,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
               </button>
             )}
           </div>
-          <div className="bg-gray-900/70 backdrop-blur rounded-lg p-4 border border-gray-700/50">
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
             <div className="flex items-center gap-4 mb-3 text-sm">
               <div>
                 <span className="text-gray-500">Variante : </span>
@@ -308,10 +308,10 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={toggleReady}
-            className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors ${
+            className={`w-full py-2.5 rounded-full font-semibold text-sm shadow transition-colors ${
               isReady
-                ? 'bg-green-600 hover:bg-green-500 text-white'
-                : 'bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-500'
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-white'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600'
             }`}
           >
             {isReady ? 'Pret !' : 'Se marquer pret'}
@@ -324,7 +324,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
               whileTap={canStart ? { scale: 0.98 } : undefined}
               onClick={handleStart}
               disabled={!canStart}
-              className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors ${
+              className={`w-full py-2.5 rounded-full font-semibold text-sm shadow transition-colors ${
                 canStart
                   ? 'bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900'
                   : 'bg-gray-800 text-gray-600 cursor-not-allowed'
@@ -341,7 +341,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleLeave}
-            className="w-full py-2.5 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-sm transition-colors border border-red-800/30"
+            className="w-full py-2.5 rounded-full font-semibold text-sm shadow transition-colors bg-red-800 hover:bg-red-700 text-white"
           >
             Quitter la salle
           </motion.button>
