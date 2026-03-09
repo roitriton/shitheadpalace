@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { Socket } from 'socket.io-client';
 import type { GameVariant } from '@shit-head-palace/engine';
 import { useAuth } from '../auth/authContext';
@@ -115,6 +115,16 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
     socket.emit('lobby:updateVariant', { variant });
     setShowVariantModal(false);
   };
+
+  // Full-page variant config (early return)
+  if (showVariantModal) {
+    return (
+      <VariantConfigModal
+        onConfirm={handleUpdateVariant}
+        onCancel={() => setShowVariantModal(false)}
+      />
+    );
+  }
 
   const handleAddBot = () => {
     socket.emit('lobby:addBot', { difficulty: botDifficulty });
@@ -345,15 +355,6 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
         </div>
       </main>
 
-      {/* Variant config modal */}
-      <AnimatePresence>
-        {showVariantModal && (
-          <VariantConfigModal
-            onConfirm={handleUpdateVariant}
-            onCancel={() => setShowVariantModal(false)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

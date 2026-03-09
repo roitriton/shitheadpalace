@@ -37,23 +37,11 @@ function CreateRoomModal({
   onCreateRoom,
   onCancel,
 }: {
-  onCreateRoom: (name: string, isPublic: boolean, variant: GameVariant) => void;
+  onCreateRoom: (name: string, isPublic: boolean) => void;
   onCancel: () => void;
 }) {
-  const [step, setStep] = useState<'info' | 'variant'>('info');
   const [roomName, setRoomName] = useState('');
   const [isPublic, setIsPublic] = useState(true);
-
-  if (step === 'variant') {
-    return (
-      <VariantConfigModal
-        onConfirm={(variant) => {
-          onCreateRoom(roomName.trim(), isPublic, variant);
-        }}
-        onCancel={() => setStep('info')}
-      />
-    );
-  }
 
   return (
     <motion.div
@@ -116,7 +104,7 @@ function CreateRoomModal({
           <button
             onClick={() => {
               if (!roomName.trim()) return;
-              setStep('variant');
+              onCreateRoom(roomName.trim(), isPublic);
             }}
             disabled={!roomName.trim()}
             className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -136,6 +124,8 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSoloConfig, setShowSoloConfig] = useState(false);
+  // CreateRoom variant step: store room info while showing variant config page
+  const [createRoomPending, setCreateRoomPending] = useState<{ name: string; isPublic: boolean } | null>(null);
   const [joinCode, setJoinCode] = useState('');
   const [joinCodeError, setJoinCodeError] = useState('');
 
@@ -208,9 +198,40 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
     socket.emit('lobby:joinByCode', { code });
   };
 
+  // ── Full-page variant config screens (early returns) ──────────────────────
+
+  // Solo variant config → full page
+  if (showSoloConfig) {
+    return (
+      <VariantConfigModal
+        onConfirm={(variant, playerCount) => {
+          setShowSoloConfig(false);
+          onSoloStart(variant, playerCount);
+        }}
+        onCancel={() => setShowSoloConfig(false)}
+      />
+    );
+  }
+
+  // CreateRoom step 2: variant config → full page
+  if (createRoomPending) {
+    return (
+      <VariantConfigModal
+        onConfirm={(variant) => {
+          const { name, isPublic } = createRoomPending;
+          setCreateRoomPending(null);
+          handleCreateRoom(name, isPublic, variant);
+        }}
+        onCancel={() => setCreateRoomPending(null)}
+      />
+    );
+  }
+
+  // ── Main lobby layout ────────────────────────────────────────────────────
+
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="h-screen flex flex-col overflow-y-auto"
       style={{
         backgroundImage: `url(${theme.bgImage})`,
         backgroundRepeat: 'repeat',
@@ -341,23 +362,15 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
         </div>
       </main>
 
-      {/* Modals */}
+      {/* CreateRoom info modal (step 1 only — step 2 is full-page above) */}
       <AnimatePresence>
         {showCreateModal && (
           <CreateRoomModal
-            onCreateRoom={handleCreateRoom}
-            onCancel={() => setShowCreateModal(false)}
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showSoloConfig && (
-          <VariantConfigModal
-            onConfirm={(variant, playerCount) => {
-              setShowSoloConfig(false);
-              onSoloStart(variant, playerCount);
+            onCreateRoom={(name, isPublic) => {
+              setShowCreateModal(false);
+              setCreateRoomPending({ name, isPublic });
             }}
-            onCancel={() => setShowSoloConfig(false)}
+            onCancel={() => setShowCreateModal(false)}
           />
         )}
       </AnimatePresence>

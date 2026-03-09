@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ModalButton } from './ModalButton';
 import type { GameVariant, Power, Rank, Suit, UniquePowerType } from '@shit-head-palace/engine';
 import { validateVariant, DEFAULT_UNIQUE_POWER_SUITS } from '@shit-head-palace/engine';
+import { useTheme } from '../themes/ThemeContext';
+import { SiteLogo } from './SiteLogo';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -422,9 +423,13 @@ function UniquePowersPanel({ config, onChange }: {
   );
 }
 
-// ─── Main Modal ─────────────────────────────────────────────────────────────
+// ─── Full-page variant config screen ────────────────────────────────────────
+
+const RANKS_LEFT: Rank[] = ['2', '3', '4', '5', '6', '7'];
+const RANKS_RIGHT: Rank[] = ['8', '9', '10', 'J', 'Q', 'K', 'A'];
 
 export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalProps) {
+  const { theme } = useTheme();
   const [config, setConfig] = useState<VariantConfig>(() => deepCopyConfig(DEFAULT_CONFIG));
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -464,41 +469,73 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
     onConfirm(variant, config.playerCount);
   }, [config, onConfirm]);
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 flex items-center justify-center bg-black/60 z-50"
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="bg-gray-800/95 backdrop-blur border border-gray-600/50 rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6 max-h-[90vh] flex flex-col"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-serif text-xl text-amber-400 font-bold">
-            Configuration des r&egrave;gles
-          </h3>
-          <button
-            onClick={handleReset}
-            className="text-xs text-gray-400 hover:text-amber-400 transition-colors px-2 py-1 rounded border border-gray-600/50 hover:border-amber-400/50"
-          >
-            R&egrave;gles par d&eacute;faut
-          </button>
-        </div>
+  const renderRankColumn = (ranks: Rank[]) => (
+    <div className="space-y-0.5">
+      {ranks.map((rank) => (
+        <React.Fragment key={rank}>
+          <PowerDropdown
+            rank={rank}
+            value={config.rankPowers[rank]}
+            onChange={(power) => handleRankPowerChange(rank, power)}
+          />
+          <AnimatePresence>
+            {config.rankPowers[rank] === 'unique' && config.uniquePowers[rank] && (
+              <UniquePowersPanel
+                key={`unique-${rank}`}
+                config={config.uniquePowers[rank]!}
+                onChange={(uc) => handleUniquePowerChange(rank, uc)}
+              />
+            )}
+          </AnimatePresence>
+        </React.Fragment>
+      ))}
+    </div>
+  );
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto mt-4 -mx-2 px-2 space-y-5">
-          {/* Section: Options g&eacute;n&eacute;rales */}
-          <div>
-            <h4 className="font-serif text-sm text-amber-400/80 font-semibold uppercase tracking-wide mb-2">
-              Options g&eacute;n&eacute;rales
+  return (
+    <div
+      className="h-screen flex flex-col overflow-y-auto"
+      style={{
+        backgroundImage: `url(${theme.bgImage})`,
+        backgroundRepeat: 'repeat',
+        backgroundPosition: '0 0',
+        backgroundSize: '512px 512px',
+        backgroundColor: theme.bgColor,
+      }}
+    >
+      {/* Vignette overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{
+          background: 'radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.7) 100%)',
+        }}
+      />
+
+      {/* Header bar */}
+      <header className="sticky top-0 z-20 bg-black border-b border-[#c9a84c]/20 px-3 sm:px-4 h-14 flex items-center flex-shrink-0">
+        <SiteLogo size="compact" />
+        <div className="flex-1 flex justify-center">
+          <h2 className="font-serif text-sm sm:text-base text-amber-400 font-bold">
+            Configuration des règles
+          </h2>
+        </div>
+        <button
+          onClick={handleReset}
+          className="text-xs text-gray-400 hover:text-amber-400 transition-colors px-2 py-1 rounded border border-gray-600/50 hover:border-amber-400/50 mr-2"
+        >
+          Par défaut
+        </button>
+      </header>
+
+      {/* Content */}
+      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-4">
+        <div className="w-full max-w-4xl space-y-4">
+          {/* General options */}
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
+            <h4 className="font-serif text-xs text-amber-400/80 font-semibold uppercase tracking-wide mb-2">
+              Options générales
             </h4>
-            <div className="space-y-1 bg-gray-900/40 rounded-lg p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0">
               <NumberSelector
                 label="Nombre de joueurs"
                 value={config.playerCount}
@@ -530,55 +567,41 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
             </div>
           </div>
 
-          {/* Section: Attribution des pouvoirs */}
-          <div>
-            <h4 className="font-serif text-sm text-amber-400/80 font-semibold uppercase tracking-wide mb-2">
+          {/* Powers — 2 columns on desktop */}
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-gold/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)]">
+            <h4 className="font-serif text-xs text-amber-400/80 font-semibold uppercase tracking-wide mb-2">
               Attribution des pouvoirs
             </h4>
-            <div className="bg-gray-900/40 rounded-lg p-3 space-y-0.5">
-              {ALL_RANKS.map((rank) => (
-                <React.Fragment key={rank}>
-                  <PowerDropdown
-                    rank={rank}
-                    value={config.rankPowers[rank]}
-                    onChange={(power) => handleRankPowerChange(rank, power)}
-                  />
-                  <AnimatePresence>
-                    {config.rankPowers[rank] === 'unique' && config.uniquePowers[rank] && (
-                      <UniquePowersPanel
-                        key={`unique-${rank}`}
-                        config={config.uniquePowers[rank]!}
-                        onChange={(uc) => handleUniquePowerChange(rank, uc)}
-                      />
-                    )}
-                  </AnimatePresence>
-                </React.Fragment>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+              {renderRankColumn(RANKS_LEFT)}
+              {renderRankColumn(RANKS_RIGHT)}
             </div>
           </div>
-        </div>
 
-        {/* Validation error */}
-        {validationError && (
-          <div className="mt-3 text-red-400 text-sm text-center">
-            {validationError}
-          </div>
-        )}
+          {/* Validation error */}
+          {validationError && (
+            <div className="text-red-400 text-sm text-center">
+              {validationError}
+            </div>
+          )}
 
-        {/* Footer */}
-        <div className="mt-4 flex gap-3">
-          <div className="flex-1">
-            <ModalButton variant="cancel" onClick={onCancel}>
+          {/* Footer buttons */}
+          <div className="flex gap-3 pb-4">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+            >
               Annuler
-            </ModalButton>
-          </div>
-          <div className="flex-1">
-            <ModalButton variant="confirm" onClick={handleConfirm}>
-              Lancer la partie
-            </ModalButton>
+            </button>
+            <button
+              onClick={handleConfirm}
+              className="flex-1 py-2 rounded-full font-semibold text-sm shadow transition-colors bg-[#c9a84c] hover:bg-[#d4b85c] text-gray-900"
+            >
+              Valider
+            </button>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </main>
+    </div>
   );
 }

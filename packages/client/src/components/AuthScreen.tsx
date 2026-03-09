@@ -8,7 +8,7 @@ type PageView = 'auth' | 'privacy' | 'terms';
 
 function PlaceholderPage({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="min-h-screen bg-casino-room flex items-center justify-center">
+    <div className="h-screen bg-casino-room flex items-center justify-center overflow-y-auto">
       <div className="text-center">
         <h1 className="font-serif text-3xl text-gold mb-4">{title}</h1>
         <p className="text-gray-400 mb-6">Page en construction</p>
@@ -84,7 +84,7 @@ export function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-casino-room flex items-center justify-center px-4">
+    <div className="h-screen bg-casino-room flex items-center justify-center px-4 overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

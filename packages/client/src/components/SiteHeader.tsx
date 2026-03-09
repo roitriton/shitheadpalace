@@ -91,7 +91,7 @@ export function SiteHeader({ currentScreen, onNavigate, inWaitingRoom }: SiteHea
   };
 
   return (
-    <header className="relative z-20 bg-black border-b border-[#c9a84c]/20 px-3 sm:px-4 h-14 flex items-center">
+    <header className="sticky top-0 z-20 bg-black border-b border-[#c9a84c]/20 px-3 sm:px-4 h-14 flex items-center flex-shrink-0">
       {/* Left: logo */}
       <SiteLogo size="compact" />
 

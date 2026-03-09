@@ -26,7 +26,7 @@ type AppScreen = 'lobby' | 'waitingRoom' | 'game' | 'rules' | 'profile';
 
 function RulesScreen({ onNavigate }: { onNavigate: (screen: 'lobby' | 'rules' | 'profile') => void }) {
   return (
-    <div className="min-h-screen bg-casino-room flex flex-col">
+    <div className="h-screen bg-casino-room flex flex-col overflow-y-auto">
       <SiteHeader currentScreen="rules" onNavigate={onNavigate} />
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
@@ -40,7 +40,7 @@ function RulesScreen({ onNavigate }: { onNavigate: (screen: 'lobby' | 'rules' | 
 
 function ProfileScreen({ onNavigate }: { onNavigate: (screen: 'lobby' | 'rules' | 'profile') => void }) {
   return (
-    <div className="min-h-screen bg-casino-room flex flex-col">
+    <div className="h-screen bg-casino-room flex flex-col overflow-y-auto">
       <SiteHeader currentScreen="profile" onNavigate={onNavigate} />
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
