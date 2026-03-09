@@ -492,7 +492,17 @@ function cleanupUserFromActiveRoom(userId: string, socketToLeave?: { leave: (roo
   if (!room || room.status === 'waiting') return false;
 
   if (room.status === 'playing') {
+    // Capture player info before replacement
+    const leavingPlayer = room.players.find((p) => p.userId === userId && !p.isBot);
+    const leavingName = leavingPlayer?.username;
+
     room.forceRemovePlayer(userId);
+
+    // Notify remaining players (chat message + updated disconnected list)
+    if (leavingName) {
+      const sysMsg = room.addSystemMessage(`${leavingName} a quitté la partie`);
+      io.to(`room:${room.id}`).emit('chat:message', sysMsg);
+    }
   } else {
     room.players = room.players.filter((p) => p.userId !== userId || p.isBot);
   }

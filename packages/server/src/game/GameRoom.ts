@@ -684,6 +684,14 @@ export class GameRoom {
     player.socketId = null;
     player.disconnectedAt = null;
 
+    // Update engine state player name to reflect bot replacement
+    if (this.state) {
+      const enginePlayer = this.state.players.find((p) => p.id === playerId);
+      if (enginePlayer) {
+        enginePlayer.name = player.username;
+      }
+    }
+
     if (this.onPlayerReplacedCallback) {
       this.onPlayerReplacedCallback(this, playerId, originalName);
     }
@@ -712,6 +720,14 @@ export class GameRoom {
     player.username = `Bot (${player.username})`;
     player.socketId = null;
     player.disconnectedAt = null;
+
+    // Update engine state player name to reflect bot replacement
+    if (this.state) {
+      const enginePlayer = this.state.players.find((p) => p.id === player.playerId);
+      if (enginePlayer) {
+        enginePlayer.name = player.username;
+      }
+    }
 
     // Continue the game for remaining humans
     if (this.humanCount > 0 && this.status === 'playing') {
