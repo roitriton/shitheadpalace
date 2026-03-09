@@ -664,6 +664,7 @@ function App() {
             <SwapPhase
               state={gameState}
               humanId={humanId}
+              roomName={currentRoomName}
               onSwap={handleSwap}
               onReady={handleReady}
             />
