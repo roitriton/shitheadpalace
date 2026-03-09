@@ -1,15 +1,13 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface BottomBarProps {
   onChatToggle: () => void;
   chatUnread: number;
   canPlay: boolean;
   canPickUp: boolean;
-  selectedCount: number;
   onPlay: () => void;
   onPickUp: () => void;
-  onClearSelection: () => void;
   onActionLogToggle: () => void;
   actionLogUnread: number;
   /** When true, the current card selection is a legal play */
@@ -27,10 +25,8 @@ export function BottomBar({
   chatUnread,
   canPlay,
   canPickUp,
-  selectedCount,
   onPlay,
   onPickUp,
-  onClearSelection,
   onActionLogToggle,
   actionLogUnread,
   isSelectionLegal,
@@ -87,24 +83,8 @@ export function BottomBar({
               : 'bg-gray-600 text-gray-500 opacity-50 cursor-not-allowed'
           }`}
         >
-          Jouer{selectedCount > 0 ? ` (${selectedCount})` : ''}
+          Jouer
         </motion.button>
-
-        <AnimatePresence>
-          {selectedCount > 0 && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onClearSelection}
-              className="px-2.5 py-1.5 rounded-full text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
-            >
-              ✕
-            </motion.button>
-          )}
-        </AnimatePresence>
 
         <motion.button
           whileHover={effectiveCanPickUp ? { scale: 1.05 } : {}}

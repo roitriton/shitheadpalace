@@ -864,10 +864,8 @@ function App() {
           chatUnread={chatUnread}
           canPlay={canPlay}
           canPickUp={canPickUp}
-          selectedCount={selectedCards.length}
           onPlay={handlePlay}
           onPickUp={handlePickUp}
-          onClearSelection={() => setSelectedCards([])}
           onActionLogToggle={handleActionLogToggle}
           actionLogUnread={actionLogUnread}
           isSelectionLegal={isSelectionLegal}

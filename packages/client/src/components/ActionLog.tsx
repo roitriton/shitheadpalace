@@ -187,10 +187,17 @@ interface ActionLogProps {
   topBarOffset?: boolean;
 }
 
+/** Log types hidden from the action log (internal actions, not interesting to the player). */
+const HIDDEN_LOG_TYPES = new Set(['manoucheTarget', 'shifumiChoice', 'firstPlayerShifumiChoice']);
+
 export function ActionLog({ log, isOpen, onToggle, topBarOffset }: ActionLogProps) {
-  const reversed = useMemo(
-    () => [...log].reverse().map((entry, i) => ({ entry, num: log.length - i })),
+  const filtered = useMemo(
+    () => log.filter((e) => !HIDDEN_LOG_TYPES.has(e.type)),
     [log],
+  );
+  const reversed = useMemo(
+    () => [...filtered].reverse().map((entry, i) => ({ entry, num: filtered.length - i })),
+    [filtered],
   );
 
   return (

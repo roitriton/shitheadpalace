@@ -261,7 +261,7 @@ function PlayerZone({
                   </div>
                 )}
                 {fuCard && (
-                  <div className="absolute z-10 top-3 overflow-hidden rounded-lg">
+                  <div className="absolute z-10 top-3">
                     <Card
                       card={fuCard}
                       size={cardSize}
@@ -271,9 +271,11 @@ function PlayerZone({
                       noLayout
                     />
                     {flopRemakeAnimating && (
-                      <FlopRemakeCardOverlay
-                        onComplete={i === firstFuSlotIdx ? onFlopRemakeAnimComplete : undefined}
-                      />
+                      <div className="absolute inset-0 overflow-hidden rounded-lg">
+                        <FlopRemakeCardOverlay
+                          onComplete={i === firstFuSlotIdx ? onFlopRemakeAnimComplete : undefined}
+                        />
+                      </div>
                     )}
                   </div>
                 )}
@@ -318,7 +320,7 @@ function PlayerZone({
         {/* Avatar + Name — outside flow, to the left of cards */}
         <div className={`absolute right-full top-1/2 -translate-y-1/2 flex items-center ${isBot ? 'gap-1 mr-1.5' : 'gap-1.5 mr-2 sm:mr-3'}`}>
           <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} playerId={player.id} isDisconnected={isDisconnected} />
-          <span className={`${isBot ? 'text-[10px] max-w-[48px]' : 'text-sm max-w-[64px]'} font-semibold truncate whitespace-nowrap ${isDisconnected ? 'text-red-400/60' : isActive ? 'text-gold' : 'text-gray-400'}`}>
+          <span className={`${isBot ? 'text-[10px]' : 'text-xs'} font-semibold whitespace-nowrap ${isDisconnected ? 'text-red-400/60' : isActive ? 'text-gold' : 'text-gray-400'}`}>
             {player.name}
           </span>
         </div>

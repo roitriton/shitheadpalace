@@ -32,22 +32,22 @@ export function PlayerAvatar({ name, playerIndex, isActive, size = 'bot', player
     ? 'w-16 h-16 text-xl'
     : 'w-12 h-12 text-lg';
 
+  const showGlow = isActive && !isDisconnected;
+
   return (
     <div className="relative flex items-center justify-center" data-player-avatar={playerId}>
-      {/* Glow animé quand c'est le tour */}
-      {isActive && !isDisconnected && (
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          style={{
-            boxShadow: `0 0 12px 4px #c9a84c`,
-          }}
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-        />
-      )}
+      {/* Glow — toujours rendu pour éviter tout décalage de layout */}
+      <motion.div
+        className="absolute inset-0 rounded-full pointer-events-none"
+        style={{
+          boxShadow: '0 0 12px 4px #c9a84c',
+        }}
+        animate={{ opacity: showGlow ? [0.5, 1, 0.5] : 0 }}
+        transition={showGlow ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
+      />
       <div
         className={`${sizeClasses} rounded-full flex items-center justify-center text-white font-bold
-          border-2 ${isActive && !isDisconnected ? 'border-gold' : 'border-gold/40'}
+          border-2 ${showGlow ? 'border-gold' : 'border-gold/40'}
           ${isDisconnected ? 'opacity-40 grayscale' : ''}`}
         style={{
           background: `linear-gradient(135deg, ${from}, ${to})`,
