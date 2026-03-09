@@ -2,11 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Socket } from 'socket.io-client';
 import type { GameVariant } from '@shit-head-palace/engine';
-import { useAuth } from '../auth/authContext';
 import { useTheme } from '../themes/ThemeContext';
-import { THEMES } from '../themes/themeConfig';
-import type { Theme } from '../themes/themeConfig';
 import { VariantConfigModal } from './VariantConfigModal';
+import { SiteHeader } from './SiteHeader';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,54 +28,7 @@ interface LobbyScreenProps {
   onRoomJoined: (room: RoomSummary) => void;
   notification?: string | null;
   onClearNotification?: () => void;
-}
-
-// ─── ThemeSelector (extracted from TopBar pattern) ──────────────────────────
-
-function ThemeSelector() {
-  const { theme, setTheme } = useTheme();
-  const [open, setOpen] = useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs text-gray-200 transition-colors"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="text-gray-400">Theme</span>
-        <span className="text-[#c9a84c] font-semibold">{theme.label}</span>
-        <svg className={`w-3 h-3 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {open && (
-        <div className="absolute top-full mt-1 right-0 bg-gray-800 border border-gray-600 rounded shadow-xl z-[60] min-w-[120px]">
-          {THEMES.map((t: Theme) => (
-            <button
-              key={t.id}
-              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-700 transition-colors flex items-center gap-2 ${
-                t.id === theme.id ? 'text-[#c9a84c] font-semibold' : 'text-gray-300'
-              }`}
-              onClick={() => { setTheme(t); setOpen(false); }}
-            >
-              <img src={t.bgImage} alt={t.label} className="w-5 h-5 rounded object-cover" />
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  onNavigate: (screen: 'lobby' | 'rules' | 'profile') => void;
 }
 
 // ─── CreateRoomModal ────────────────────────────────────────────────────────
@@ -180,8 +131,7 @@ function CreateRoomModal({
 
 // ─── LobbyScreen ────────────────────────────────────────────────────────────
 
-export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, notification, onClearNotification }: LobbyScreenProps) {
-  const { user, logout } = useAuth();
+export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, notification, onClearNotification, onNavigate }: LobbyScreenProps) {
   const { theme } = useTheme();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -292,26 +242,7 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
       </AnimatePresence>
 
       {/* Header */}
-      <header className="relative z-20 bg-black border-b border-[#c9a84c]/20 px-4 py-3 flex items-center">
-        <h1 className="font-serif text-[#c9a84c] text-lg sm:text-xl font-bold tracking-wide">
-          Shit Head Palace
-        </h1>
-        <div className="flex-1" />
-        <div className="flex items-center gap-3">
-          <ThemeSelector />
-          {user && (
-            <>
-              <span className="text-gray-300 text-xs truncate max-w-[120px]">{user.username}</span>
-              <button
-                onClick={logout}
-                className="text-gray-500 hover:text-gray-300 text-xs transition-colors"
-              >
-                Quitter
-              </button>
-            </>
-          )}
-        </div>
-      </header>
+      <SiteHeader currentScreen="lobby" onNavigate={onNavigate} />
 
       {/* Content */}
       <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-8 overflow-y-auto">

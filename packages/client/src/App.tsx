@@ -17,8 +17,40 @@ import { AuthScreen } from './components/AuthScreen';
 import { LobbyScreen } from './components/LobbyScreen';
 import { WaitingRoomScreen, type WaitingRoomData } from './components/WaitingRoomScreen';
 import { useAuth } from './auth/authContext';
+import { SiteHeader } from './components/SiteHeader';
+import { SiteLogo } from './components/SiteLogo';
 
-type AppScreen = 'lobby' | 'waitingRoom' | 'game';
+type AppScreen = 'lobby' | 'waitingRoom' | 'game' | 'rules' | 'profile';
+
+// ─── Placeholder screens ──────────────────────────────────────────────────────
+
+function RulesScreen({ onNavigate }: { onNavigate: (screen: 'lobby' | 'rules' | 'profile') => void }) {
+  return (
+    <div className="min-h-screen bg-casino-room flex flex-col">
+      <SiteHeader currentScreen="rules" onNavigate={onNavigate} />
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="font-serif text-2xl text-[#c9a84c] mb-4">Règles du jeu</h2>
+          <p className="text-gray-400">Page en construction</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileScreen({ onNavigate }: { onNavigate: (screen: 'lobby' | 'rules' | 'profile') => void }) {
+  return (
+    <div className="min-h-screen bg-casino-room flex flex-col">
+      <SiteHeader currentScreen="profile" onNavigate={onNavigate} />
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="font-serif text-2xl text-[#c9a84c] mb-4">Profil</h2>
+          <p className="text-gray-400">Page en construction</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Socket (singleton module-level, connects manually after auth) ───────────
 
@@ -557,6 +589,25 @@ function App() {
     return <AuthScreen />;
   }
 
+  // ── Navigation handler for SiteHeader ──────────────────────────────────────
+  const handleNavigate = (screen: 'lobby' | 'rules' | 'profile') => {
+    setCurrentScreen(screen);
+  };
+
+  // ── Rules screen ──────────────────────────────────────────────────────────
+  if (currentScreen === 'rules') {
+    return (
+      <RulesScreen onNavigate={handleNavigate} />
+    );
+  }
+
+  // ── Profile screen (placeholder) ──────────────────────────────────────────
+  if (currentScreen === 'profile') {
+    return (
+      <ProfileScreen onNavigate={handleNavigate} />
+    );
+  }
+
   // ── Lobby ───────────────────────────────────────────────────────────────────
 
   if (currentScreen === 'lobby') {
@@ -566,6 +617,7 @@ function App() {
         onSoloStart={handleStartSolo}
         notification={lobbyNotification}
         onClearNotification={() => setLobbyNotification(null)}
+        onNavigate={handleNavigate}
         onRoomCreated={(room) => {
           setCurrentRoomName(room.name);
           setCurrentRoomData(room as WaitingRoomData);
@@ -588,6 +640,7 @@ function App() {
         socket={socket}
         initialRoom={currentRoomData}
         onBackToLobby={handleBackToLobby}
+        onNavigate={handleNavigate}
       />
     );
   }

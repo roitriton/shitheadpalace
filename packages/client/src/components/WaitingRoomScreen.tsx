@@ -6,6 +6,7 @@ import { useAuth } from '../auth/authContext';
 import { useTheme } from '../themes/ThemeContext';
 import { VariantConfigModal } from './VariantConfigModal';
 import { PowerSummary } from './PowerSummary';
+import { SiteHeader } from './SiteHeader';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -35,11 +36,12 @@ interface WaitingRoomScreenProps {
   socket: Socket;
   initialRoom: WaitingRoomData;
   onBackToLobby: () => void;
+  onNavigate: (screen: 'lobby' | 'rules' | 'profile') => void;
 }
 
 // ─── WaitingRoomScreen ──────────────────────────────────────────────────────
 
-export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: WaitingRoomScreenProps) {
+export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNavigate }: WaitingRoomScreenProps) {
   const { user } = useAuth();
   const { theme } = useTheme();
   const userId = user?.id ?? '';
@@ -142,10 +144,13 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
       />
 
       {/* Header */}
-      <header className="relative z-20 bg-black border-b border-[#c9a84c]/20 px-4 py-3 flex items-center gap-2">
-        <h1 className="font-serif text-[#c9a84c] text-lg sm:text-xl font-bold tracking-wide truncate">
+      <SiteHeader currentScreen="lobby" onNavigate={(screen) => { handleLeave(); onNavigate(screen); }} inWaitingRoom />
+
+      {/* Room info bar */}
+      <div className="relative z-20 bg-black/60 border-b border-gray-700/50 px-4 py-2 flex items-center gap-2">
+        <h2 className="font-serif text-[#c9a84c] text-base sm:text-lg font-bold tracking-wide truncate">
           {room.name}
-        </h1>
+        </h2>
         {!room.isPublic && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/40 font-mono flex-shrink-0">
             Privee
@@ -155,7 +160,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby }: Waitin
         <span className="text-gray-400 text-xs font-mono">
           {room.players.length}/{room.maxPlayers} joueurs
         </span>
-      </header>
+      </div>
 
       {/* Content */}
       <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-6 overflow-y-auto gap-6">

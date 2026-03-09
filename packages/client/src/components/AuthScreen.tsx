@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../auth/authContext';
+import { SiteLogo } from './SiteLogo';
 
 type Mode = 'login' | 'register';
 type PageView = 'auth' | 'privacy' | 'terms';
@@ -89,7 +90,9 @@ export function AuthScreen() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm"
       >
-        <h1 className="font-serif text-4xl text-gold text-center mb-2">Shit Head Palace</h1>
+        <div className="flex justify-center mb-2">
+          <SiteLogo size="large" />
+        </div>
         <p className="text-gray-400 text-center text-sm mb-8">
           {mode === 'login' ? 'Connexion' : 'Inscription'}
         </p>
