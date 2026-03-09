@@ -16,6 +16,7 @@ import { useCardAnimations, CardAnimationContext } from './hooks/useCardAnimatio
 import { AuthScreen } from './components/AuthScreen';
 import { LobbyScreen } from './components/LobbyScreen';
 import { WaitingRoomScreen, type WaitingRoomData } from './components/WaitingRoomScreen';
+import { RulesScreen } from './components/RulesScreen';
 import { useAuth } from './auth/authContext';
 import { SiteHeader } from './components/SiteHeader';
 import { SiteLogo } from './components/SiteLogo';
@@ -23,20 +24,6 @@ import { SiteLogo } from './components/SiteLogo';
 type AppScreen = 'lobby' | 'waitingRoom' | 'game' | 'rules' | 'profile';
 
 // ─── Placeholder screens ──────────────────────────────────────────────────────
-
-function RulesScreen({ onNavigate }: { onNavigate: (screen: 'lobby' | 'rules' | 'profile') => void }) {
-  return (
-    <div className="h-screen bg-casino-room flex flex-col overflow-y-auto">
-      <SiteHeader currentScreen="rules" onNavigate={onNavigate} />
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="font-serif text-2xl text-[#c9a84c] mb-4">Règles du jeu</h2>
-          <p className="text-gray-400">Page en construction</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ProfileScreen({ onNavigate }: { onNavigate: (screen: 'lobby' | 'rules' | 'profile') => void }) {
   return (
