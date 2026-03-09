@@ -551,7 +551,7 @@ function GraveyardDisplay({ graveyard }: GraveyardDisplayProps) {
         })}
       </div>
       <span className="text-[8px] text-red-400/60">
-        {graveyard.length > 0 ? `${graveyard.length} brûlées` : '\u00A0'}
+        Cimetière : {graveyard.length} cartes
       </span>
     </div>
   );
@@ -1763,10 +1763,7 @@ export function GameBoard({
           {/* Zone basse — Cimetière + Pioche (espacement harmonieux) */}
           <div className="flex-1 min-h-0 flex items-center justify-evenly overflow-hidden">
             <GraveyardDisplay graveyard={state.graveyard} />
-            <div
-              className={`flex-shrink-0 flex flex-col items-center gap-0.5 ${onInspectZone ? 'cursor-pointer' : ''}`}
-              onClick={onInspectZone ? () => onInspectZone('deck') : undefined}
-            >
+            <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
               <div data-zone="deck" className="relative flex-shrink-0">
                 {state.deck.length > 0 ? (
                   <>
@@ -1785,9 +1782,9 @@ export function GameBoard({
                   </div>
                 )}
               </div>
-              <span className="text-[10px] sm:text-xs text-gray-300 font-semibold">Pioche</span>
-              <span className="text-[10px] sm:text-xs text-gray-400">{state.deck.length}</span>
-              {onInspectZone && <span className="text-[10px] text-gold/50 hover:text-gold transition-colors">inspecter</span>}
+              <span className="text-[10px] sm:text-xs text-gray-400">
+                Pioche : {state.deck.length} cartes
+              </span>
             </div>
           </div>
         </div>

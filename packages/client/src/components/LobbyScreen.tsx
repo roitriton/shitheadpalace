@@ -25,7 +25,7 @@ interface RoomSummary {
 
 interface LobbyScreenProps {
   socket: Socket;
-  onSoloStart: (variant: GameVariant, playerCount: number) => void;
+  onSoloStart: (variant: GameVariant, playerCount: number, debugMode: boolean) => void;
   onRoomCreated: (room: RoomSummary) => void;
   onRoomJoined: (room: RoomSummary) => void;
   notification?: string | null;
@@ -207,11 +207,12 @@ export function LobbyScreen({ socket, onSoloStart, onRoomCreated, onRoomJoined, 
   if (showSoloConfig) {
     return (
       <VariantConfigModal
-        onConfirm={(variant, playerCount) => {
+        onConfirm={(variant, playerCount, debugMode) => {
           setShowSoloConfig(false);
-          onSoloStart(variant, playerCount);
+          onSoloStart(variant, playerCount, debugMode);
         }}
         onCancel={() => setShowSoloConfig(false)}
+        showDebugToggle
       />
     );
   }

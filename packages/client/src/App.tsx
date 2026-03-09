@@ -90,9 +90,10 @@ function App() {
   // Shifumi loser overlay state
   const [shifumiLoserOverlay, setShifumiLoserOverlay] = useState<{ loserId: string; isSuper: boolean } | null>(null);
 
-  // Debug state (dev mode only)
+  // Debug state (solo debug mode only)
   const [debugRevealHands, setDebugRevealHands] = useState(false);
   const [debugInspectZone, setDebugInspectZone] = useState<InspectZone | null>(null);
+  const [soloDebugMode, setSoloDebugMode] = useState(false);
 
   // Ref for always-current state (avoid stale closures in socket handlers)
   const humanIdRef = useRef(humanId);
@@ -456,6 +457,7 @@ function App() {
     prevLogLenForRemakeRef.current = 0;
     setShifumiLoserOverlay(null);
     setDisconnectedPlayerIds([]);
+    setSoloDebugMode(false);
     gameStateRef.current = null;
     if (powerTimerRef.current) { clearTimeout(powerTimerRef.current); powerTimerRef.current = null; }
     if (flopRemakeSwitchTimerRef.current) { clearTimeout(flopRemakeSwitchTimerRef.current); flopRemakeSwitchTimerRef.current = null; }
@@ -470,8 +472,9 @@ function App() {
     setCurrentRoomData(null);
   };
 
-  const handleStartSolo = (variant: GameVariant, _playerCount: number) => {
+  const handleStartSolo = (variant: GameVariant, _playerCount: number, debugMode: boolean) => {
     resetLocalState();
+    setSoloDebugMode(debugMode);
     emit('solo:start', { variant });
   };
 
@@ -645,7 +648,7 @@ function App() {
   // ── Phase de swap ────────────────────────────────────────────────────────────
 
   if (gameState.phase === 'swapping') {
-    const swapIsDev = import.meta.env.DEV && currentRoomData === null;
+    const swapIsDev = soloDebugMode;
     return (
       <AnimatePresence mode="wait">
         <motion.div
@@ -676,15 +679,14 @@ function App() {
 
   // ── Plateau de jeu ───────────────────────────────────────────────────────────
 
-  const isDev = import.meta.env.DEV;
-
   // Compute action bar state for BottomBar
   const humanIdx = gameState.players.findIndex((p) => p.id === humanId);
   const human = gameState.players[humanIdx];
   const isMyTurn = human ? gameState.currentPlayerIndex === humanIdx : false;
   const humanActiveZone = human ? getActiveZone(human) : null;
   const canPlay = isMyTurn && selectedCards.length > 0 && humanActiveZone !== 'faceDown';
-  const canPickUp = isMyTurn && gameState.pile.length > 0;
+  const hasLegalMove = !!(human && isMyTurn && gameState.pendingAction === null && canPlayerPlayAnything(gameState, humanIdx));
+  const canPickUp = isMyTurn && gameState.pile.length > 0 && !hasLegalMove;
 
   // Check if current selection is a legal play
   const isSelectionLegal = (() => {
@@ -796,9 +798,9 @@ function App() {
         />
         <TopBar
           gameType="Solo"
-          isDev={isDev}
-          revealHands={isDev ? debugRevealHands : undefined}
-          onToggleRevealHands={isDev ? () => setDebugRevealHands((v) => !v) : undefined}
+          isDev={soloDebugMode}
+          revealHands={soloDebugMode ? debugRevealHands : undefined}
+          onToggleRevealHands={soloDebugMode ? () => setDebugRevealHands((v) => !v) : undefined}
           username={user.username}
           onLogout={logout}
           onLeaveGame={handleRestart}
@@ -823,8 +825,8 @@ function App() {
           onFlopRemake={handleFlopRemake}
           onMultiJackOrder={handleMultiJackOrder}
           onRevolutionConfirm={handleRevolutionConfirm}
-          debugRevealHands={isDev ? debugRevealHands : undefined}
-          onInspectZone={isDev ? setDebugInspectZone : undefined}
+          debugRevealHands={soloDebugMode ? debugRevealHands : undefined}
+          onInspectZone={soloDebugMode ? setDebugInspectZone : undefined}
           currentPower={currentPower}
           comboHandFlopEnabled={comboHandFlopEnabled}
           comboFlopDarkEnabled={comboFlopDarkEnabled}
@@ -873,7 +875,7 @@ function App() {
           emptyPileBlocked={emptyPileBlocked}
           onSkipTurn={handleSkipTurn}
         />
-        {isDev && debugInspectZone && (
+        {soloDebugMode && debugInspectZone && (
           <ZoneInspectorModal
             zone={debugInspectZone}
             state={gameState}

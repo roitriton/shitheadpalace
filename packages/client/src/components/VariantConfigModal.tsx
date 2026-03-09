@@ -34,8 +34,10 @@ interface VariantConfig {
 }
 
 interface VariantConfigModalProps {
-  onConfirm: (variant: GameVariant, playerCount: number) => void;
+  onConfirm: (variant: GameVariant, playerCount: number, debugMode: boolean) => void;
   onCancel: () => void;
+  /** Show a "Debug mode" toggle (solo games only) */
+  showDebugToggle?: boolean;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -428,10 +430,11 @@ function UniquePowersPanel({ config, onChange }: {
 
 const ALL_RANKS_ORDERED: Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
-export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalProps) {
+export function VariantConfigModal({ onConfirm, onCancel, showDebugToggle }: VariantConfigModalProps) {
   const { theme } = useTheme();
   const [config, setConfig] = useState<VariantConfig>(() => deepCopyConfig(DEFAULT_CONFIG));
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
 
   const handleReset = useCallback(() => {
     setConfig(deepCopyConfig(DEFAULT_CONFIG));
@@ -466,8 +469,8 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
       setValidationError(errors.map((e) => e.message).join('. '));
       return;
     }
-    onConfirm(variant, config.playerCount);
-  }, [config, onConfirm]);
+    onConfirm(variant, config.playerCount, debugMode);
+  }, [config, onConfirm, debugMode]);
 
   const renderActionButtons = () => (
     <div className="flex gap-3">
@@ -555,6 +558,20 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
                 onChange={(v) => setConfig((p) => ({ ...p, flopCount: v }))}
               />
             </div>
+            {showDebugToggle && (
+              <div className="flex items-center justify-between py-2 mt-1 border-t border-gray-600/30">
+                <span className="text-gray-200 text-sm">Mode debug</span>
+                <button
+                  type="button"
+                  onClick={() => setDebugMode((v) => !v)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${debugMode ? 'bg-[#c9a84c]' : 'bg-gray-600'}`}
+                >
+                  <div
+                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${debugMode ? 'translate-x-5' : 'translate-x-0.5'}`}
+                  />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Action buttons (top) */}
