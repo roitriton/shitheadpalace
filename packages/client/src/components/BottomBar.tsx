@@ -40,6 +40,7 @@ export function BottomBar({
 }: BottomBarProps) {
   const effectiveCanPlay = canPlay && !overlayActive && isSelectionLegal;
   const effectiveCanPickUp = canPickUp && !overlayActive;
+  const effectiveCanSkip = !!(emptyPileBlocked && onSkipTurn && !overlayActive);
   return (
     <div className="fixed bottom-0 left-0 right-0 h-14 z-50 bg-black border-t border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
       {/* Gauche : Chat */}
@@ -58,64 +59,66 @@ export function BottomBar({
         </button>
       </div>
 
-      {/* Centre : Actions */}
+      {/* Centre : Actions — Passer / Jouer / Ramasser */}
       <div className="flex-1 flex items-center justify-center gap-2">
-        {emptyPileBlocked && onSkipTurn && !overlayActive ? (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onSkipTurn}
-            className="px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors bg-amber-400 text-gray-900 hover:bg-amber-300"
-          >
-            Passer son tour
-          </motion.button>
-        ) : (
-          <>
-            <motion.button
-              whileHover={effectiveCanPlay ? { scale: 1.05 } : {}}
-              whileTap={effectiveCanPlay ? { scale: 0.95 } : {}}
-              onClick={onPlay}
-              disabled={!effectiveCanPlay}
-              className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
-                effectiveCanPlay
-                  ? 'bg-emerald-500 text-white hover:bg-emerald-400'
-                  : 'bg-gray-600 text-gray-500 opacity-50 cursor-not-allowed'
-              }`}
-            >
-              Jouer{selectedCount > 0 ? ` (${selectedCount})` : ''}
-            </motion.button>
+        {/* Passer — toujours visible, actif uniquement quand pile vide + aucune carte jouable */}
+        <motion.button
+          whileHover={effectiveCanSkip ? { scale: 1.05 } : {}}
+          whileTap={effectiveCanSkip ? { scale: 0.95 } : {}}
+          onClick={effectiveCanSkip ? onSkipTurn : undefined}
+          disabled={!effectiveCanSkip}
+          className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
+            effectiveCanSkip
+              ? 'bg-amber-400 text-gray-900 hover:bg-amber-300'
+              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          Passer
+        </motion.button>
 
-            <AnimatePresence>
-              {selectedCount > 0 && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onClearSelection}
-                  className="px-2.5 py-1.5 rounded-full text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
-                >
-                  ✕
-                </motion.button>
-              )}
-            </AnimatePresence>
+        <motion.button
+          whileHover={effectiveCanPlay ? { scale: 1.05 } : {}}
+          whileTap={effectiveCanPlay ? { scale: 0.95 } : {}}
+          onClick={onPlay}
+          disabled={!effectiveCanPlay}
+          className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
+            effectiveCanPlay
+              ? 'bg-emerald-500 text-white hover:bg-emerald-400'
+              : 'bg-gray-600 text-gray-500 opacity-50 cursor-not-allowed'
+          }`}
+        >
+          Jouer{selectedCount > 0 ? ` (${selectedCount})` : ''}
+        </motion.button>
 
+        <AnimatePresence>
+          {selectedCount > 0 && (
             <motion.button
-              whileHover={effectiveCanPickUp ? { scale: 1.05 } : {}}
-              whileTap={effectiveCanPickUp ? { scale: 0.95 } : {}}
-              onClick={onPickUp}
-              disabled={!effectiveCanPickUp}
-              className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
-                effectiveCanPickUp
-                  ? 'bg-red-800 text-white hover:bg-red-700'
-                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              }`}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onClearSelection}
+              className="px-2.5 py-1.5 rounded-full text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
             >
-              Ramasser
+              ✕
             </motion.button>
-          </>
-        )}
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          whileHover={effectiveCanPickUp ? { scale: 1.05 } : {}}
+          whileTap={effectiveCanPickUp ? { scale: 0.95 } : {}}
+          onClick={onPickUp}
+          disabled={!effectiveCanPickUp}
+          className={`px-3 sm:px-5 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow transition-colors ${
+            effectiveCanPickUp
+              ? 'bg-red-800 text-white hover:bg-red-700'
+              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          Ramasser
+        </motion.button>
       </div>
 
       {/* Droite : Log */}

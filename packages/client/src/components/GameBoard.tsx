@@ -314,7 +314,7 @@ function PlayerZone({
       )}
 
       {/* Flop row with avatar+name absolutely positioned to the left */}
-      <div className="relative">
+      <div className="relative z-[1]">
         {/* Avatar + Name — outside flow, to the left of cards */}
         <div className={`absolute right-full top-1/2 -translate-y-1/2 flex items-center ${isBot ? 'gap-1 mr-1.5' : 'gap-1.5 mr-2 sm:mr-3'}`}>
           <PlayerAvatar name={player.name} playerIndex={playerIndex} isActive={isActive} size={isBot ? 'bot' : 'human'} playerId={player.id} isDisconnected={isDisconnected} />
@@ -347,13 +347,13 @@ function PlayerZone({
 
       {/* Human hand */}
       {!isBot && (
-        <div data-zone="hand" data-player-id={player.id}>
+        <div data-zone="hand" data-player-id={player.id} className="relative z-[10]">
           <Reorder.Group
             as="div"
             axis="x"
             values={handOrder}
             onReorder={setHandOrder}
-            className="flex justify-center mt-4"
+            className="flex justify-center mt-6"
             style={{ paddingBottom: humanFanArc }}
           >
             {orderedHand.map((card, i) => {
@@ -1720,8 +1720,8 @@ export function GameBoard({
         style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.9) 100%)' }}
       />
 
-      {/* ── 1. Zone adversaires (25%) ── */}
-      <div className="flex-[25] min-h-0 flex items-center justify-evenly px-2 sm:px-3 md:px-4 relative z-[2]">
+      {/* ── 1. Zone adversaires (1/3) ── */}
+      <div className="flex-1 min-h-0 flex items-center justify-evenly px-2 sm:px-3 md:px-4 relative z-[2]">
         {bots.map((bot) => {
           const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
           // During flop remake animation first half, show old faceUp cards
@@ -1748,8 +1748,8 @@ export function GameBoard({
         })}
       </div>
 
-      {/* ── 2. Zone principale (40%) — 3 colonnes ── */}
-      <div className="flex-[40] min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2 relative z-[2]">
+      {/* ── 2. Zone principale (1/3) — 3 colonnes ── */}
+      <div className="flex-1 min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2 relative z-[2]">
         {/* Colonne gauche (25%) — Résumé pouvoirs / Révolution + Cimetière / Pioche */}
         <div className="w-1/4 flex flex-col h-full bg-black/20 rounded-lg gap-1 p-1">
           {/* Cadre haut — Résumé des pouvoirs ou Révolution */}
@@ -1810,31 +1810,32 @@ export function GameBoard({
         </div>
       </div>
 
-      {/* ── 4. Zone joueur humain (35%) ── */}
-      <div className="flex-[35] min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 pt-2 sm:pt-3 flex justify-center items-center relative z-[2]">
-        <PlayerZone
-          player={(flopRemakePlayerId === humanId && flopRemakeOldFaceUp)
-            ? { ...human, faceUp: flopRemakeOldFaceUp }
-            : human}
-          isBot={false}
-          isActive={isMyTurn}
-          activeZone={humanActiveZone}
-          selectedCards={selectedCards}
-          playerIndex={humanIdx}
-          onCardClick={onCardClick}
-          onFaceDownClick={onFaceDownPlay}
-          compact={isMobile}
-          comboHandFlopEnabled={comboHandFlopEnabled}
-          comboFlopDarkEnabled={comboFlopDarkEnabled}
-          isBurnSelection={isBurnSelection}
-          flopFlipAnimating={flopFlipPlayerId === humanId}
-          flopRemakeAnimating={flopRemakePlayerId === humanId}
-          onFlopRemakeAnimComplete={onFlopRemakeAnimComplete}
-        />
-      </div>
+      {/* ── 3. Zone joueur humain (1/3) ── */}
+      <div className="flex-1 min-h-0 flex flex-col relative z-[2]">
+        <div className="flex-1 min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 pt-2 sm:pt-3 flex justify-center items-center">
+          <PlayerZone
+            player={(flopRemakePlayerId === humanId && flopRemakeOldFaceUp)
+              ? { ...human, faceUp: flopRemakeOldFaceUp }
+              : human}
+            isBot={false}
+            isActive={isMyTurn}
+            activeZone={humanActiveZone}
+            selectedCards={selectedCards}
+            playerIndex={humanIdx}
+            onCardClick={onCardClick}
+            onFaceDownClick={onFaceDownPlay}
+            compact={isMobile}
+            comboHandFlopEnabled={comboHandFlopEnabled}
+            comboFlopDarkEnabled={comboFlopDarkEnabled}
+            isBurnSelection={isBurnSelection}
+            flopFlipAnimating={flopFlipPlayerId === humanId}
+            flopRemakeAnimating={flopRemakePlayerId === humanId}
+            onFlopRemakeAnimComplete={onFlopRemakeAnimComplete}
+          />
+        </div>
 
-      {/* ── Status (sous la main du héros) — fixed height to avoid layout shift ── */}
-      <div className="flex-none h-7 flex items-center justify-center px-2 pb-1 relative z-[2]">
+        {/* ── Status (sous la main du héros) — fixed height to avoid layout shift ── */}
+        <div className="flex-none h-7 flex items-center justify-center px-2 pb-1">
         {status && (
           <p
             className={`text-xs sm:text-sm leading-tight truncate font-medium px-3 py-0.5 rounded bg-black/50 ${
@@ -1847,6 +1848,7 @@ export function GameBoard({
             style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
           >{status}</p>
         )}
+        </div>
       </div>
 
       {/* ── Écran de fin ── */}

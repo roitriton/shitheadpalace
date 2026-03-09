@@ -113,7 +113,6 @@ export function TopBar({
         <span className="font-serif text-[#c9a84c] text-sm sm:text-base font-bold tracking-wide whitespace-nowrap">
           Shit Head Palace
         </span>
-        <span className="text-gray-400 text-xs sm:text-sm whitespace-nowrap">{gameType}</span>
         {variantName && (
           <span className="text-gray-500 text-[10px] sm:text-xs truncate hidden sm:inline">
             — {variantName}
