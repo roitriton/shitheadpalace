@@ -213,14 +213,17 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
 
         const launcherIsBot = launcherId !== humanId;
         const targetIsBot = targetId !== humanId;
+        const humanInvolved = !launcherIsBot || !targetIsBot;
 
         const targetPos = getZonePos('hand', targetId);
         const launcherPos = getZonePos('hand', launcherId);
         if (!targetPos || !launcherPos) continue;
 
         // Phase 1: stolen card flies from target → launcher (800ms)
+        // Card is now in launcher's hand (new state), fall back to target's hand (prev state)
         const launcher = game.players.find((p) => p.id === launcherId);
-        const takenCard = launcher?.hand.find((c) => c.id === takeCardId);
+        const takenCard = launcher?.hand.find((c) => c.id === takeCardId)
+          ?? prev.players.find((p) => p.id === targetId)?.hand.find((c) => c.id === takeCardId);
         if (takenCard && !handledCardIds.has(takenCard.id)) {
           handledCardIds.add(takenCard.id);
           newHidden.add(takenCard.id);
@@ -229,7 +232,7 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
           newAnims.push({
             id: `manouche-take-${entry.id}-${takenCard.id}`,
             card: takenCard,
-            faceDown: true,
+            faceDown: !humanInvolved,
             from: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
             to: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
             duration: 800,
@@ -238,9 +241,11 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
         }
 
         // Phase 2: given cards fly from launcher → target (800ms, after phase 1)
+        // Cards are now in target's hand (new state), fall back to launcher's hand (prev state)
         const target = game.players.find((p) => p.id === targetId);
         giveCardIds.forEach((gid, i) => {
-          const givenCard = target?.hand.find((c) => c.id === gid);
+          const givenCard = target?.hand.find((c) => c.id === gid)
+            ?? prev.players.find((p) => p.id === launcherId)?.hand.find((c) => c.id === gid);
           if (givenCard && !handledCardIds.has(givenCard.id)) {
             handledCardIds.add(givenCard.id);
             newHidden.add(givenCard.id);
@@ -249,7 +254,7 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
             newAnims.push({
               id: `manouche-give-${entry.id}-${givenCard.id}`,
               card: givenCard,
-              faceDown: true,
+              faceDown: !humanInvolved,
               from: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
               to: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
               duration: 800,
@@ -267,15 +272,18 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
 
         const launcherIsBot = launcherId !== humanId;
         const targetIsBot = targetId !== humanId;
+        const humanInvolved = !launcherIsBot || !targetIsBot;
 
         const targetPos = getZonePos('hand', targetId);
         const launcherPos = getZonePos('hand', launcherId);
         if (!targetPos || !launcherPos) continue;
 
         // Phase 1: stolen cards fly from target → launcher (800ms)
+        // Cards are now in launcher's hand (new state), fall back to target's hand (prev state)
         const launcher = game.players.find((p) => p.id === launcherId);
         takeCardIds.forEach((tid, i) => {
-          const takenCard = launcher?.hand.find((c) => c.id === tid);
+          const takenCard = launcher?.hand.find((c) => c.id === tid)
+            ?? prev.players.find((p) => p.id === targetId)?.hand.find((c) => c.id === tid);
           if (takenCard && !handledCardIds.has(takenCard.id)) {
             handledCardIds.add(takenCard.id);
             newHidden.add(takenCard.id);
@@ -284,7 +292,7 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
             newAnims.push({
               id: `smanouche-take-${entry.id}-${takenCard.id}`,
               card: takenCard,
-              faceDown: true,
+              faceDown: !humanInvolved,
               from: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
               to: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
               duration: 800,
@@ -294,10 +302,12 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
         });
 
         // Phase 2: given cards fly from launcher → target (800ms, after phase 1)
+        // Cards are now in target's hand (new state), fall back to launcher's hand (prev state)
         const phase1End = Math.max(800, takeCardIds.length * 50 + 800);
         const target = game.players.find((p) => p.id === targetId);
         giveCardIds.forEach((gid, i) => {
-          const givenCard = target?.hand.find((c) => c.id === gid);
+          const givenCard = target?.hand.find((c) => c.id === gid)
+            ?? prev.players.find((p) => p.id === launcherId)?.hand.find((c) => c.id === gid);
           if (givenCard && !handledCardIds.has(givenCard.id)) {
             handledCardIds.add(givenCard.id);
             newHidden.add(givenCard.id);
@@ -306,7 +316,7 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
             newAnims.push({
               id: `smanouche-give-${entry.id}-${givenCard.id}`,
               card: givenCard,
-              faceDown: true,
+              faceDown: !humanInvolved,
               from: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
               to: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
               duration: 800,
