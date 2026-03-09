@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTheme } from '../themes/ThemeContext';
 import { SiteHeader } from './SiteHeader';
+import { SiteFooter } from './SiteFooter';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ export function RulesScreen({ onNavigate }: RulesScreenProps) {
 
       <SiteHeader currentScreen="rules" onNavigate={onNavigate} />
 
-      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-6 overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-6 overflow-y-auto min-h-0">
         {/* Page title */}
         <h1 className="font-serif text-3xl text-[#c9a84c] mb-4 text-center">Règles du jeu</h1>
 
@@ -180,6 +181,8 @@ export function RulesScreen({ onNavigate }: RulesScreenProps) {
 
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

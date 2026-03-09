@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../auth/authContext';
 import { SiteLogo } from './SiteLogo';
+import { SiteFooter } from './SiteFooter';
 
 type Mode = 'login' | 'register';
 type PageView = 'auth' | 'privacy' | 'terms';
@@ -84,7 +85,8 @@ export function AuthScreen() {
   };
 
   return (
-    <div className="h-screen bg-[#0a0a0f] flex items-center justify-center px-4 overflow-y-auto">
+    <div className="h-screen bg-[#0a0a0f] flex flex-col">
+      <main className="flex-1 flex flex-col items-center justify-evenly px-4 overflow-y-auto min-h-0">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -259,6 +261,8 @@ export function AuthScreen() {
           )}
         </p>
       </motion.div>
+      </main>
+      <SiteFooter />
     </div>
   );
 }

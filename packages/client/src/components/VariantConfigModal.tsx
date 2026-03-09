@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { GameVariant, Power, Rank, Suit, UniquePowerType } from '@shit-head-palace/engine';
 import { validateVariant, DEFAULT_UNIQUE_POWER_SUITS } from '@shit-head-palace/engine';
 import { useTheme } from '../themes/ThemeContext';
+import { SiteHeader } from './SiteHeader';
+import { SiteFooter } from './SiteFooter';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -509,6 +511,9 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
         }}
       />
 
+      {/* Header */}
+      <SiteHeader currentScreen="lobby" onNavigate={() => {}} navDisabled />
+
       {/* Content */}
       <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-6">
         {/* Page title */}
@@ -595,6 +600,8 @@ export function VariantConfigModal({ onConfirm, onCancel }: VariantConfigModalPr
           </div>
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

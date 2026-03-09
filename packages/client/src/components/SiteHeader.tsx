@@ -12,6 +12,8 @@ interface SiteHeaderProps {
   onNavigate: (screen: NavScreen) => void;
   /** When true, Règles/Profil are disabled and Jouer requires confirmation */
   inWaitingRoom?: boolean;
+  /** When true, ALL nav items are disabled/greyed out */
+  navDisabled?: boolean;
 }
 
 function ThemeDropdown() {
@@ -66,7 +68,7 @@ const NAV_ITEMS: { screen: NavScreen; label: string; disabled?: boolean }[] = [
   { screen: 'profile', label: 'Profil', disabled: true },
 ];
 
-export function SiteHeader({ currentScreen, onNavigate, inWaitingRoom }: SiteHeaderProps) {
+export function SiteHeader({ currentScreen, onNavigate, inWaitingRoom, navDisabled }: SiteHeaderProps) {
   const { user, logout } = useAuth();
   const [confirmLeave, setConfirmLeave] = useState(false);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,7 +100,7 @@ export function SiteHeader({ currentScreen, onNavigate, inWaitingRoom }: SiteHea
       {/* Center: navigation */}
       <nav className="flex-1 flex justify-center gap-1 sm:gap-2">
         {NAV_ITEMS.map(({ screen, label, disabled: staticDisabled }) => {
-          const isDisabled = staticDisabled || (inWaitingRoom && screen !== 'lobby');
+          const isDisabled = staticDisabled || navDisabled || (inWaitingRoom && screen !== 'lobby');
           const isActive = currentScreen === screen;
           const isConfirm = screen === 'lobby' && inWaitingRoom && confirmLeave;
 

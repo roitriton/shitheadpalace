@@ -4,6 +4,8 @@ import type { Card as CardType, GameState, Power, Rank, Suit, UniquePowerType } 
 import { DEFAULT_UNIQUE_POWER_SUITS } from '@shit-head-palace/engine';
 import { Card } from './Card';
 import { useTheme } from '../themes/ThemeContext';
+import { SiteHeader } from './SiteHeader';
+import { SiteFooter } from './SiteFooter';
 
 // ─── Compact power list (single column for narrow panel) ────────────────────
 
@@ -138,7 +140,7 @@ export function SwapPhase({ state, humanId, roomName, onSwap, onReady }: SwapPha
 
   return (
     <div
-      className="h-screen flex flex-col items-center overflow-y-auto"
+      className="h-screen flex flex-col overflow-y-auto"
       style={{
         backgroundImage: `url(${theme.bgImage})`,
         backgroundRepeat: 'repeat',
@@ -154,6 +156,9 @@ export function SwapPhase({ state, humanId, roomName, onSwap, onReady }: SwapPha
           background: 'radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.7) 100%)',
         }}
       />
+
+      {/* Header */}
+      <SiteHeader currentScreen="lobby" onNavigate={() => {}} navDisabled />
 
       <div className="relative z-10 flex flex-col items-center justify-center flex-1 p-4 gap-4 w-full">
         {/* Titre */}
@@ -302,6 +307,8 @@ export function SwapPhase({ state, humanId, roomName, onSwap, onReady }: SwapPha
           </div>
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

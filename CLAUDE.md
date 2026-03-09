@@ -44,12 +44,18 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Étape 12H-4** — Rooms privées avec code d'invitation : joinCode pour toutes les rooms, lobby:joinByCode, UI copie code + rejoindre par code (1160 tests)
 - [x] **Étape 12H-5** — Reconnexion en cours de partie + bouton quitter : grâce period 60s, lobby:checkActiveGame, game:playerDisconnected/Reconnected, indicateur visuel déconnexion, remplacement bot auto, bouton « Quitter la partie » TopBar avec confirmation (1171 tests)
 - [x] **Étape 12I** — Polish lobby + fix quitter partie : fond tilé, sélecteur thème, toast room closed, feedback visuel bouton quitter (1171 tests)
+- [x] **Étape 12J** — Ajustements visuels : bandeaux noirs opaques, bordure jeu gris foncé (1171 tests)
+- [x] **Étape 12K-1** — SiteHeader navigation + SiteLogo doré avec cartes éventail (1171 tests)
+- [x] **Étape 12K-2** — Cohérence visuelle : boutons uniformisés, blocs profondeur, scroll, salle d'attente 2 colonnes, config variantes page plein écran (1171 tests)
+- [x] **Étape 12K-3** — Écran connexion : fond noir uni + SiteLogo (1171 tests)
+- [x] **Étape 12K-4** — Lobby restructuré 2 colonnes + panneau joueur (1171 tests)
+- [x] **Étape 12K-5** — Page Règles complète avec accents (1171 tests)
+- [x] **Étape 12K-6** — Phase de préparation : 3 colonnes, dark flop chevauchement, pouvoirs compacts (1171 tests)
+- [x] **Étape 12K-7** — Titres dorés cohérents + config variantes 1 colonne + boutons haut/bas (1171 tests)
 
 ### Nombre total de tests : 1171 (969 engine + 189 server + 13 client)
 
 ### Étapes à venir
-
-- [ ] Étape 12 — Lobby, profil, variantes (client)
 - [ ] Étape 13 — IA (bots intermédiaire et expert)
 - [ ] Étape 14 — Son (Howler.js) et polish
 - [ ] Étape 15 — Tests d'intégration, responsive mobile (Capacitor) et déploiement
