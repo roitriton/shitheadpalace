@@ -430,6 +430,68 @@ describe('resolveAutoSkip', () => {
       expect(result.pendingAction!.playerIds).toHaveLength(4);
     }
   });
+
+  it('logs skipTurn + skipTurnEffect when auto-skipping a player', () => {
+    const players = makeState().players.map((p, i) =>
+      i === 0
+        ? { ...p, hand: [{ id: 'J-h-0', suit: 'hearts' as const, rank: 'J' as const }] }
+        : { ...p, hand: [card('5')] },
+    );
+    const state = makeState({ players, currentPlayerIndex: 0, turnOrder: [1, 2, 3] });
+    const result = resolveAutoSkip(state);
+    expect(result.currentPlayerIndex).toBe(1);
+    // Should have 2 log entries: skipTurn + skipTurnEffect for p0
+    expect(result.log).toHaveLength(2);
+    expect(result.log[0]!.type).toBe('skipTurn');
+    expect(result.log[0]!.playerId).toBe('p0');
+    expect(result.log[0]!.data.message).toBe('p0 ne peut pas jouer');
+    expect(result.log[1]!.type).toBe('skipTurnEffect');
+    expect(result.log[1]!.playerId).toBe('p0');
+    expect(result.log[1]!.data.message).toBe('p0 passe son tour');
+    expect(result.log[1]!.entryType).toBe('effect');
+  });
+
+  it('logs multiple skips when several players are auto-skipped', () => {
+    const jHeart: Card = { id: 'J-h-0', suit: 'hearts', rank: 'J' };
+    const jDiamond: Card = { id: 'J-d-0', suit: 'diamonds', rank: 'J' };
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [jHeart] };     // only Jack
+      if (i === 1) return { ...p, hand: [jDiamond] };   // only Jack
+      if (i === 2) return { ...p, hand: [card('5')] };   // playable
+      return { ...p, hand: [card('K')] };
+    });
+    const state = makeState({ players, currentPlayerIndex: 0, turnOrder: [1, 2, 3] });
+    const result = resolveAutoSkip(state);
+    expect(result.currentPlayerIndex).toBe(2);
+    // Should have 4 log entries: 2 per skipped player (p0 and p1)
+    expect(result.log).toHaveLength(4);
+    expect(result.log[0]!.type).toBe('skipTurn');
+    expect(result.log[0]!.playerId).toBe('p0');
+    expect(result.log[1]!.type).toBe('skipTurnEffect');
+    expect(result.log[1]!.playerId).toBe('p0');
+    expect(result.log[2]!.type).toBe('skipTurn');
+    expect(result.log[2]!.playerId).toBe('p1');
+    expect(result.log[3]!.type).toBe('skipTurnEffect');
+    expect(result.log[3]!.playerId).toBe('p1');
+  });
+
+  it('uses timestamp from last log entry when available', () => {
+    const players = makeState().players.map((p, i) =>
+      i === 0
+        ? { ...p, hand: [{ id: 'J-h-0', suit: 'hearts' as const, rank: 'J' as const }] }
+        : { ...p, hand: [card('5')] },
+    );
+    const state = makeState({
+      players,
+      currentPlayerIndex: 0,
+      turnOrder: [1, 2, 3],
+      log: [{ id: 'prev-0', timestamp: 42000, type: 'play', data: {} }],
+    });
+    const result = resolveAutoSkip(state);
+    // New log entries should inherit the timestamp from the previous entry
+    expect(result.log[1]!.timestamp).toBe(42000);
+    expect(result.log[2]!.timestamp).toBe(42000);
+  });
 });
 
 // ─── applyAllBlockedShifumiChoice ────────────────────────────────────────────

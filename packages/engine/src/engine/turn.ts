@@ -1,5 +1,6 @@
 import type { Card, Direction, GameState, PendingAllBlockedShifumi, Player } from '../types';
 import { canPlayerPlayAnything } from './validation';
+import { appendLog } from '../utils/log';
 
 /** Default target hand size during Phase 1 (while the draw pile is non-empty). */
 export const TARGET_HAND_SIZE = 3;
@@ -189,9 +190,29 @@ export function resolveAutoSkip(state: GameState): GameState {
     return { ...state, pendingAction: pending };
   }
 
-  // Skip the current player and check the next one (iterative to avoid stack overflow)
-  let current = advanceTurn(state, false);
+  // Derive timestamp from last log entry (or 0 in tests with empty log)
+  const timestamp = state.log.length > 0 ? state.log[state.log.length - 1]!.timestamp : 0;
+
+  // Log skip for the first blocked player, then advance
+  let current = state;
+  const firstSkipped = current.players[current.currentPlayerIndex]!;
+  current = appendLog(current, 'skipTurn', timestamp, firstSkipped.id, firstSkipped.name, {
+    message: `${firstSkipped.name} ne peut pas jouer`,
+  });
+  current = appendLog(current, 'skipTurnEffect', timestamp, firstSkipped.id, firstSkipped.name, {
+    message: `${firstSkipped.name} passe son tour`,
+  }, 'effect');
+  current = advanceTurn(current, false);
+
+  // Continue skipping (with logging) until a playable player is found
   while (!canPlayerPlayAnything(current, current.currentPlayerIndex)) {
+    const skipped = current.players[current.currentPlayerIndex]!;
+    current = appendLog(current, 'skipTurn', timestamp, skipped.id, skipped.name, {
+      message: `${skipped.name} ne peut pas jouer`,
+    });
+    current = appendLog(current, 'skipTurnEffect', timestamp, skipped.id, skipped.name, {
+      message: `${skipped.name} passe son tour`,
+    }, 'effect');
     current = advanceTurn(current, false);
   }
   return current;

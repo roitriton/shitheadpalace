@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { isTargetTriggered, applyTarget } from './target';
 import { applyPlay } from '../engine/actions/play';
 import { applyTargetChoice } from '../engine/actions/applyTargetChoice';
+import { applyPickUpPile } from '../engine/actions/pickUp';
 import type { Card, GameState, GameVariant, PileEntry, Player } from '../types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -362,5 +363,112 @@ describe('Target — finished player validation', () => {
       pendingAction: { type: 'target', launcherId: 'p0' },
     });
     expect(() => applyTargetChoice(state, 'p0', 'p3')).not.toThrow();
+  });
+});
+
+// ─── Target → pickup → auto-skip with logging ────────────────────────────────
+
+describe('Target → pickup → turn after ramassage', () => {
+  const jSpade: Card = { id: 'J-s-0', suit: 'spades', rank: 'J' };
+
+  it('after target + pickup, turn goes to next player after the one who picked up', () => {
+    // 3 players: p0 (human), p1 (bot1), p2 (bot2)
+    // p2 plays Ace → targets p1 → p1 picks up → turn should go to p2
+    const threePlayerVariant: GameVariant = {
+      name: 'test3',
+      powerAssignments: { target: 'A', burn: '10' },
+      playerCount: 3,
+      deckCount: 1,
+    };
+    const players = [
+      makePlayer('p0', { hand: [cK] }),
+      makePlayer('p1', { hand: [c5] }),
+      makePlayer('p2', { hand: [card('A', 'spades'), cK] }),
+    ];
+    const state: GameState = {
+      id: 'g1',
+      phase: 'playing',
+      players,
+      deck: [],
+      pile: [],
+      graveyard: [],
+      currentPlayerIndex: 2,
+      direction: 1,
+      turnOrder: [0, 1],
+      finishOrder: [],
+      variant: threePlayerVariant,
+      pendingAction: null,
+      log: [],
+      lastPowerTriggered: null,
+    };
+
+    // p2 plays Ace → Target triggered
+    const afterAce = applyPlay(state, 'p2', [card('A', 'spades').id]);
+    expect(afterAce.pendingAction?.type).toBe('target');
+
+    // p2 targets p1
+    const afterChoice = applyTargetChoice(afterAce, 'p2', 'p1');
+    expect(afterChoice.currentPlayerIndex).toBe(1); // p1's turn
+
+    // p1 picks up the pile (the Ace)
+    const afterPickUp = applyPickUpPile(afterChoice, 'p1');
+    // After pickup, next should be p2 (next after p1 in turn order)
+    expect(afterPickUp.currentPlayerIndex).toBe(2);
+  });
+
+  it('after target + pickup + auto-skip, skipped player has log entries', () => {
+    // 3 players: p0, p1, p2
+    // p2 plays Ace → targets p1 → p1 picks up → p2 only has Jacks → p2 skipped → p0 plays
+    // The skip should be logged
+    const threePlayerVariant: GameVariant = {
+      name: 'test3',
+      powerAssignments: { target: 'A', burn: '10' },
+      playerCount: 3,
+      deckCount: 1,
+    };
+    const players = [
+      makePlayer('p0', { hand: [cK] }),
+      makePlayer('p1', { hand: [c5] }),
+      makePlayer('p2', { hand: [card('A', 'spades'), jSpade] }),
+    ];
+    const state: GameState = {
+      id: 'g1',
+      phase: 'playing',
+      players,
+      deck: [],
+      pile: [],
+      graveyard: [],
+      currentPlayerIndex: 2,
+      direction: 1,
+      turnOrder: [0, 1],
+      finishOrder: [],
+      variant: threePlayerVariant,
+      pendingAction: null,
+      log: [],
+      lastPowerTriggered: null,
+    };
+
+    // p2 plays Ace → Target triggered
+    const afterAce = applyPlay(state, 'p2', [card('A', 'spades').id]);
+
+    // p2 targets p1
+    const afterChoice = applyTargetChoice(afterAce, 'p2', 'p1');
+
+    // p1 picks up the pile
+    const afterPickUp = applyPickUpPile(afterChoice, 'p1');
+
+    // p2 only has Jack (can't play on empty pile) → auto-skipped → p0 plays
+    expect(afterPickUp.currentPlayerIndex).toBe(0);
+
+    // Verify skip was logged
+    const skipEntries = afterPickUp.log.filter((e) => e.type === 'skipTurn');
+    expect(skipEntries.length).toBeGreaterThanOrEqual(1);
+    expect(skipEntries.some((e) => e.playerId === 'p2')).toBe(true);
+
+    const skipEffects = afterPickUp.log.filter((e) => e.type === 'skipTurnEffect');
+    expect(skipEffects.length).toBeGreaterThanOrEqual(1);
+    const p2Effect = skipEffects.find((e) => e.playerId === 'p2');
+    expect(p2Effect).toBeDefined();
+    expect(p2Effect!.data.message).toBe('p2 passe son tour');
   });
 });
