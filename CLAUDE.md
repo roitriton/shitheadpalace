@@ -63,6 +63,7 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Fix 12L-3c** — Ramassage fluide, éventail adversaires complet, positions fixes adversaires (1176 tests)
 - [x] **Étape 12L-4a** — Manouche/Super Manouche multi-étages : échange sur l'étage commun le plus haut (hand > flop > dark flop), échange aveugle sur dark flop, tous joueurs ciblables (1201 tests)
 - [x] **Fix 12L-4b** — Pioche fluide, burn overlay avant cimetière (solo+multi), icônes pouvoirs log/minilog, nouvelles icônes Reset⭐/Skip🦘/Under💎/Target🏹 (1201 tests)
+- [x] **Fix 12L-4a-anim** — Animation Manouche/Super Manouche sur flop et dark flop (1201 tests)
 
 ### Nombre total de tests : 1201 (999 engine + 189 server + 13 client)
 

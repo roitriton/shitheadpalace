@@ -1,5 +1,5 @@
 import { useRef, useState, useLayoutEffect, useCallback, createContext } from 'react';
-import type { GameState, Card as CardType } from '@shit-head-palace/engine';
+import type { GameState, Card as CardType, Player } from '@shit-head-palace/engine';
 import type { FlyingCardAnim } from '../components/CardAnimationLayer';
 
 // ─── Context for hiding cards at destination during flight ──────────────────
@@ -46,6 +46,13 @@ function getCardPos(cardId: string): { x: number; y: number } | null {
     x: rect.left + rect.width / 2 - CARD_MD_W / 2,
     y: rect.top + rect.height / 2 - CARD_MD_H / 2,
   };
+}
+
+/** Find a card across all zones (hand, faceUp, faceDown) of a player. */
+function findCardOnPlayer(player: Player, cardId: string): CardType | undefined {
+  return player.hand.find((c) => c.id === cardId)
+    ?? player.faceUp.find((c) => c.id === cardId)
+    ?? player.faceDown.find((c) => c.id === cardId);
 }
 
 // ─── Max ghost cards per animation group (performance) ──────────────────────
@@ -210,20 +217,24 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
         const targetId = entry.data.targetId as string;
         const takeCardId = entry.data.takeCardId as string;
         const giveCardIds = entry.data.giveCardIds as string[];
+        const layer = (entry.data.exchangeLayer as string) ?? 'hand';
 
         const launcherIsBot = launcherId !== humanId;
         const targetIsBot = targetId !== humanId;
         const humanInvolved = !launcherIsBot || !targetIsBot;
+        // Dark flop exchanges are always face-down; others face-down only if no human involved
+        const animFaceDown = layer === 'faceDown' || !humanInvolved;
 
-        const targetPos = getZonePos('hand', targetId);
-        const launcherPos = getZonePos('hand', launcherId);
+        const targetPos = getZonePos(layer, targetId);
+        const launcherPos = getZonePos(layer, launcherId);
         if (!targetPos || !launcherPos) continue;
 
         // Phase 1: stolen card flies from target → launcher (800ms)
-        // Card is now in launcher's hand (new state), fall back to target's hand (prev state)
+        // Card is now in launcher's zone (new state), fall back to target's zone (prev state)
         const launcher = game.players.find((p) => p.id === launcherId);
-        const takenCard = launcher?.hand.find((c) => c.id === takeCardId)
-          ?? prev.players.find((p) => p.id === targetId)?.hand.find((c) => c.id === takeCardId);
+        const prevTarget = prev.players.find((p) => p.id === targetId);
+        const takenCard = (launcher ? findCardOnPlayer(launcher, takeCardId) : undefined)
+          ?? (prevTarget ? findCardOnPlayer(prevTarget, takeCardId) : undefined);
         if (takenCard && !handledCardIds.has(takenCard.id)) {
           handledCardIds.add(takenCard.id);
           newHidden.add(takenCard.id);
@@ -232,20 +243,21 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
           newAnims.push({
             id: `manouche-take-${entry.id}-${takenCard.id}`,
             card: takenCard,
-            faceDown: !humanInvolved,
-            from: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
-            to: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
+            faceDown: animFaceDown,
+            from: { ...targetPos, scale: zoneScale(layer, targetIsBot) },
+            to: { ...launcherPos, scale: zoneScale(layer, launcherIsBot) },
             duration: 800,
             delay: 0,
           });
         }
 
         // Phase 2: given cards fly from launcher → target (800ms, after phase 1)
-        // Cards are now in target's hand (new state), fall back to launcher's hand (prev state)
+        // Cards are now in target's zone (new state), fall back to launcher's zone (prev state)
         const target = game.players.find((p) => p.id === targetId);
+        const prevLauncher = prev.players.find((p) => p.id === launcherId);
         giveCardIds.forEach((gid, i) => {
-          const givenCard = target?.hand.find((c) => c.id === gid)
-            ?? prev.players.find((p) => p.id === launcherId)?.hand.find((c) => c.id === gid);
+          const givenCard = (target ? findCardOnPlayer(target, gid) : undefined)
+            ?? (prevLauncher ? findCardOnPlayer(prevLauncher, gid) : undefined);
           if (givenCard && !handledCardIds.has(givenCard.id)) {
             handledCardIds.add(givenCard.id);
             newHidden.add(givenCard.id);
@@ -254,9 +266,9 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
             newAnims.push({
               id: `manouche-give-${entry.id}-${givenCard.id}`,
               card: givenCard,
-              faceDown: !humanInvolved,
-              from: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
-              to: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
+              faceDown: animFaceDown,
+              from: { ...launcherPos, scale: zoneScale(layer, launcherIsBot) },
+              to: { ...targetPos, scale: zoneScale(layer, targetIsBot) },
               duration: 800,
               delay: 800 + i * 50,
             });
@@ -269,21 +281,24 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
         const targetId = entry.data.targetId as string;
         const takeCardIds = entry.data.takeCardIds as string[];
         const giveCardIds = entry.data.giveCardIds as string[];
+        const layer = (entry.data.exchangeLayer as string) ?? 'hand';
 
         const launcherIsBot = launcherId !== humanId;
         const targetIsBot = targetId !== humanId;
         const humanInvolved = !launcherIsBot || !targetIsBot;
+        const animFaceDown = layer === 'faceDown' || !humanInvolved;
 
-        const targetPos = getZonePos('hand', targetId);
-        const launcherPos = getZonePos('hand', launcherId);
+        const targetPos = getZonePos(layer, targetId);
+        const launcherPos = getZonePos(layer, launcherId);
         if (!targetPos || !launcherPos) continue;
 
         // Phase 1: stolen cards fly from target → launcher (800ms)
-        // Cards are now in launcher's hand (new state), fall back to target's hand (prev state)
+        // Cards are now in launcher's zone (new state), fall back to target's zone (prev state)
         const launcher = game.players.find((p) => p.id === launcherId);
+        const prevTarget = prev.players.find((p) => p.id === targetId);
         takeCardIds.forEach((tid, i) => {
-          const takenCard = launcher?.hand.find((c) => c.id === tid)
-            ?? prev.players.find((p) => p.id === targetId)?.hand.find((c) => c.id === tid);
+          const takenCard = (launcher ? findCardOnPlayer(launcher, tid) : undefined)
+            ?? (prevTarget ? findCardOnPlayer(prevTarget, tid) : undefined);
           if (takenCard && !handledCardIds.has(takenCard.id)) {
             handledCardIds.add(takenCard.id);
             newHidden.add(takenCard.id);
@@ -292,9 +307,9 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
             newAnims.push({
               id: `smanouche-take-${entry.id}-${takenCard.id}`,
               card: takenCard,
-              faceDown: !humanInvolved,
-              from: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
-              to: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
+              faceDown: animFaceDown,
+              from: { ...targetPos, scale: zoneScale(layer, targetIsBot) },
+              to: { ...launcherPos, scale: zoneScale(layer, launcherIsBot) },
               duration: 800,
               delay: i * 50,
             });
@@ -302,12 +317,13 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
         });
 
         // Phase 2: given cards fly from launcher → target (800ms, after phase 1)
-        // Cards are now in target's hand (new state), fall back to launcher's hand (prev state)
+        // Cards are now in target's zone (new state), fall back to launcher's zone (prev state)
         const phase1End = Math.max(800, takeCardIds.length * 50 + 800);
         const target = game.players.find((p) => p.id === targetId);
+        const prevLauncher = prev.players.find((p) => p.id === launcherId);
         giveCardIds.forEach((gid, i) => {
-          const givenCard = target?.hand.find((c) => c.id === gid)
-            ?? prev.players.find((p) => p.id === launcherId)?.hand.find((c) => c.id === gid);
+          const givenCard = (target ? findCardOnPlayer(target, gid) : undefined)
+            ?? (prevLauncher ? findCardOnPlayer(prevLauncher, gid) : undefined);
           if (givenCard && !handledCardIds.has(givenCard.id)) {
             handledCardIds.add(givenCard.id);
             newHidden.add(givenCard.id);
@@ -316,9 +332,9 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
             newAnims.push({
               id: `smanouche-give-${entry.id}-${givenCard.id}`,
               card: givenCard,
-              faceDown: !humanInvolved,
-              from: { ...launcherPos, scale: zoneScale('hand', launcherIsBot) },
-              to: { ...targetPos, scale: zoneScale('hand', targetIsBot) },
+              faceDown: animFaceDown,
+              from: { ...launcherPos, scale: zoneScale(layer, launcherIsBot) },
+              to: { ...targetPos, scale: zoneScale(layer, targetIsBot) },
               duration: 800,
               delay: phase1End + i * 50,
             });
