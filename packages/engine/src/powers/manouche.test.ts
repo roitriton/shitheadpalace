@@ -584,7 +584,7 @@ describe('Manouche — full flow via applyPlay', () => {
     });
     const next = applyPlay(state, 'p0', [jSpade.id], 0, 'p1');
 
-    expect(next.pendingAction).toEqual({ type: 'manouche', launcherId: 'p0', targetId: 'p1' });
+    expect(next.pendingAction).toEqual({ type: 'manouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'hand' });
     // Turn must NOT have advanced yet
     expect(next.currentPlayerIndex).toBe(0);
   });
@@ -600,7 +600,7 @@ describe('Manouche — full flow via applyPlay', () => {
     });
     const next = applyPlay(state, 'p0', [jSpade.id, c9.id], 0, 'p1');
 
-    expect(next.pendingAction).toEqual({ type: 'superManouche', launcherId: 'p0', targetId: 'p1' });
+    expect(next.pendingAction).toEqual({ type: 'superManouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'hand' });
     expect(next.currentPlayerIndex).toBe(0);
   });
 
@@ -864,5 +864,396 @@ describe('filterGameStateForPlayer — Manouche pending', () => {
     const filtered = filterGameStateForPlayer(state, 'p0');
     const targetHand = filtered.players[1]!.hand;
     expect(targetHand.every((c) => c.hidden === true)).toBe(true);
+  });
+
+  it("exchangeLayer faceUp: target hand stays hidden (faceUp already public)", () => {
+    const state = {
+      ...setupManoucheFilter(),
+      pendingAction: {
+        type: 'manouche' as const,
+        launcherId: 'p0',
+        targetId: 'p1',
+        exchangeLayer: 'faceUp' as const,
+      },
+    };
+    const filtered = filterGameStateForPlayer(state, 'p0');
+    // Target's hand is NOT revealed when exchange is on faceUp
+    expect(filtered.players[1]!.hand.every((c) => c.hidden === true)).toBe(true);
+  });
+
+  it("exchangeLayer faceDown: target hand stays hidden (blind exchange)", () => {
+    const state = {
+      ...setupManoucheFilter(),
+      pendingAction: {
+        type: 'manouche' as const,
+        launcherId: 'p0',
+        targetId: 'p1',
+        exchangeLayer: 'faceDown' as const,
+      },
+    };
+    const filtered = filterGameStateForPlayer(state, 'p0');
+    expect(filtered.players[1]!.hand.every((c) => c.hidden === true)).toBe(true);
+    expect(filtered.players[1]!.faceDown.every((c) => c.hidden === true)).toBe(true);
+  });
+});
+
+// ─── Exchange layer determination ─────────────────────────────────────────────
+
+import { getExchangeLayer } from '../engine/actions/applyManoucheChoice';
+
+describe('getExchangeLayer', () => {
+  it('returns hand when both have hand cards', () => {
+    const launcher = makePlayer('l', { hand: [cK], faceUp: [c5a], faceDown: [cQ] });
+    const target = makePlayer('t', { hand: [c5b], faceUp: [c5c], faceDown: [cKb] });
+    expect(getExchangeLayer(launcher, target)).toBe('hand');
+  });
+
+  it('returns faceUp when only one has hand cards', () => {
+    const launcher = makePlayer('l', { hand: [], faceUp: [c5a], faceDown: [cQ] });
+    const target = makePlayer('t', { hand: [c5b], faceUp: [c5c], faceDown: [cKb] });
+    expect(getExchangeLayer(launcher, target)).toBe('faceUp');
+  });
+
+  it('returns faceUp when neither has hand cards but both have faceUp', () => {
+    const launcher = makePlayer('l', { hand: [], faceUp: [c5a], faceDown: [cQ] });
+    const target = makePlayer('t', { hand: [], faceUp: [c5c], faceDown: [cKb] });
+    expect(getExchangeLayer(launcher, target)).toBe('faceUp');
+  });
+
+  it('returns faceDown when neither has hand nor faceUp', () => {
+    const launcher = makePlayer('l', { hand: [], faceUp: [], faceDown: [cQ] });
+    const target = makePlayer('t', { hand: [], faceUp: [], faceDown: [cKb] });
+    expect(getExchangeLayer(launcher, target)).toBe('faceDown');
+  });
+
+  it('returns faceDown when one has hand but other has only faceDown', () => {
+    const launcher = makePlayer('l', { hand: [cK], faceUp: [], faceDown: [cQ] });
+    const target = makePlayer('t', { hand: [], faceUp: [], faceDown: [cKb] });
+    expect(getExchangeLayer(launcher, target)).toBe('faceDown');
+  });
+
+  it('throws when no common layer exists', () => {
+    const launcher = makePlayer('l', { hand: [cK], faceUp: [], faceDown: [] });
+    const target = makePlayer('t', { hand: [], faceUp: [], faceDown: [cKb] });
+    expect(() => getExchangeLayer(launcher, target)).toThrow(/No common exchange layer/);
+  });
+});
+
+// ─── Manouche exchange on faceUp layer ──────────────────────────────────────
+
+describe('applyManouchePick — faceUp layer', () => {
+  function setupFlopManouche() {
+    // p0 (launcher): hand empty, faceUp = [c5a, cK]
+    // p1 (target):   hand empty, faceUp = [c5b, cQ]
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [c5a, cK] };
+      if (i === 1) return { ...p, hand: [], faceUp: [c5b, cQ] };
+      return p;
+    });
+    return makeState({
+      players,
+      pendingAction: { type: 'manouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'faceUp' },
+    });
+  }
+
+  it('exchanges cards between faceUp zones', () => {
+    const state = setupFlopManouche();
+    const next = applyManouchePick(state, 'p0', c5b.id, [c5a.id]);
+    // p0 faceUp: lost c5a, gained c5b → [cK, c5b]
+    expect(next.players[0]!.faceUp.map((c) => c.id)).toContain(cK.id);
+    expect(next.players[0]!.faceUp.map((c) => c.id)).toContain(c5b.id);
+    expect(next.players[0]!.faceUp.map((c) => c.id)).not.toContain(c5a.id);
+    // p1 faceUp: lost c5b, gained c5a → [cQ, c5a]
+    expect(next.players[1]!.faceUp.map((c) => c.id)).toContain(cQ.id);
+    expect(next.players[1]!.faceUp.map((c) => c.id)).toContain(c5a.id);
+    expect(next.players[1]!.faceUp.map((c) => c.id)).not.toContain(c5b.id);
+  });
+
+  it('does not modify hand arrays', () => {
+    const state = setupFlopManouche();
+    const next = applyManouchePick(state, 'p0', c5b.id, [c5a.id]);
+    expect(next.players[0]!.hand).toHaveLength(0);
+    expect(next.players[1]!.hand).toHaveLength(0);
+  });
+
+  it('does not auto-draw (faceUp layer)', () => {
+    const deckCard = card('3', 'hearts', 10);
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [c5a, cK] };
+      if (i === 1) return { ...p, hand: [], faceUp: [c5b, cQ] };
+      return p;
+    });
+    const state = makeState({
+      players,
+      deck: [deckCard],
+      pendingAction: { type: 'manouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'faceUp' },
+    });
+    const next = applyManouchePick(state, 'p0', c5b.id, [c5a.id]);
+    // Deck untouched — no auto-draw for faceUp exchange
+    expect(next.deck).toHaveLength(1);
+  });
+
+  it('enforces rank constraint on faceUp layer', () => {
+    const state = setupFlopManouche();
+    // Try giving cK (rank K) — different rank from c5a
+    expect(() => applyManouchePick(state, 'p0', c5b.id, [cK.id, c5a.id])).toThrow(/same rank/);
+  });
+});
+
+// ─── Manouche exchange on faceDown layer (blind) ────────────────────────────
+
+describe('applyManouchePick — faceDown layer (blind)', () => {
+  function setupDarkManouche() {
+    // p0 (launcher): all empty except faceDown = [c5a, cK]
+    // p1 (target):   all empty except faceDown = [c5b, cQ]
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [], faceDown: [c5a, cK] };
+      if (i === 1) return { ...p, hand: [], faceUp: [], faceDown: [c5b, cQ] };
+      return p;
+    });
+    return makeState({
+      players,
+      pendingAction: { type: 'manouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'faceDown' },
+    });
+  }
+
+  it('exchanges cards between faceDown zones', () => {
+    const state = setupDarkManouche();
+    const next = applyManouchePick(state, 'p0', c5b.id, [c5a.id]);
+    // p0 faceDown: lost c5a, gained c5b
+    expect(next.players[0]!.faceDown.map((c) => c.id)).toContain(cK.id);
+    expect(next.players[0]!.faceDown.map((c) => c.id)).toContain(c5b.id);
+    expect(next.players[0]!.faceDown.map((c) => c.id)).not.toContain(c5a.id);
+    // p1 faceDown: lost c5b, gained c5a
+    expect(next.players[1]!.faceDown.map((c) => c.id)).toContain(cQ.id);
+    expect(next.players[1]!.faceDown.map((c) => c.id)).toContain(c5a.id);
+    expect(next.players[1]!.faceDown.map((c) => c.id)).not.toContain(c5b.id);
+  });
+
+  it('relaxes rank constraint on faceDown (blind exchange)', () => {
+    const state = setupDarkManouche();
+    // Give cK (rank K) + c5a (rank 5) — different ranks → allowed on faceDown
+    const next = applyManouchePick(state, 'p0', c5b.id, [cK.id, c5a.id]);
+    // p0 faceDown: lost both, gained c5b → [c5b]
+    expect(next.players[0]!.faceDown).toHaveLength(1);
+    expect(next.players[0]!.faceDown[0]!.id).toBe(c5b.id);
+    // p1 faceDown: lost c5b, gained cK + c5a → [cQ, cK, c5a]
+    expect(next.players[1]!.faceDown).toHaveLength(3);
+  });
+
+  it('does not modify hand or faceUp', () => {
+    const state = setupDarkManouche();
+    const next = applyManouchePick(state, 'p0', c5b.id, [c5a.id]);
+    expect(next.players[0]!.hand).toHaveLength(0);
+    expect(next.players[0]!.faceUp).toHaveLength(0);
+    expect(next.players[1]!.hand).toHaveLength(0);
+    expect(next.players[1]!.faceUp).toHaveLength(0);
+  });
+
+  it('does not auto-draw', () => {
+    const deckCard = card('3', 'hearts', 10);
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [], faceDown: [c5a, cK] };
+      if (i === 1) return { ...p, hand: [], faceUp: [], faceDown: [c5b, cQ] };
+      return p;
+    });
+    const state = makeState({
+      players,
+      deck: [deckCard],
+      pendingAction: { type: 'manouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'faceDown' },
+    });
+    const next = applyManouchePick(state, 'p0', c5b.id, [c5a.id]);
+    expect(next.deck).toHaveLength(1);
+  });
+});
+
+// ─── Super Manouche exchange on faceUp layer ────────────────────────────────
+
+describe('applySuperManouchePick — faceUp layer', () => {
+  it('exchanges faceUp cards freely', () => {
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [cK, cQ] };
+      if (i === 1) return { ...p, hand: [], faceUp: [c5a, c5b] };
+      return p;
+    });
+    const state = makeState({
+      players,
+      pendingAction: { type: 'superManouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'faceUp' },
+    });
+    const next = applySuperManouchePick(state, 'p0', [cK.id], [c5a.id]);
+    // p0 faceUp: lost cK, gained c5a → [cQ, c5a]
+    expect(next.players[0]!.faceUp.map((c) => c.id)).toContain(cQ.id);
+    expect(next.players[0]!.faceUp.map((c) => c.id)).toContain(c5a.id);
+    expect(next.players[0]!.faceUp.map((c) => c.id)).not.toContain(cK.id);
+    // p1 faceUp: lost c5a, gained cK → [c5b, cK]
+    expect(next.players[1]!.faceUp.map((c) => c.id)).toContain(c5b.id);
+    expect(next.players[1]!.faceUp.map((c) => c.id)).toContain(cK.id);
+    expect(next.players[1]!.faceUp.map((c) => c.id)).not.toContain(c5a.id);
+  });
+
+  it('hand arrays are untouched', () => {
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [cK, cQ] };
+      if (i === 1) return { ...p, hand: [], faceUp: [c5a, c5b] };
+      return p;
+    });
+    const state = makeState({
+      players,
+      pendingAction: { type: 'superManouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'faceUp' },
+    });
+    const next = applySuperManouchePick(state, 'p0', [cK.id], [c5a.id]);
+    expect(next.players[0]!.hand).toHaveLength(0);
+    expect(next.players[1]!.hand).toHaveLength(0);
+  });
+});
+
+// ─── Super Manouche exchange on faceDown layer ──────────────────────────────
+
+describe('applySuperManouchePick — faceDown layer', () => {
+  it('exchanges faceDown cards', () => {
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [], faceDown: [cK, cQ] };
+      if (i === 1) return { ...p, hand: [], faceUp: [], faceDown: [c5a, c5b] };
+      return p;
+    });
+    const state = makeState({
+      players,
+      pendingAction: { type: 'superManouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'faceDown' },
+    });
+    const next = applySuperManouchePick(state, 'p0', [cK.id], [c5a.id]);
+    // p0 faceDown: lost cK, gained c5a → [cQ, c5a]
+    expect(next.players[0]!.faceDown.map((c) => c.id)).toContain(cQ.id);
+    expect(next.players[0]!.faceDown.map((c) => c.id)).toContain(c5a.id);
+    // p1 faceDown: lost c5a, gained cK → [c5b, cK]
+    expect(next.players[1]!.faceDown.map((c) => c.id)).toContain(c5b.id);
+    expect(next.players[1]!.faceDown.map((c) => c.id)).toContain(cK.id);
+  });
+
+  it('does not auto-draw', () => {
+    const deckCard = card('3', 'hearts', 10);
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [], faceDown: [cK, cQ] };
+      if (i === 1) return { ...p, hand: [], faceUp: [], faceDown: [c5a, c5b] };
+      return p;
+    });
+    const state = makeState({
+      players,
+      deck: [deckCard],
+      pendingAction: { type: 'superManouche', launcherId: 'p0', targetId: 'p1', exchangeLayer: 'faceDown' },
+    });
+    const next = applySuperManouchePick(state, 'p0', [cK.id], [c5a.id]);
+    expect(next.deck).toHaveLength(1);
+  });
+});
+
+// ─── Exchange layer via applyPlay (full flow) ───────────────────────────────
+
+describe('Manouche exchangeLayer — full flow via applyPlay', () => {
+  it('sets exchangeLayer to faceUp when launcher has no hand after playing J♠', () => {
+    // p0 has only J♠ in hand + faceUp cards → after playing, hand is empty → exchangeLayer faceUp
+    // But wait — if p0's last hand card is the J♠, they finish. Manouche is not triggered.
+    // So p0 needs at least faceUp cards. Let's use a scenario where deck is empty.
+    // Actually, J♠ goes to pile, p0 hand becomes empty, but p0 has faceUp → not finished.
+    // p1 still has hand → but p0 has no hand. Common layer = faceUp (if both have faceUp).
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [jSpade], faceUp: [c5a, cK], faceDown: [cQ] };
+      if (i === 1) return { ...p, hand: [], faceUp: [c5b, cKb], faceDown: [c5c] };
+      return { ...p, hand: [cK] };
+    });
+    const state = makeState({
+      players,
+      deck: [],
+      pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'p1', playerName: 'p1', timestamp: 0 }],
+    });
+    const next = applyPlay(state, 'p0', [jSpade.id], 0, 'p1');
+    expect(next.pendingAction).toMatchObject({
+      type: 'manouche',
+      launcherId: 'p0',
+      targetId: 'p1',
+      exchangeLayer: 'faceUp',
+    });
+  });
+
+  it('sets exchangeLayer to faceDown when both have only faceDown', () => {
+    // p0 plays J♠ from faceDown (revealed dark flop).
+    // After playing, p0 has empty hand/faceUp, only faceDown left.
+    // p1 has only faceDown.
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [], faceDown: [jSpade, c5a], hasSeenDarkFlop: true };
+      if (i === 1) return { ...p, hand: [], faceUp: [], faceDown: [c5b, cQ] };
+      return { ...p, hand: [cK] };
+    });
+    const state = makeState({
+      players,
+      deck: [],
+      pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'p1', playerName: 'p1', timestamp: 0 }],
+    });
+    const next = applyPlay(state, 'p0', [jSpade.id], 0, 'p1');
+    expect(next.pendingAction).toMatchObject({
+      type: 'manouche',
+      launcherId: 'p0',
+      targetId: 'p1',
+      exchangeLayer: 'faceDown',
+    });
+  });
+
+  it('normal case: both have hand → exchangeLayer hand', () => {
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [jSpade, cK] };
+      if (i === 1) return { ...p, hand: [c5b, cQ] };
+      return { ...p, hand: [cK] };
+    });
+    const state = makeState({
+      players,
+      pile: [{ cards: [{ id: 'pile-5-0', suit: 'hearts', rank: '5' }], playerId: 'p1', playerName: 'p1', timestamp: 0 }],
+    });
+    const next = applyPlay(state, 'p0', [jSpade.id], 0, 'p1');
+    expect(next.pendingAction).toMatchObject({
+      type: 'manouche',
+      exchangeLayer: 'hand',
+    });
+  });
+});
+
+// ─── applyManoucheTarget sets exchangeLayer ─────────────────────────────────
+
+import { applyManoucheTarget } from '../engine/actions/applyManoucheChoice';
+
+describe('applyManoucheTarget — sets exchangeLayer', () => {
+  it('sets exchangeLayer based on highest common layer', () => {
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [c5a], faceDown: [cK] };
+      if (i === 1) return { ...p, hand: [c5b], faceUp: [cQ], faceDown: [cKb] };
+      return p;
+    });
+    const state = makeState({
+      players,
+      pendingAction: { type: 'manouche', launcherId: 'p0' },
+    });
+    const next = applyManoucheTarget(state, 'p0', 'p1');
+    expect(next.pendingAction).toMatchObject({
+      type: 'manouche',
+      launcherId: 'p0',
+      targetId: 'p1',
+      exchangeLayer: 'faceUp',
+    });
+  });
+
+  it('sets exchangeLayer to faceDown when only darkFlop available', () => {
+    const players = makeState().players.map((p, i) => {
+      if (i === 0) return { ...p, hand: [], faceUp: [], faceDown: [c5a] };
+      if (i === 1) return { ...p, hand: [], faceUp: [], faceDown: [c5b] };
+      return p;
+    });
+    const state = makeState({
+      players,
+      pendingAction: { type: 'superManouche', launcherId: 'p0' },
+    });
+    const next = applyManoucheTarget(state, 'p0', 'p1');
+    expect(next.pendingAction).toMatchObject({
+      type: 'superManouche',
+      targetId: 'p1',
+      exchangeLayer: 'faceDown',
+    });
   });
 });

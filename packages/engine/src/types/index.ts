@@ -146,11 +146,19 @@ export interface PendingShifumi {
   player2Choice?: ShifumiChoice;
 }
 
+/** Identifies which card zone is used for the Manouche/Super Manouche exchange. */
+export type ExchangeLayer = 'hand' | 'faceUp' | 'faceDown';
+
 export interface PendingManouche {
   type: 'manouche' | 'superManouche';
   launcherId: string;
   /** Target player ID. Optional during multi-jack resolution (set via manoucheTarget). */
   targetId?: string;
+  /**
+   * Exchange layer: the highest common zone between launcher and target.
+   * Set when targetId is known. Defaults to 'hand' when absent (backwards compat).
+   */
+  exchangeLayer?: ExchangeLayer;
 }
 
 export interface PendingFlopReverse {

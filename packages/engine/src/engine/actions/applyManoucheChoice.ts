@@ -1,7 +1,48 @@
-import type { GameState } from '../../types';
+import type { Card, ExchangeLayer, GameState, Player } from '../../types';
 import { advanceTurn, resolveAutoSkip, autoDraw } from '../turn';
 import { appendLog } from '../../utils/log';
 
+// ─── Exchange layer helpers ─────────────────────────────────────────────────
+
+/**
+ * Determines the highest common card zone between launcher and target.
+ * Priority: hand > faceUp > faceDown.
+ */
+export function getExchangeLayer(launcher: Player, target: Player): ExchangeLayer {
+  if (launcher.hand.length > 0 && target.hand.length > 0) return 'hand';
+  if (launcher.faceUp.length > 0 && target.faceUp.length > 0) return 'faceUp';
+  if (launcher.faceDown.length > 0 && target.faceDown.length > 0) return 'faceDown';
+  throw new Error('No common exchange layer between launcher and target');
+}
+
+/** Returns the card array for the given layer. */
+function getLayerCards(player: Player, layer: ExchangeLayer): Card[] {
+  switch (layer) {
+    case 'hand': return player.hand;
+    case 'faceUp': return player.faceUp;
+    case 'faceDown': return player.faceDown;
+  }
+}
+
+/** Returns a new player with the given layer's cards replaced. */
+function setLayerCards(player: Player, layer: ExchangeLayer, cards: Card[]): Player {
+  switch (layer) {
+    case 'hand': return { ...player, hand: cards };
+    case 'faceUp': return { ...player, faceUp: cards };
+    case 'faceDown': return { ...player, faceDown: cards };
+  }
+}
+
+/** French label for exchange layer (for log messages). */
+function layerLabel(layer: ExchangeLayer): string {
+  switch (layer) {
+    case 'hand': return 'main';
+    case 'faceUp': return 'flop';
+    case 'faceDown': return 'dark flop';
+  }
+}
+
+// ─── applyManoucheTarget ────────────────────────────────────────────────────
 
 /**
  * Sets the target for a Manouche or Super Manouche when the target was not
@@ -39,11 +80,14 @@ export function applyManoucheTarget(
     throw new Error('Cannot target yourself with Manouche');
   }
 
-  const launcherName = state.players.find((p) => p.id === playerId)?.name ?? playerId;
+  const launcher = state.players.find((p) => p.id === playerId)!;
+  const target = state.players[targetIdx]!;
+  const exchangeLayer = getExchangeLayer(launcher, target);
+  const launcherName = launcher.name;
 
   let newState: GameState = {
     ...state,
-    pendingAction: { ...pending, targetId: targetPlayerId },
+    pendingAction: { ...pending, targetId: targetPlayerId, exchangeLayer },
   };
 
   newState = appendLog(newState, 'manoucheTarget', timestamp, playerId, launcherName, {
@@ -98,19 +142,18 @@ export function applyManoucheSkip(
 }
 
 /**
- * Applies a Manouche exchange:
- *   - Launcher takes `takeCardId` from the target's hand.
- *   - Launcher gives all `giveCardIds` (from launcher's hand, all of the same
- *     rank between themselves — not necessarily matching the taken card) back
- *     to the target.
+ * Applies a Manouche exchange on the exchange layer stored in the pending action.
+ *   - Launcher takes `takeCardId` from the target's layer.
+ *   - Launcher gives all `giveCardIds` (from launcher's layer) to the target.
+ *   - When exchangeLayer is 'hand' or 'faceUp', all given cards must share the same rank.
+ *   - When exchangeLayer is 'faceDown', the rank constraint is relaxed (blind exchange).
  *
  * Turn passes to the next active player after the exchange.
  *
  * @param state       - Current game state; must have pendingAction.type === 'manouche'.
  * @param playerId    - ID of the acting player (must be the launcher).
- * @param takeCardId  - ID of the card to take from the target's hand.
- * @param giveCardIds - IDs of cards (from launcher's hand) to give to the target.
- *                      All must share the same rank between themselves.
+ * @param takeCardId  - ID of the card to take from the target's layer.
+ * @param giveCardIds - IDs of cards (from launcher's layer) to give to the target.
  * @param timestamp   - Wall-clock ms for log records (pass 0 in tests).
  */
 export function applyManouchePick(
@@ -124,7 +167,8 @@ export function applyManouchePick(
   if (state.pendingAction?.type !== 'manouche') {
     throw new Error('No pending manouche action');
   }
-  const { launcherId, targetId } = state.pendingAction;
+  const { launcherId, targetId, exchangeLayer: layer } = state.pendingAction;
+  const exchangeLayer: ExchangeLayer = layer ?? 'hand';
   if (!targetId) {
     throw new Error('Manouche target has not been selected yet');
   }
@@ -143,35 +187,41 @@ export function applyManouchePick(
   const launcher = state.players[launcherIdx]!;
   const target = state.players[targetIdx]!;
 
-  // Validate takeCardId is in target's hand
-  const takeCard = target.hand.find((c) => c.id === takeCardId);
-  if (!takeCard) throw new Error(`Card '${takeCardId}' not found in target's hand`);
+  const launcherCards = getLayerCards(launcher, exchangeLayer);
+  const targetCards = getLayerCards(target, exchangeLayer);
 
-  // Validate giveCardIds are all in launcher's hand
+  // Validate takeCardId is in target's layer
+  const takeCard = targetCards.find((c) => c.id === takeCardId);
+  if (!takeCard) throw new Error(`Card '${takeCardId}' not found in target's ${layerLabel(exchangeLayer)}`);
+
+  // Validate giveCardIds are all in launcher's layer
   const giveCards = giveCardIds.map((id) => {
-    const found = launcher.hand.find((c) => c.id === id);
-    if (!found) throw new Error(`Card '${id}' not found in launcher's hand`);
+    const found = launcherCards.find((c) => c.id === id);
+    if (!found) throw new Error(`Card '${id}' not found in launcher's ${layerLabel(exchangeLayer)}`);
     return found;
   });
 
   // Validate all given cards share the same rank between themselves
-  const giveRank = giveCards[0]!.rank;
-  for (const c of giveCards) {
-    if (c.rank !== giveRank) {
-      throw new Error(
-        `All given cards must share the same rank, but '${c.id}' has rank '${c.rank}' while others have '${giveRank}'`,
-      );
+  // (relaxed for faceDown — blind exchange, cards are hidden)
+  if (exchangeLayer !== 'faceDown') {
+    const giveRank = giveCards[0]!.rank;
+    for (const c of giveCards) {
+      if (c.rank !== giveRank) {
+        throw new Error(
+          `All given cards must share the same rank, but '${c.id}' has rank '${c.rank}' while others have '${giveRank}'`,
+        );
+      }
     }
   }
 
   // ── Perform exchange ────────────────────────────────────────────────────────
   const giveCardIdSet = new Set(giveCardIds);
-  const newLauncherHand = [...launcher.hand.filter((c) => !giveCardIdSet.has(c.id)), takeCard];
-  const newTargetHand = [...target.hand.filter((c) => c.id !== takeCardId), ...giveCards];
+  const newLauncherLayerCards = [...launcherCards.filter((c) => !giveCardIdSet.has(c.id)), takeCard];
+  const newTargetLayerCards = [...targetCards.filter((c) => c.id !== takeCardId), ...giveCards];
 
   const newPlayers = [...state.players];
-  newPlayers[launcherIdx] = { ...launcher, hand: newLauncherHand };
-  newPlayers[targetIdx] = { ...target, hand: newTargetHand };
+  newPlayers[launcherIdx] = setLayerCards(launcher, exchangeLayer, newLauncherLayerCards);
+  newPlayers[targetIdx] = setLayerCards(target, exchangeLayer, newTargetLayerCards);
 
   let newState: GameState = {
     ...state,
@@ -180,22 +230,25 @@ export function applyManouchePick(
     pendingCardsPlayed: undefined,
   };
 
-  // ── Auto-draw after exchange (Phase 1 only) ──────────────────────────────
-  const targetHandSize = state.variant.minHandSize ?? 3;
-  if (newState.deck.length > 0 && newState.players[launcherIdx]!.hand.length < targetHandSize) {
-    const { player: drawn, deck: newDeck } = autoDraw(
-      newState.players[launcherIdx]!, newState.deck, targetHandSize,
-    );
-    const updPlayers = [...newState.players];
-    updPlayers[launcherIdx] = drawn;
-    newState = { ...newState, players: updPlayers, deck: newDeck };
+  // ── Auto-draw after exchange (hand layer only, Phase 1) ───────────────────
+  if (exchangeLayer === 'hand') {
+    const targetHandSize = state.variant.minHandSize ?? 3;
+    if (newState.deck.length > 0 && newState.players[launcherIdx]!.hand.length < targetHandSize) {
+      const { player: drawn, deck: newDeck } = autoDraw(
+        newState.players[launcherIdx]!, newState.deck, targetHandSize,
+      );
+      const updPlayers = [...newState.players];
+      updPlayers[launcherIdx] = drawn;
+      newState = { ...newState, players: updPlayers, deck: newDeck };
+    }
   }
 
   newState = appendLog(newState, 'manouchePick', timestamp, launcherId, launcher.name, {
     takeCardId,
     giveCardIds,
     targetId,
-    message: `${launcher.name} vole une carte à ${target.name}`,
+    exchangeLayer,
+    message: `${launcher.name} vole une carte ${exchangeLayer !== 'hand' ? `(${layerLabel(exchangeLayer)}) ` : ''}à ${target.name}`,
   }, 'effect');
 
   if (state.multiJackSequence) {
@@ -205,9 +258,9 @@ export function applyManouchePick(
 }
 
 /**
- * Applies a Super Manouche exchange:
- *   - Launcher gives `giveCardIds` (from launcher's hand) to the target.
- *   - Launcher takes `takeCardIds` (from target's hand).
+ * Applies a Super Manouche exchange on the exchange layer stored in the pending action.
+ *   - Launcher gives `giveCardIds` (from launcher's layer) to the target.
+ *   - Launcher takes `takeCardIds` (from target's layer).
  *   - The count of given and taken cards must be equal (same total on each side).
  *
  * The exchange is free — no rank constraint applies.
@@ -215,8 +268,8 @@ export function applyManouchePick(
  *
  * @param state       - Current game state; must have pendingAction.type === 'superManouche'.
  * @param playerId    - ID of the acting player (must be the launcher).
- * @param giveCardIds - IDs of cards from launcher's hand to give to target.
- * @param takeCardIds - IDs of cards from target's hand to take.
+ * @param giveCardIds - IDs of cards from launcher's layer to give to target.
+ * @param takeCardIds - IDs of cards from target's layer to take.
  * @param timestamp   - Wall-clock ms for log records (pass 0 in tests).
  */
 export function applySuperManouchePick(
@@ -230,7 +283,8 @@ export function applySuperManouchePick(
   if (state.pendingAction?.type !== 'superManouche') {
     throw new Error('No pending superManouche action');
   }
-  const { launcherId, targetId } = state.pendingAction;
+  const { launcherId, targetId, exchangeLayer: layer } = state.pendingAction;
+  const exchangeLayer: ExchangeLayer = layer ?? 'hand';
   if (!targetId) {
     throw new Error('Super Manouche target has not been selected yet');
   }
@@ -254,17 +308,20 @@ export function applySuperManouchePick(
   const launcher = state.players[launcherIdx]!;
   const target = state.players[targetIdx]!;
 
-  // Validate giveCardIds are all in launcher's hand
+  const launcherCards = getLayerCards(launcher, exchangeLayer);
+  const targetCards = getLayerCards(target, exchangeLayer);
+
+  // Validate giveCardIds are all in launcher's layer
   const giveCards = giveCardIds.map((id) => {
-    const found = launcher.hand.find((c) => c.id === id);
-    if (!found) throw new Error(`Card '${id}' not found in launcher's hand`);
+    const found = launcherCards.find((c) => c.id === id);
+    if (!found) throw new Error(`Card '${id}' not found in launcher's ${layerLabel(exchangeLayer)}`);
     return found;
   });
 
-  // Validate takeCardIds are all in target's hand
+  // Validate takeCardIds are all in target's layer
   const takeCards = takeCardIds.map((id) => {
-    const found = target.hand.find((c) => c.id === id);
-    if (!found) throw new Error(`Card '${id}' not found in target's hand`);
+    const found = targetCards.find((c) => c.id === id);
+    if (!found) throw new Error(`Card '${id}' not found in target's ${layerLabel(exchangeLayer)}`);
     return found;
   });
 
@@ -272,18 +329,18 @@ export function applySuperManouchePick(
   const giveCardIdSet = new Set(giveCardIds);
   const takeCardIdSet = new Set(takeCardIds);
 
-  const newLauncherHand = [
-    ...launcher.hand.filter((c) => !giveCardIdSet.has(c.id)),
+  const newLauncherLayerCards = [
+    ...launcherCards.filter((c) => !giveCardIdSet.has(c.id)),
     ...takeCards,
   ];
-  const newTargetHand = [
-    ...target.hand.filter((c) => !takeCardIdSet.has(c.id)),
+  const newTargetLayerCards = [
+    ...targetCards.filter((c) => !takeCardIdSet.has(c.id)),
     ...giveCards,
   ];
 
   const newPlayers = [...state.players];
-  newPlayers[launcherIdx] = { ...launcher, hand: newLauncherHand };
-  newPlayers[targetIdx] = { ...target, hand: newTargetHand };
+  newPlayers[launcherIdx] = setLayerCards(launcher, exchangeLayer, newLauncherLayerCards);
+  newPlayers[targetIdx] = setLayerCards(target, exchangeLayer, newTargetLayerCards);
 
   let newState: GameState = {
     ...state,
@@ -292,22 +349,25 @@ export function applySuperManouchePick(
     pendingCardsPlayed: undefined,
   };
 
-  // ── Auto-draw after exchange (Phase 1 only) ──────────────────────────────
-  const targetHandSize = state.variant.minHandSize ?? 3;
-  if (newState.deck.length > 0 && newState.players[launcherIdx]!.hand.length < targetHandSize) {
-    const { player: drawn, deck: newDeck } = autoDraw(
-      newState.players[launcherIdx]!, newState.deck, targetHandSize,
-    );
-    const updPlayers = [...newState.players];
-    updPlayers[launcherIdx] = drawn;
-    newState = { ...newState, players: updPlayers, deck: newDeck };
+  // ── Auto-draw after exchange (hand layer only, Phase 1) ───────────────────
+  if (exchangeLayer === 'hand') {
+    const targetHandSize = state.variant.minHandSize ?? 3;
+    if (newState.deck.length > 0 && newState.players[launcherIdx]!.hand.length < targetHandSize) {
+      const { player: drawn, deck: newDeck } = autoDraw(
+        newState.players[launcherIdx]!, newState.deck, targetHandSize,
+      );
+      const updPlayers = [...newState.players];
+      updPlayers[launcherIdx] = drawn;
+      newState = { ...newState, players: updPlayers, deck: newDeck };
+    }
   }
 
   newState = appendLog(newState, 'superManouchePick', timestamp, launcherId, launcher.name, {
     giveCardIds,
     takeCardIds,
     targetId,
-    message: `${launcher.name} échange des cartes avec ${target.name}`,
+    exchangeLayer,
+    message: `${launcher.name} échange des cartes ${exchangeLayer !== 'hand' ? `(${layerLabel(exchangeLayer)}) ` : ''}avec ${target.name}`,
   }, 'effect');
 
   if (state.multiJackSequence) {

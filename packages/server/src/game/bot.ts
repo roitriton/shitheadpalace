@@ -22,7 +22,16 @@ import {
   matchesPowerRank,
   isManoucheCard,
 } from '@shit-head-palace/engine';
-import type { GameState, ShifumiChoice, PendingShifumi, MultiJackSequenceEntry } from '@shit-head-palace/engine';
+import type { GameState, ShifumiChoice, PendingShifumi, MultiJackSequenceEntry, ExchangeLayer, Card, Player } from '@shit-head-palace/engine';
+
+/** Returns the card array for the given exchange layer. */
+function getLayerCards(player: Player, layer: ExchangeLayer): Card[] {
+  switch (layer) {
+    case 'hand': return player.hand;
+    case 'faceUp': return player.faceUp;
+    case 'faceDown': return player.faceDown;
+  }
+}
 
 // ─── Bot facile ────────────────────────────────────────────────────────────────
 
@@ -52,8 +61,10 @@ export function botAct(state: GameState, botId: string): GameState {
     if (canPlayCards([card], state)) {
       try {
         if (isManoucheCard(card)) {
-          // Manouche : choisir un adversaire avec des cartes en main
-          const viableTargets = opponents.filter((opp) => opp.hand.length > 0);
+          // Manouche : choisir un adversaire non terminé (échange sur le layer commun le plus haut)
+          const viableTargets = opponents.filter((opp) =>
+            opp.hand.length > 0 || opp.faceUp.length > 0 || opp.faceDown.length > 0,
+          );
           if (viableTargets.length === 0) continue;
           const target = viableTargets[Math.floor(Math.random() * viableTargets.length)]!;
           return applyPlay(state, botId, [card.id], Date.now(), target.id);
@@ -127,39 +138,47 @@ export function tryResolveBotPendingAction(state: GameState, botIds: string[]): 
     return applyTargetChoice(state, pending.launcherId, target.id, now);
   }
 
-  // ── Manouche: bot takes any card from target, gives lowest-rank card(s)
+  // ── Manouche: bot takes any card from target layer, gives random card
   if (pending.type === 'manouche') {
     if (!botIds.includes(pending.launcherId)) return state;
     // Multi-jack context: targetId may be undefined — select target first
     if (!pending.targetId) {
-      const targets = state.players.filter((p) => !p.isFinished && p.id !== pending.launcherId && p.hand.length > 0);
+      const targets = state.players.filter((p) => !p.isFinished && p.id !== pending.launcherId);
       if (targets.length === 0) return state;
       const target = targets[Math.floor(Math.random() * targets.length)]!;
       return applyManoucheTarget(state, pending.launcherId, target.id, now);
     }
+    const exchangeLayer: ExchangeLayer = pending.exchangeLayer ?? 'hand';
     const target = state.players.find((p) => p.id === pending.targetId);
     const bot = state.players.find((p) => p.id === pending.launcherId)!;
-    if (!target || target.hand.length === 0 || bot.hand.length === 0) return state;
-    const takeCard = target.hand[Math.floor(Math.random() * target.hand.length)]!;
-    const giveCard = bot.hand[Math.floor(Math.random() * bot.hand.length)]!;
+    if (!target) return state;
+    const targetCards = getLayerCards(target, exchangeLayer);
+    const botCards = getLayerCards(bot, exchangeLayer);
+    if (targetCards.length === 0 || botCards.length === 0) return state;
+    const takeCard = targetCards[Math.floor(Math.random() * targetCards.length)]!;
+    const giveCard = botCards[Math.floor(Math.random() * botCards.length)]!;
     return applyManouchePick(state, pending.launcherId, takeCard.id, [giveCard.id], now);
   }
 
-  // ── Super Manouche: bot launcher picks random exchange
+  // ── Super Manouche: bot launcher picks random exchange on correct layer
   if (pending.type === 'superManouche') {
     if (!botIds.includes(pending.launcherId)) return state;
     // Multi-jack context: targetId may be undefined — select target first
     if (!pending.targetId) {
-      const targets = state.players.filter((p) => !p.isFinished && p.id !== pending.launcherId && p.hand.length > 0);
+      const targets = state.players.filter((p) => !p.isFinished && p.id !== pending.launcherId);
       if (targets.length === 0) return state;
       const target = targets[Math.floor(Math.random() * targets.length)]!;
       return applyManoucheTarget(state, pending.launcherId, target.id, now);
     }
+    const exchangeLayer: ExchangeLayer = pending.exchangeLayer ?? 'hand';
     const target = state.players.find((p) => p.id === pending.targetId);
     const bot = state.players.find((p) => p.id === pending.launcherId)!;
-    if (!target || target.hand.length === 0 || bot.hand.length === 0) return state;
-    const takeCard = target.hand[Math.floor(Math.random() * target.hand.length)]!;
-    const giveCard = bot.hand[Math.floor(Math.random() * bot.hand.length)]!;
+    if (!target) return state;
+    const targetCards = getLayerCards(target, exchangeLayer);
+    const botCards = getLayerCards(bot, exchangeLayer);
+    if (targetCards.length === 0 || botCards.length === 0) return state;
+    const takeCard = targetCards[Math.floor(Math.random() * targetCards.length)]!;
+    const giveCard = botCards[Math.floor(Math.random() * botCards.length)]!;
     return applySuperManouchePick(state, pending.launcherId, [giveCard.id], [takeCard.id], now);
   }
 

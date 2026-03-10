@@ -36,14 +36,20 @@ export function filterGameStateForPlayer(state: GameState, viewerId: string): Ga
     ? (pending as PendingManouche)
     : null;
 
+  const exchangeLayer = manouche?.exchangeLayer ?? 'hand';
+
   const players = state.players.map((player) => {
     if (player.id === viewerId) return player;
 
-    // Launcher sees target's hand (but target's faceDown remains hidden)
+    // Launcher sees target's exchange-layer cards during Manouche:
+    // - hand: reveal target's hand (faceDown stays hidden)
+    // - faceUp: already public, no special handling needed
+    // - faceDown: blind exchange, no reveal
     if (
       manouche !== null &&
       viewerId === manouche.launcherId &&
-      player.id === manouche.targetId
+      player.id === manouche.targetId &&
+      exchangeLayer === 'hand'
     ) {
       return {
         ...player,

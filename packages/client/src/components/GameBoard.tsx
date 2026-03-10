@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
-import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingShifumiResult, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, PendingMultiJackOrder, PendingRevolutionConfirm, MultiJackSequenceEntry, LogEntry, LastPowerTriggered } from '@shit-head-palace/engine';
+import type { Card as CardType, GameState, Player, ShifumiChoice, PendingShifumi, PendingShifumiResult, PendingFirstPlayerShifumi, PendingAllBlockedShifumi, PendingMultiJackOrder, PendingRevolutionConfirm, MultiJackSequenceEntry, LogEntry, LastPowerTriggered, ExchangeLayer } from '@shit-head-palace/engine';
 import { getActiveZone } from '@shit-head-palace/engine';
 import { useTheme } from '../themes/ThemeContext';
 import { getIllegalPlayReason } from '../utils/illegalPlayReason';
@@ -867,6 +867,20 @@ interface ManouchePickModalProps {
   onSkip: () => void;
 }
 
+/** Returns the card array for a given exchange layer. */
+function getLayerCardsForPlayer(player: Player, layer: ExchangeLayer): CardType[] {
+  if (layer === 'faceUp') return player.faceUp;
+  if (layer === 'faceDown') return player.faceDown;
+  return player.hand;
+}
+
+/** French label for the exchange layer. */
+function layerLabelFr(layer: ExchangeLayer): string {
+  if (layer === 'faceUp') return 'Flop';
+  if (layer === 'faceDown') return 'Dark flop';
+  return 'Main';
+}
+
 function ManouchePickModal({ state, humanId, onPick, onSkip }: ManouchePickModalProps) {
   const [selectedTakeId, setSelectedTakeId] = React.useState<string | null>(null);
   const [selectedGiveIds, setSelectedGiveIds] = React.useState<string[]>([]);
@@ -874,15 +888,20 @@ function ManouchePickModal({ state, humanId, onPick, onSkip }: ManouchePickModal
   const pending = state.pendingAction;
   if (pending?.type !== 'manouche') return null;
 
+  const exchangeLayer: ExchangeLayer = (pending as { exchangeLayer?: ExchangeLayer }).exchangeLayer ?? 'hand';
   const humanPlayer = state.players.find((p) => p.id === humanId)!;
   const target = state.players.find((p) => p.id === pending.targetId)!;
 
-  // Selected take card object (for rank matching)
-  const selectedTakeCard = selectedTakeId ? target.hand.find((c) => c.id === selectedTakeId) : null;
+  const targetCards = getLayerCardsForPlayer(target, exchangeLayer);
+  const humanCards = getLayerCardsForPlayer(humanPlayer, exchangeLayer);
+  const isDarkFlop = exchangeLayer === 'faceDown';
 
-  // After selecting a give card, only cards of the same rank can be added
-  const selectedGiveRank = selectedGiveIds.length > 0
-    ? humanPlayer.hand.find((c) => c.id === selectedGiveIds[0])?.rank ?? null
+  // Selected take card object (for rank matching — not used on darkFlop)
+  const selectedTakeCard = selectedTakeId ? targetCards.find((c) => c.id === selectedTakeId) : null;
+
+  // After selecting a give card, only cards of the same rank can be added (relaxed on darkFlop)
+  const selectedGiveRank = !isDarkFlop && selectedGiveIds.length > 0
+    ? humanCards.find((c) => c.id === selectedGiveIds[0])?.rank ?? null
     : null;
 
   const handleSelectTake = (card: CardType) => {
@@ -912,17 +931,23 @@ function ManouchePickModal({ state, humanId, onPick, onSkip }: ManouchePickModal
     }
   };
 
+  const layerLabel = layerLabelFr(exchangeLayer);
+
   return (
-    <ModalWrapper title="Manouche ♠">
-      {/* Haut : main de l'adversaire */}
+    <ModalWrapper
+      title="Manouche ♠"
+      subtitle={isDarkFlop ? 'Échange à l\'aveugle — les cartes sont face cachée' : undefined}
+    >
+      {/* Haut : cartes de l'adversaire */}
       <div className="w-full">
         <p className="text-xs text-gray-400 mb-2">
-          Main de{' '}
+          {layerLabel} de{' '}
           <span className="font-semibold text-white">{target.name}</span>
         </p>
         <div className="flex gap-2 flex-wrap justify-center">
-          {target.hand.map((card) => {
-            const canTake = !card.hidden;
+          {targetCards.map((card) => {
+            // For darkFlop, target cards are hidden in filtered state. Allow selection by position.
+            const canTake = isDarkFlop || !card.hidden;
             const isSelected = selectedTakeId === card.id;
             return (
               <div
@@ -934,26 +959,26 @@ function ManouchePickModal({ state, humanId, onPick, onSkip }: ManouchePickModal
                 }`}
                 onClick={() => canTake && handleSelectTake(card)}
               >
-                <Card card={card} size="md" />
+                <Card card={card} size="md" faceDown={isDarkFlop} />
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Bas : main du joueur */}
+      {/* Bas : cartes du joueur */}
       <div className="w-full mt-4">
         <p className="text-xs text-gray-400 mb-2">
-          Votre main
-          {selectedTakeCard && (
+          Votre {layerLabel.toLowerCase()}
+          {!isDarkFlop && selectedTakeCard && (
             <span className="text-gray-500"> — sélectionnez carte(s) de même valeur que {selectedTakeCard.rank}</span>
           )}
         </p>
         <div className="flex gap-2 flex-wrap justify-center">
-          {humanPlayer.hand.map((card) => {
+          {humanCards.map((card) => {
             const isSelected = selectedGiveIds.includes(card.id);
-            // Cards are only selectable if a take card is selected, and must match same rank constraint
-            const canGive = selectedTakeId !== null && (selectedGiveRank === null || card.rank === selectedGiveRank);
+            // On darkFlop: no rank constraint. On hand/faceUp: enforce rank matching.
+            const canGive = selectedTakeId !== null && (isDarkFlop || selectedGiveRank === null || card.rank === selectedGiveRank);
             const isDisabled = selectedTakeId === null;
             return (
               <div
@@ -967,7 +992,7 @@ function ManouchePickModal({ state, humanId, onPick, onSkip }: ManouchePickModal
                 }`}
                 onClick={() => !isDisabled && (canGive || isSelected) && handleToggleGive(card.id)}
               >
-                <Card card={card} size="md" />
+                <Card card={card} size="md" faceDown={isDarkFlop} />
               </div>
             );
           })}
@@ -1005,16 +1030,21 @@ function SuperManouchePickModal({ state, humanId, onPick }: SuperManouchePickMod
   const pending = state.pendingAction;
   if (pending?.type !== 'superManouche') return null;
 
+  const exchangeLayer: ExchangeLayer = (pending as { exchangeLayer?: ExchangeLayer }).exchangeLayer ?? 'hand';
   const humanPlayer = state.players.find((p) => p.id === humanId)!;
   const target = state.players.find((p) => p.id === pending.targetId)!;
+  const isDarkFlop = exchangeLayer === 'faceDown';
+
+  const humanCards = getLayerCardsForPlayer(humanPlayer, exchangeLayer);
+  const targetCards = getLayerCardsForPlayer(target, exchangeLayer);
 
   // Local copies for swap tracking — IDs only
-  const [myIds, setMyIds] = React.useState<string[]>(() => humanPlayer.hand.map((c) => c.id));
-  const [theirIds, setTheirIds] = React.useState<string[]>(() => target.hand.map((c) => c.id));
+  const [myIds, setMyIds] = React.useState<string[]>(() => humanCards.map((c) => c.id));
+  const [theirIds, setTheirIds] = React.useState<string[]>(() => targetCards.map((c) => c.id));
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
-  // Card lookup across both hands
-  const allCards = [...humanPlayer.hand, ...target.hand];
+  // Card lookup across both card zones
+  const allCards = [...humanCards, ...targetCards];
   const cardById = (id: string) => allCards.find((c) => c.id === id)!;
 
   const findZone = (cardId: string): SmZone | null => {
@@ -1049,7 +1079,7 @@ function SuperManouchePickModal({ state, humanId, onPick }: SuperManouchePickMod
         return arr;
       });
     } else {
-      // Cross-zone: swap the two cards between hands
+      // Cross-zone: swap the two cards between zones
       setMyIds((prev) =>
         prev.map((id) => (id === selectedId ? cardId : id === cardId ? selectedId : id)),
       );
@@ -1061,30 +1091,35 @@ function SuperManouchePickModal({ state, humanId, onPick }: SuperManouchePickMod
   };
 
   // Original ID sets for diff
-  const originalMyIds = new Set(humanPlayer.hand.map((c) => c.id));
-  const originalTheirIds = new Set(target.hand.map((c) => c.id));
+  const originalMyIds = new Set(humanCards.map((c) => c.id));
+  const originalTheirIds = new Set(targetCards.map((c) => c.id));
 
-  // Confirm is valid when both hands have same count as before
+  // Confirm is valid when both zones have same count as before
   const isValid =
-    myIds.length === humanPlayer.hand.length && theirIds.length === target.hand.length;
+    myIds.length === humanCards.length && theirIds.length === targetCards.length;
 
   const handleConfirm = () => {
     if (!isValid) return;
-    // giveCardIds: cards that were originally mine but are now in their hand
+    // giveCardIds: cards that were originally mine but are now in their zone
     const giveCardIds = theirIds.filter((id) => originalMyIds.has(id));
-    // takeCardIds: cards that were originally theirs but are now in my hand
+    // takeCardIds: cards that were originally theirs but are now in my zone
     const takeCardIds = myIds.filter((id) => originalTheirIds.has(id));
     onPick(giveCardIds, takeCardIds);
   };
 
+  const layerLabel = layerLabelFr(exchangeLayer);
+
   return (
     <ModalWrapper
       title="Super Manouche ♠"
-      subtitle={`Cliquez sur une carte puis sur une autre pour les échanger avec ${target.name}.`}
+      subtitle={isDarkFlop
+        ? `Échange à l'aveugle avec ${target.name} — les cartes sont face cachée.`
+        : `Cliquez sur une carte puis sur une autre pour les échanger avec ${target.name}.`
+      }
     >
       <div className="w-full">
         <p className="text-xs text-gray-400 mb-2">
-          Main de {target.name} :
+          {layerLabel} de {target.name} :
         </p>
         <div className="flex gap-2 flex-wrap min-h-[64px]">
           {theirIds.map((id) => {
@@ -1096,6 +1131,7 @@ function SuperManouchePickModal({ state, humanId, onPick }: SuperManouchePickMod
                 selected={selectedId === id}
                 size="sm"
                 noLayout
+                faceDown={isDarkFlop}
                 onClick={() => handleCardClick(id)}
               />
             );
@@ -1104,7 +1140,7 @@ function SuperManouchePickModal({ state, humanId, onPick }: SuperManouchePickMod
       </div>
 
       <div className="w-full mt-4">
-        <p className="text-xs text-gray-400 mb-2">Votre main :</p>
+        <p className="text-xs text-gray-400 mb-2">Votre {layerLabel.toLowerCase()} :</p>
         <div className="flex gap-2 flex-wrap min-h-[64px]">
           {myIds.map((id) => {
             const card = cardById(id);
@@ -1115,6 +1151,7 @@ function SuperManouchePickModal({ state, humanId, onPick }: SuperManouchePickMod
                 selected={selectedId === id}
                 size="sm"
                 noLayout
+                faceDown={isDarkFlop}
                 onClick={() => handleCardClick(id)}
               />
             );
@@ -1927,7 +1964,7 @@ export function GameBoard({
           <TargetPickerModal
             title="Manouche ♠"
             description="Choisissez un adversaire pour l'échange."
-            players={state.players.filter((p) => !p.isFinished && p.id !== humanId && p.hand.length > 0)}
+            players={state.players.filter((p) => !p.isFinished && p.id !== humanId && (p.hand.length > 0 || p.faceUp.length > 0 || p.faceDown.length > 0))}
             humanId={humanId}
             onSelect={onManoucheTarget}
           />
@@ -1952,7 +1989,7 @@ export function GameBoard({
           <TargetPickerModal
             title="Super Manouche ♠"
             description="Choisissez un adversaire pour l'échange."
-            players={state.players.filter((p) => !p.isFinished && p.id !== humanId && p.hand.length > 0)}
+            players={state.players.filter((p) => !p.isFinished && p.id !== humanId && (p.hand.length > 0 || p.faceUp.length > 0 || p.faceDown.length > 0))}
             humanId={humanId}
             onSelect={onManoucheTarget}
           />

@@ -11,6 +11,7 @@ import { appendLog } from '../../utils/log';
 import { resolvePowers } from '../powers';
 import { getMirrorEffectiveRank } from '../../powers/mirror';
 import { matchesPowerRank, hasAnyUniquePower } from '../../powers/utils';
+import { getExchangeLayer } from './applyManoucheChoice';
 
 // ─── Flop helper ──────────────────────────────────────────────────────────────
 
@@ -136,9 +137,12 @@ function setPendingManouche(
     throw new Error('Cannot target yourself with Manouche');
   }
 
+  const launcher = state.players.find((p) => p.id === launcherId)!;
+  const exchangeLayer = getExchangeLayer(launcher, target);
+
   let newState: GameState = {
     ...state,
-    pendingAction: { type: manoucheType, launcherId, targetId: targetPlayerId },
+    pendingAction: { type: manoucheType, launcherId, targetId: targetPlayerId, exchangeLayer },
   };
   newState = appendLog(newState, manoucheType, timestamp, launcherId, launcherName, {
     targetId: targetPlayerId,

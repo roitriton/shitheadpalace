@@ -4,7 +4,7 @@ import { applyPickUpPile } from './actions/pickUp';
 import { applySwap } from './actions/swap';
 import { applyReady, applyFirstPlayerShifumiChoice } from './actions/ready';
 import { applyTargetChoice } from './actions/applyTargetChoice';
-import { applyManouchePick, applySuperManouchePick, applyManoucheTarget, applyManoucheSkip } from './actions/applyManoucheChoice';
+import { applyManouchePick, applySuperManouchePick, applyManoucheTarget, applyManoucheSkip, getExchangeLayer } from './actions/applyManoucheChoice';
 import {
   applyFlopReverseTarget,
   applyFlopRemakeTarget,
@@ -23,7 +23,7 @@ export { applyPickUpPile } from './actions/pickUp';
 export { applySwap } from './actions/swap';
 export { applyReady, applyFirstPlayerShifumiChoice } from './actions/ready';
 export { applyTargetChoice } from './actions/applyTargetChoice';
-export { applyManouchePick, applySuperManouchePick, applyManoucheTarget, applyManoucheSkip } from './actions/applyManoucheChoice';
+export { applyManouchePick, applySuperManouchePick, applyManoucheTarget, applyManoucheSkip, getExchangeLayer } from './actions/applyManoucheChoice';
 export {
   applyFlopReverseTarget,
   applyFlopRemakeTarget,
