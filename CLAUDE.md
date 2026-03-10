@@ -60,6 +60,7 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Fix 12L-2h** — Auto-skip loggué dans engine (skipTurn visible dans log/minilog) (1176 tests)
 - [x] **Fix 12L-2i** — Fond tilé uniforme sur tous les écrans (vignette + luminosité radiale) (1176 tests)
 - [x] **Étape 12L-3** — Uniformisation visuelle : SiteLogo en partie, TopBar réorganisée, bordure table grise sur tous les écrans, scroll intérieur, scrollbar sombre, titre blanc font-light, sélecteur thème fixe (1176 tests)
+- [x] **Fix 12L-3c** — Ramassage fluide, éventail adversaires complet, positions fixes adversaires (1176 tests)
 
 ### Nombre total de tests : 1176 (974 engine + 189 server + 13 client)
 

@@ -80,9 +80,6 @@ function PlayerZone({
   const botCardW = 40; // w-9 (36px) + border-2 transparent (4px)
   const botCardH = 56; // h-[52px] + border-2 transparent (4px)
 
-  /** Compute the overlap margin (px) for a row of `count` bot cards. */
-  const botOverlap = (count: number) => (count > 3 ? Math.min((count - 3) * 12, 24) : 0);
-
   // ── Éventail (paramétrable) ──
   const fanStyle = (index: number, total: number, maxAngle: number, arcY: number): { rotate: number; y: number } => {
     if (total <= 1) return { rotate: 0, y: 0 };
@@ -149,6 +146,31 @@ function PlayerZone({
     maxFlopSlotsRef.current = currentMaxSlots;
   }
   const maxSlots = maxFlopSlotsRef.current;
+
+  // ── Fixed bot zone width & dynamic hand overlap ──
+  const botFlopWidth = maxSlots * botCardW + Math.max(0, maxSlots - 1) * 4;
+  const botZoneFixedWidth = Math.max(botFlopWidth + 40, 160);
+
+  const botHandCount = player.hand.length;
+  const BOT_MIN_VISIBLE = 5; // minimum visible strip per card (px)
+  let dynamicBotOverlap = 0;
+  if (isBot && botHandCount > 1) {
+    const naturalWidth = botHandCount * botCardW;
+    if (naturalWidth > botZoneFixedWidth) {
+      dynamicBotOverlap = Math.ceil((naturalWidth - botZoneFixedWidth) / (botHandCount - 1));
+    }
+  }
+  dynamicBotOverlap = Math.min(dynamicBotOverlap, botCardW - BOT_MIN_VISIBLE);
+
+  // Scale down only if max overlap still isn't enough (extreme card counts)
+  let botHandScale = 1;
+  if (isBot && botHandCount > 1) {
+    const stride = botCardW - dynamicBotOverlap;
+    const totalWidth = botCardW + (botHandCount - 1) * stride;
+    if (totalWidth > botZoneFixedWidth) {
+      botHandScale = botZoneFixedWidth / totalWidth;
+    }
+  }
 
   const assignSlots = (cards: CardType[], slotMap: Map<string, number>, max: number): (CardType | null)[] => {
     const currentIds = new Set(cards.map((c) => c.id));
@@ -290,25 +312,44 @@ function PlayerZone({
   );
 
   return (
-    <div className={`flex flex-col items-center ${isBot ? '' : 'h-full gap-2'}`}>
-      {/* Bot hand */}
+    <div
+      className={`flex flex-col items-center ${isBot ? '' : 'h-full gap-2'}`}
+      style={isBot ? { width: botZoneFixedWidth } : undefined}
+    >
+      {/* Bot hand — fixed-width zone, cards adapt with dynamic overlap + scale */}
       {isBot && (
-        <div data-zone="hand" data-player-id={player.id} className="flex items-end justify-center mb-1" style={{ paddingBottom: botFanArc }}>
-          {player.hand.map((card, i) => {
-            const { rotate, y } = fanStyle(i, player.hand.length, botFanAngle, botFanArc);
-            return (
-              <div
-                key={card.id}
-                style={{
-                  marginLeft: i === 0 ? 0 : -botOverlap(player.hand.length),
-                  zIndex: i,
-                  transform: `rotate(${rotate}deg) translateY(${y}px)`,
-                }}
-              >
-                <Card card={card} faceDown={!debugRevealHands} size={botCardSize} />
-              </div>
-            );
-          })}
+        <div
+          data-zone="hand"
+          data-player-id={player.id}
+          className="flex items-center justify-center mb-1"
+          style={{ width: botZoneFixedWidth, height: botCardH + botFanArc * 2 }}
+        >
+          <div
+            className="flex items-end justify-center"
+            style={{
+              paddingBottom: botFanArc,
+              transform: botHandScale < 1 ? `scale(${botHandScale})` : undefined,
+              transformOrigin: 'bottom center',
+              transition: 'transform 350ms ease',
+            }}
+          >
+            {player.hand.map((card, i) => {
+              const { rotate, y } = fanStyle(i, player.hand.length, botFanAngle, botFanArc);
+              return (
+                <div
+                  key={card.id}
+                  style={{
+                    marginLeft: i === 0 ? 0 : -dynamicBotOverlap,
+                    zIndex: i,
+                    transform: `rotate(${rotate}deg) translateY(${y}px)`,
+                    transition: 'margin-left 350ms ease, transform 350ms ease',
+                  }}
+                >
+                  <Card card={card} faceDown={!debugRevealHands} size={botCardSize} />
+                </div>
+              );
+            })}
+          </div>
           {player.hand.length === 0 && (
             <span className="text-gray-500 text-xs italic">main vide</span>
           )}
@@ -380,7 +421,7 @@ function PlayerZone({
                   }}
                   whileHover={canClickHand && !isSelected && !isDragging ? { y: y - 10, rotate: 0, scale: 1.06 } : {}}
                   whileDrag={{ scale: 1.08, rotate: 0, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
-                  transition={{ layout: { duration: 0.15 }, opacity: { duration: 0 } }}
+                  transition={{ layout: { duration: 0.35 }, opacity: { duration: 0 } }}
                   onDragStart={() => {
                     setDraggingCardId(card.id);
                     didDragRef.current = true;
