@@ -290,7 +290,7 @@ function PlayerZone({
   );
 
   return (
-    <div className="flex flex-col items-center">
+    <div className={`flex flex-col items-center ${isBot ? '' : 'h-full gap-2'}`}>
       {/* Bot hand */}
       {isBot && (
         <div data-zone="hand" data-player-id={player.id} className="flex items-end justify-center mb-1" style={{ paddingBottom: botFanArc }}>
@@ -347,15 +347,15 @@ function PlayerZone({
         </div>
       </div>
 
-      {/* Human hand */}
+      {/* Human hand — flex-1 takes remaining space, prevents layout shift */}
       {!isBot && (
-        <div data-zone="hand" data-player-id={player.id} className="relative z-[10]">
+        <div data-zone="hand" data-player-id={player.id} className="relative z-[10] flex-1 min-h-0">
           <Reorder.Group
             as="div"
             axis="x"
             values={handOrder}
             onReorder={setHandOrder}
-            className="flex justify-center mt-6"
+            className="flex justify-center"
             style={{ paddingBottom: humanFanArc }}
           >
             {orderedHand.map((card, i) => {
@@ -408,16 +408,20 @@ function PlayerZone({
         </div>
       )}
 
-      {/* Combo hint text */}
-      {!isBot && comboHandFlopEnabled && (
-        <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
-          Vous pouvez aussi sélectionner des cartes du flop de même valeur
-        </p>
-      )}
-      {!isBot && comboFlopDarkEnabled && (
-        <p className="text-[10px] text-gold/70 text-center mt-1 leading-tight">
-          Vous pouvez aussi sélectionner des cartes du dark flop (attention : combo invalide = ramasser)
-        </p>
+      {/* Combo hint text — fixed height to prevent vertical card shift */}
+      {!isBot && (
+        <div className="h-6 flex-none flex items-center justify-center">
+          {comboHandFlopEnabled && (
+            <p className="text-[10px] text-gold/70 text-center leading-tight">
+              Vous pouvez aussi sélectionner des cartes du flop de même valeur
+            </p>
+          )}
+          {comboFlopDarkEnabled && (
+            <p className="text-[10px] text-gold/70 text-center leading-tight">
+              Vous pouvez aussi sélectionner des cartes du dark flop (attention : combo invalide = ramasser)
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
@@ -1723,7 +1727,7 @@ export function GameBoard({
       />
 
       {/* ── 1. Zone adversaires (1/3) ── */}
-      <div className="flex-1 min-h-0 flex items-center justify-evenly px-2 sm:px-3 md:px-4 relative z-[2]">
+      <div className="flex-1 min-h-0 flex items-center justify-evenly px-2 sm:px-3 md:px-4 relative z-[2] overflow-hidden">
         {bots.map((bot) => {
           const botGlobalIdx = state.players.findIndex((p) => p.id === bot.id);
           // During flop remake animation first half, show old faceUp cards
@@ -1751,7 +1755,7 @@ export function GameBoard({
       </div>
 
       {/* ── 2. Zone principale (1/3) — 3 colonnes ── */}
-      <div className="flex-1 min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2 relative z-[2]">
+      <div className="flex-1 min-h-0 flex px-2 sm:px-3 md:px-4 gap-1 sm:gap-2 relative z-[2] overflow-hidden">
         {/* Colonne gauche (25%) — Résumé pouvoirs / Révolution + Cimetière / Pioche */}
         <div className="w-1/4 flex flex-col h-full bg-black/20 rounded-lg gap-1 p-1">
           {/* Cadre haut — Résumé des pouvoirs ou Révolution */}
@@ -1810,8 +1814,8 @@ export function GameBoard({
       </div>
 
       {/* ── 3. Zone joueur humain (1/3) ── */}
-      <div className="flex-1 min-h-0 flex flex-col relative z-[2]">
-        <div className="flex-1 min-h-0 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 pt-2 sm:pt-3 flex justify-center items-center">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative z-[2]">
+        <div className="flex-1 min-h-0 px-2 sm:px-4 md:px-6 py-1 flex justify-center overflow-hidden">
           <PlayerZone
             player={(flopRemakePlayerId === humanId && flopRemakeOldFaceUp)
               ? { ...human, faceUp: flopRemakeOldFaceUp }
