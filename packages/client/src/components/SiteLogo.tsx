@@ -13,8 +13,8 @@ export function SiteLogo({ size = 'large' }: SiteLogoProps) {
   const cardH = isCompact ? 36 : 48;
   const cardW = Math.round(cardH * 0.69);
   const titleClass = isCompact
-    ? 'text-base sm:text-lg'
-    : 'text-3xl sm:text-4xl';
+    ? 'text-lg sm:text-xl'
+    : 'text-4xl sm:text-5xl';
 
   return (
     <div className="flex items-center gap-2 select-none">
@@ -41,7 +41,7 @@ export function SiteLogo({ size = 'large' }: SiteLogoProps) {
       </div>
 
       {/* Title */}
-      <h1 className={`font-serif font-bold tracking-wide whitespace-nowrap text-[#c9a84c] ${titleClass}`}>
+      <h1 className={`font-serif font-light tracking-wide whitespace-nowrap text-white ${titleClass}`}>
         Shit Head Palace
       </h1>
     </div>

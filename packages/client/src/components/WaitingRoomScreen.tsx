@@ -136,29 +136,35 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
   };
 
   return (
-    <div
-      className="h-screen flex flex-col overflow-y-auto shadow-[inset_0_0_40px_rgba(0,0,0,0.4)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4)]"
-      style={{
-        backgroundImage: `url(${theme.bgImage})`,
-        backgroundRepeat: 'repeat',
-        backgroundPosition: '0 0',
-        backgroundSize: '512px 512px',
-        backgroundColor: theme.bgColor,
-      }}
-    >
-      {/* Vignette overlay */}
-      <div
-        className="fixed inset-0 pointer-events-none z-0"
-        style={{
-          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.9) 100%)',
-        }}
-      />
-
+    <div className="h-screen flex flex-col bg-casino-room">
       {/* Header */}
       <SiteHeader currentScreen="lobby" onNavigate={(screen) => { handleLeave(); onNavigate(screen); }} inWaitingRoom />
 
-      {/* Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center px-4 overflow-y-auto min-h-0">
+      {/* Table surface */}
+      <div
+        className="flex-1 min-h-0 relative flex flex-col overflow-hidden
+          rounded-xl sm:rounded-[2rem] md:rounded-[2.5rem]
+          mx-1 my-1 sm:mx-2 sm:my-1.5 md:mx-3 md:my-2
+          border-4 sm:border-[5px] md:border-[6px] border-[#333333]
+          shadow-[inset_0_0_40px_rgba(0,0,0,0.4),0_4px_16px_rgba(0,0,0,0.7)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.7)]"
+        style={{
+          backgroundImage: `url(${theme.bgImage})`,
+          backgroundRepeat: 'repeat',
+          backgroundPosition: '0 0',
+          backgroundSize: '512px 512px',
+          backgroundColor: theme.bgColor,
+        }}
+      >
+        {/* Bordure dorée intérieure */}
+        <div className="absolute inset-0 rounded-lg sm:rounded-[1.5rem] md:rounded-[2rem] border border-gold/30 pointer-events-none" />
+        {/* Vignette */}
+        <div
+          className="absolute inset-0 pointer-events-none z-[1]"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.9) 100%)' }}
+        />
+
+        {/* Content */}
+        <main className="relative z-[2] flex-1 flex flex-col items-center px-4 overflow-y-auto min-h-0">
         <div className="w-full max-w-xl flex-1 flex flex-col items-center justify-evenly py-2">
         {/* Page title */}
         <h1 className="font-serif text-3xl text-[#c9a84c] text-center">Salle d'attente</h1>
@@ -351,6 +357,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
         </div>
         </div>
       </main>
+      </div>
 
       <SiteFooter />
     </div>

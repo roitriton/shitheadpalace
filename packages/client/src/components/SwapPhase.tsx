@@ -139,28 +139,34 @@ export function SwapPhase({ state, humanId, roomName, onSwap, onReady }: SwapPha
   const isReady = human.isReady === true;
 
   return (
-    <div
-      className="h-screen flex flex-col overflow-y-auto shadow-[inset_0_0_40px_rgba(0,0,0,0.4)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4)]"
-      style={{
-        backgroundImage: `url(${theme.bgImage})`,
-        backgroundRepeat: 'repeat',
-        backgroundPosition: '0 0',
-        backgroundSize: '512px 512px',
-        backgroundColor: theme.bgColor,
-      }}
-    >
-      {/* Vignette overlay */}
-      <div
-        className="fixed inset-0 pointer-events-none z-0"
-        style={{
-          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.9) 100%)',
-        }}
-      />
-
+    <div className="h-screen flex flex-col bg-casino-room">
       {/* Header */}
       <SiteHeader currentScreen="lobby" onNavigate={() => {}} navDisabled />
 
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 p-4 gap-4 w-full">
+      {/* Table surface */}
+      <div
+        className="flex-1 min-h-0 relative flex flex-col overflow-hidden
+          rounded-xl sm:rounded-[2rem] md:rounded-[2.5rem]
+          mx-1 my-1 sm:mx-2 sm:my-1.5 md:mx-3 md:my-2
+          border-4 sm:border-[5px] md:border-[6px] border-[#333333]
+          shadow-[inset_0_0_40px_rgba(0,0,0,0.4),0_4px_16px_rgba(0,0,0,0.7)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.7)]"
+        style={{
+          backgroundImage: `url(${theme.bgImage})`,
+          backgroundRepeat: 'repeat',
+          backgroundPosition: '0 0',
+          backgroundSize: '512px 512px',
+          backgroundColor: theme.bgColor,
+        }}
+      >
+        {/* Bordure dorée intérieure */}
+        <div className="absolute inset-0 rounded-lg sm:rounded-[1.5rem] md:rounded-[2rem] border border-gold/30 pointer-events-none" />
+        {/* Vignette */}
+        <div
+          className="absolute inset-0 pointer-events-none z-[1]"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.9) 100%)' }}
+        />
+
+        <div className="relative z-[2] flex flex-col items-center justify-center flex-1 p-4 gap-4 w-full overflow-y-auto min-h-0">
         {/* Titre */}
         <div className="text-center">
           <h1 className="font-serif text-3xl text-[#c9a84c] mb-2">Phase de préparation</h1>
@@ -306,6 +312,7 @@ export function SwapPhase({ state, humanId, roomName, onSwap, onReady }: SwapPha
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       <SiteFooter />

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../themes/ThemeContext';
 import { THEMES } from '../themes/themeConfig';
 import type { Theme } from '../themes/themeConfig';
+import { SiteLogo } from './SiteLogo';
 
 interface TopBarProps {
   /** Game type label (e.g. "Solo", "Multijoueur") */
@@ -51,7 +52,7 @@ function ThemeDropdown<T extends { id: string; label: string; bgImage: string }>
         onClick={() => setOpen((v) => !v)}
       >
         <span className="text-gray-400">{label}</span>
-        <span className="text-[#c9a84c] font-semibold">{selected.label}</span>
+        <span className="text-[#c9a84c] font-semibold min-w-[3rem]">{selected.label}</span>
         <svg className={`w-3 h-3 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
       </button>
       {open && (
@@ -108,31 +109,8 @@ export function TopBar({
 
   return (
     <div className="fixed top-0 left-0 right-0 h-14 z-50 bg-black border-b border-[#c9a84c]/20 flex items-center px-3 sm:px-4">
-      {/* Gauche : Titre + type de partie */}
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="font-serif text-[#c9a84c] text-sm sm:text-base font-bold tracking-wide whitespace-nowrap">
-          Shit Head Palace
-        </span>
-        {variantName && (
-          <span className="text-gray-500 text-[10px] sm:text-xs truncate hidden sm:inline">
-            — {variantName}
-          </span>
-        )}
-      </div>
-
-      {/* Quitter la partie */}
-      {onLeaveGame && (
-        <button
-          onClick={handleLeaveClick}
-          className={`ml-3 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-            confirmLeave
-              ? 'bg-red-600 hover:bg-red-500 text-white'
-              : 'bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          {confirmLeave ? 'Confirmer ?' : 'Quitter la partie'}
-        </button>
-      )}
+      {/* Gauche : Logo */}
+      <SiteLogo size="compact" />
 
       {/* Spacer */}
       <div className="flex-1" />
@@ -147,6 +125,21 @@ export function TopBar({
         />
       </div>
 
+      {/* Quitter la partie */}
+      {onLeaveGame && (
+        <button
+          onClick={handleLeaveClick}
+          style={{ minWidth: '130px' }}
+          className={`mr-3 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            confirmLeave
+              ? 'bg-red-600 hover:bg-red-500 text-white'
+              : 'bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          {confirmLeave ? 'Confirmer ?' : 'Quitter la partie'}
+        </button>
+      )}
+
       {/* User info + logout */}
       {username && onLogout && (
         <div className="flex items-center gap-2 mr-3">
@@ -155,7 +148,7 @@ export function TopBar({
             onClick={onLogout}
             className="text-gray-500 hover:text-gray-300 text-xs transition-colors"
           >
-            Quitter
+            Déconnexion
           </button>
         </div>
       )}
