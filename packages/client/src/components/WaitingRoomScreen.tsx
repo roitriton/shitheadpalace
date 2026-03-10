@@ -137,7 +137,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
 
   return (
     <div
-      className="h-screen flex flex-col overflow-y-auto"
+      className="h-screen flex flex-col overflow-y-auto shadow-[inset_0_0_40px_rgba(0,0,0,0.4)] md:shadow-[inset_0_0_80px_rgba(0,0,0,0.4)]"
       style={{
         backgroundImage: `url(${theme.bgImage})`,
         backgroundRepeat: 'repeat',
@@ -150,7 +150,7 @@ export function WaitingRoomScreen({ socket, initialRoom, onBackToLobby, onNaviga
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          background: 'radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.7) 100%)',
+          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.9) 100%)',
         }}
       />
 
