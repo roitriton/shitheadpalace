@@ -37,7 +37,7 @@ function getZonePos(zone: string, playerId?: string): { x: number; y: number } |
   };
 }
 
-/** Get the position of a specific card by its data-card-id attribute in the pile. */
+/** Get the position of a specific card by its data-card-id attribute. */
 function getCardPos(cardId: string): { x: number; y: number } | null {
   const el = document.querySelector(`[data-card-id="${cardId}"]`);
   if (!el) return null;
@@ -345,12 +345,15 @@ export function useCardAnimations(game: GameState | null, humanId: string) {
 
         const isBot = player.id !== humanId;
         const from = getZonePos('deck');
-        const to = getZonePos('hand', player.id);
-        if (!from || !to) continue;
+        const handZonePos = getZonePos('hand', player.id);
+        if (!from || !handZonePos) continue;
 
         drawnCards.forEach((card, i) => {
           handledCardIds.add(card.id);
           newHidden.add(card.id);
+          // Use exact card position in hand fan when available for smooth landing
+          const cardPos = getCardPos(card.id);
+          const to = cardPos ?? handZonePos;
           newAnims.push({
             id: `draw-${card.id}`,
             card,

@@ -338,6 +338,7 @@ function PlayerZone({
               return (
                 <div
                   key={card.id}
+                  data-card-id={card.id}
                   style={{
                     marginLeft: i === 0 ? 0 : -dynamicBotOverlap,
                     zIndex: i,
@@ -409,6 +410,7 @@ function PlayerZone({
                   key={card.id}
                   value={card.id}
                   className="relative"
+                  data-card-id={card.id}
                   style={{
                     marginLeft: i === 0 ? 0 : -4,
                     zIndex: isDragging ? 50 : isSelected ? 20 : i,
@@ -632,6 +634,23 @@ const POWER_LABELS: Record<string, string> = {
   superShifumi: 'Super Shifumi !',
 };
 
+const POWER_ICONS: Record<string, string> = {
+  burn: '\uD83D\uDD25',
+  reset: '\u2B50',
+  skip: '\uD83E\uDD98',
+  under: '\uD83D\uDC8E',
+  target: '\uD83C\uDFF9',
+  mirror: '\uD83E\uDE9E',
+  revolution: '\u2666\uFE0F',
+  superRevolution: '\u2666\uFE0F\u26A1',
+  manouche: '\u2660\uFE0F',
+  superManouche: '\u2660\uFE0F\u26A1',
+  flopReverse: '\u2665\uFE0F',
+  flopRemake: '\u2665\uFE0F\u26A1',
+  shifumi: '\u2663\uFE0F',
+  superShifumi: '\u2663\uFE0F\u26A1',
+};
+
 function getMiniLogColor(entry: LogEntry): string {
   if (entry.entryType === 'power') return 'text-amber-400';
   if (entry.entryType === 'effect') return 'text-emerald-400';
@@ -675,12 +694,13 @@ function MiniLog({ log, visible = true, maxEntries = 8 }: MiniLogProps) {
         const name = entry.playerName ?? '?';
         const color = getMiniLogColor(entry);
 
-        // Power entries: show power label only (no player name)
+        // Power entries: show icon + power label (no player name)
         if (entry.entryType === 'power') {
           const label = POWER_LABELS[entry.type] ?? entry.type;
+          const icon = POWER_ICONS[entry.type];
           return (
             <div key={entry.id} className={`text-[10px] leading-snug ${color} truncate font-semibold`} style={{ opacity }}>
-              {label}
+              {icon && <span className="text-[9px] mr-0.5">{icon}</span>}{label}
             </div>
           );
         }

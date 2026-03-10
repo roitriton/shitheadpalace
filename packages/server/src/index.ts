@@ -84,8 +84,16 @@ function createSoloSession(socketId: string, variant: GameVariant = DEFAULT_VARI
 
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
-/** Delay before resolving cemetery transit (burn/jack animation). */
+/** Delay before resolving cemetery transit (jack pile cleanup). */
 const CEMETERY_TRANSIT_DELAY_MS = 1500;
+
+/** Delay for burn cemetery transit: play anim (~1050ms) + overlay display (1500ms) + exit anim (600ms) + buffer (350ms). */
+const BURN_CEMETERY_DELAY_MS = 3500;
+
+/** Returns the appropriate cemetery transit delay: longer for burn (overlay must finish). */
+function getCemeteryDelay(state: GameState): number {
+  return state.lastPowerTriggered?.type === 'burn' ? BURN_CEMETERY_DELAY_MS : CEMETERY_TRANSIT_DELAY_MS;
+}
 
 /** Delay between each multi-jack step (revolution animation). */
 const MULTI_JACK_STEP_DELAY_MS = 1500;
@@ -242,7 +250,7 @@ function scheduleSoloBotIfNeeded(socket: Socket, session: SoloSession): void {
           } else {
             scheduleSoloBotIfNeeded(socket, session);
           }
-        }, CEMETERY_TRANSIT_DELAY_MS);
+        }, getCemeteryDelay(session.state));
       } else {
         scheduleSoloBotIfNeeded(socket, session);
       }
@@ -306,7 +314,7 @@ function scheduleSoloMultiJackContinuation(socket: Socket, session: SoloSession)
         session.state = resolveCemeteryTransit(session.state);
         sendSoloState(socket, session);
         scheduleSoloBotIfNeeded(socket, session);
-      }, CEMETERY_TRANSIT_DELAY_MS);
+      }, getCemeteryDelay(session.state));
     } else {
       scheduleSoloBotIfNeeded(socket, session);
     }
@@ -647,7 +655,7 @@ io.on('connection', (rawSocket) => {
           } else {
             scheduleSoloBotIfNeeded(socket, s);
           }
-        }, CEMETERY_TRANSIT_DELAY_MS);
+        }, getCemeteryDelay(s.state));
       } else {
         scheduleSoloBotIfNeeded(socket, s);
       }
@@ -767,7 +775,7 @@ io.on('connection', (rawSocket) => {
           } else {
             scheduleSoloBotIfNeeded(socket, s);
           }
-        }, CEMETERY_TRANSIT_DELAY_MS);
+        }, getCemeteryDelay(s.state));
       } else {
         scheduleSoloBotIfNeeded(socket, s);
       }

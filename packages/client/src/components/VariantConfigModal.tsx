@@ -52,10 +52,10 @@ const RANK_LABELS: Record<Rank, string> = {
 const POWER_OPTIONS: PowerOption[] = [
   { key: 'none', icon: '\u2014', label: 'Aucun pouvoir', description: '' },
   { key: 'burn', icon: '\uD83D\uDD25', label: 'Burn', description: 'Br\u00fble la pile, le lanceur rejoue' },
-  { key: 'reset', icon: '\uD83D\uDD04', label: 'Reset', description: 'Remet la pile \u00e0 z\u00e9ro' },
-  { key: 'under', icon: '\u2B07\uFE0F', label: 'Under', description: 'Le suivant doit jouer \u2264 cette valeur' },
-  { key: 'skip', icon: '\u274C', label: 'Skip', description: 'Le joueur suivant passe son tour' },
-  { key: 'target', icon: '\uD83C\uDFAF', label: 'Target', description: 'Choisir qui joue apr\u00e8s soi' },
+  { key: 'reset', icon: '\u2B50', label: 'Reset', description: 'Remet la pile \u00e0 z\u00e9ro' },
+  { key: 'under', icon: '\uD83D\uDC8E', label: 'Under', description: 'Le suivant doit jouer \u2264 cette valeur' },
+  { key: 'skip', icon: '\uD83E\uDD98', label: 'Skip', description: 'Le joueur suivant passe son tour' },
+  { key: 'target', icon: '\uD83C\uDFF9', label: 'Target', description: 'Choisir qui joue apr\u00e8s soi' },
   { key: 'mirror', icon: '\uD83E\uDE9E', label: 'Mirror', description: 'Copie la valeur de la carte accompagn\u00e9e' },
   { key: 'unique', icon: '\u2728', label: 'Pouvoirs uniques', description: 'Pouvoirs sp\u00e9ciaux par couleur' },
 ];

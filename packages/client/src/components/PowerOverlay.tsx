@@ -19,19 +19,19 @@ const POWER_DISPLAY: Record<LastPowerTriggered['type'], PowerDisplay> = {
     label: () => 'Burn !',
   },
   reset: {
-    icon: '\uD83D\uDD04',
+    icon: '\u2B50',
     label: () => 'Reset !',
   },
   under: {
-    icon: '\u2B07\uFE0F',
+    icon: '\uD83D\uDC8E',
     label: () => 'Under !',
   },
   skip: {
-    icon: '\u274C',
+    icon: '\uD83E\uDD98',
     label: (p) => (p.skipCount && p.skipCount > 1 ? `Skip x${p.skipCount} !` : 'Skip !'),
   },
   target: {
-    icon: '\uD83C\uDFAF',
+    icon: '\uD83C\uDFF9',
     label: (p, players) =>
       p.targetId
         ? `Target ! ${playerName(p.playerId, players)} \u2192 ${playerName(p.targetId, players)} !`

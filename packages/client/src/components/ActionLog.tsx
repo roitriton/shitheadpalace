@@ -32,6 +32,23 @@ const ACTION_LOG_POWER_LABELS: Record<string, string> = {
   superShifumi: 'Super Shifumi !',
 };
 
+const ACTION_LOG_POWER_ICONS: Record<string, string> = {
+  burn: '\uD83D\uDD25',
+  reset: '\u2B50',
+  skip: '\uD83E\uDD98',
+  under: '\uD83D\uDC8E',
+  target: '\uD83C\uDFF9',
+  mirror: '\uD83E\uDE9E',
+  revolution: '\u2666\uFE0F',
+  superRevolution: '\u2666\uFE0F\u26A1',
+  manouche: '\u2660\uFE0F',
+  superManouche: '\u2660\uFE0F\u26A1',
+  flopReverse: '\u2665\uFE0F',
+  flopRemake: '\u2665\uFE0F\u26A1',
+  shifumi: '\u2663\uFE0F',
+  superShifumi: '\u2663\uFE0F\u26A1',
+};
+
 /** Render card symbols (rank + colored suit) as JSX spans. */
 function renderCardSymbols(ranks: string[], suits: string[]): React.ReactNode {
   return ranks.map((rank, ri) => {
@@ -49,9 +66,11 @@ function renderCardSymbols(ranks: string[], suits: string[]): React.ReactNode {
 
 /** Render a log entry as JSX — uses card symbols for play/darkPlay entries. */
 function renderLogEntry(entry: LogEntry): React.ReactNode {
-  // Power entries: just the power label, no player name
+  // Power entries: icon + power label, no player name
   if (entry.entryType === 'power') {
-    return ACTION_LOG_POWER_LABELS[entry.type] ?? entry.type;
+    const icon = ACTION_LOG_POWER_ICONS[entry.type];
+    const label = ACTION_LOG_POWER_LABELS[entry.type] ?? entry.type;
+    return <>{icon && <span className="text-[10px] mr-0.5">{icon}</span>}{label}</>;
   }
 
   // Effect entries with pre-formatted message

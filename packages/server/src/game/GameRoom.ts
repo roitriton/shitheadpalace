@@ -58,8 +58,11 @@ export const RECONNECT_TIMEOUT_MS = 60_000;
 /** Bot turn delay in milliseconds. */
 const BOT_DELAY_MS = 1500;
 
-/** Delay before resolving cemetery transit (burn/jack animation). */
+/** Delay before resolving cemetery transit (jack pile cleanup). */
 const CEMETERY_TRANSIT_DELAY_MS = 1500;
+
+/** Delay for burn cemetery transit: play anim (~1050ms) + overlay display (1500ms) + exit anim (600ms) + buffer (350ms). */
+const BURN_CEMETERY_DELAY_MS = 3500;
 
 /** Delay between each multi-jack step (revolution animation). */
 const MULTI_JACK_STEP_DELAY_MS = 1500;
@@ -350,6 +353,9 @@ export class GameRoom {
     if (this.needsMultiJackContinuation()) {
       this.scheduleMultiJackContinuation();
     } else if (this.state.pendingCemeteryTransit && !this.state.pendingAction) {
+      // Use longer delay for burn so the overlay plays fully before cards transit
+      const isBurn = this.state.lastPowerTriggered?.type === 'burn';
+      const delay = isBurn ? BURN_CEMETERY_DELAY_MS : CEMETERY_TRANSIT_DELAY_MS;
       setTimeout(() => {
         if (!this.state) return;
         this.state = resolveCemeteryTransit(this.state);
@@ -362,7 +368,7 @@ export class GameRoom {
         } else {
           this.scheduleBotIfNeeded();
         }
-      }, CEMETERY_TRANSIT_DELAY_MS);
+      }, delay);
     } else {
       this.scheduleBotIfNeeded();
     }
@@ -615,6 +621,8 @@ export class GameRoom {
         } else if (this.needsMultiJackContinuation()) {
           this.scheduleMultiJackContinuation();
         } else if (this.state.pendingCemeteryTransit && !this.state.pendingAction) {
+          const isBotBurn = this.state.lastPowerTriggered?.type === 'burn';
+          const botCemeteryDelay = isBotBurn ? BURN_CEMETERY_DELAY_MS : CEMETERY_TRANSIT_DELAY_MS;
           setTimeout(() => {
             if (!this.state) return;
             this.state = resolveCemeteryTransit(this.state);
@@ -627,7 +635,7 @@ export class GameRoom {
             } else {
               this.scheduleBotIfNeeded();
             }
-          }, CEMETERY_TRANSIT_DELAY_MS);
+          }, botCemeteryDelay);
         } else {
           this.scheduleBotIfNeeded();
         }
