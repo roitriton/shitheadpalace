@@ -1,9 +1,11 @@
 import { randomBytes } from 'crypto';
+import path from 'path';
 import express from 'express';
 import { createServer } from 'http';
 import { Server, type Socket } from 'socket.io';
 import helmet from 'helmet';
 import cors from 'cors';
+import { existsSync } from 'fs';
 import { authRouter } from './routes/auth';
 import { lobbyRouter } from './routes/lobby';
 import { createMessagesRouter } from './routes/messages';
@@ -469,13 +471,18 @@ const app = express();
 const httpServer = createServer(app);
 
 const clientUrl = process.env.CLIENT_URL ?? 'http://localhost:5173';
+const ngrokUrl = process.env.NGROK_URL;
+
+// Build CORS origins list: localhost + ngrok if configured
+const corsOrigins: string[] = [clientUrl];
+if (ngrokUrl) corsOrigins.push(ngrokUrl.replace(/\/$/, ''));
 
 const io = new Server(httpServer, {
-  cors: { origin: clientUrl, credentials: true },
+  cors: { origin: corsOrigins, credentials: true },
 });
 
-app.use(helmet());
-app.use(cors({ origin: clientUrl, credentials: true }));
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
@@ -485,6 +492,24 @@ app.get('/health', (_req, res) => {
 app.use('/auth', authRouter);
 app.use('/lobby', lobbyRouter);
 app.use('/messages', createMessagesRouter(io));
+
+// ─── Serve client build (for ngrok single-tunnel mode) ──────────────────────
+const clientDistPath = path.resolve(__dirname, '../../client/dist');
+if (existsSync(clientDistPath)) {
+  // Cache agressif sur les assets (images, JS, CSS) — 24h
+  app.use('/assets', express.static(path.join(clientDistPath, 'assets'), {
+    maxAge: '1d',
+    immutable: true,
+  }));
+  app.use('/themes', express.static(path.join(clientDistPath, 'themes'), {
+    maxAge: '1d',
+  }));
+  app.use(express.static(clientDistPath));
+  // SPA fallback: serve index.html for any unmatched GET request
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
 
 // ─── Socket.IO ────────────────────────────────────────────────────────────────
 
@@ -1482,8 +1507,9 @@ io.on('connection', (rawSocket) => {
 const PORT = parseInt(process.env.PORT ?? '3456', 10);
 
 if (process.env.NODE_ENV !== 'test') {
-  httpServer.listen(PORT, () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server → http://localhost:${PORT}`);
+    if (ngrokUrl) console.log(`ngrok  → ${ngrokUrl}`);
   });
 }
 
