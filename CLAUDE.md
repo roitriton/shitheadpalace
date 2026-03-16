@@ -66,8 +66,9 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Fix 12L-4a-anim** — Animation Manouche/Super Manouche sur flop et dark flop (1201 tests)
 - [x] **Étape 12M** — Ngrok multijoueur + WebP assets (4.4→1.6MB, -64%) + cache headers (1201 tests)
 - [x] **Étape 12N-1** — Fix Mirror solo interdit + tiebreak premier joueur par force de carte (1209 tests)
+- [x] **Étape 12N-2** — Fix tour après multi-valets avec ramassage : prochain joueur = après le ramasseur (1212 tests)
 
-### Nombre total de tests : 1209 (1007 engine + 189 server + 13 client)
+### Nombre total de tests : 1212 (1010 engine + 189 server + 13 client)
 
 ### Étapes à venir
 - [ ] Étape 13 — IA (bots intermédiaire et expert)

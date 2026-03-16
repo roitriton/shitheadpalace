@@ -6,7 +6,7 @@ import type {
   PendingMultiJackOrder,
   PileEntry,
 } from '../../types';
-import { advanceTurn, isGameOver, isPlayerFinished, resolveAutoSkip } from '../turn';
+import { advanceTurn, buildTurnQueue, isGameOver, isPlayerFinished, resolveAutoSkip } from '../turn';
 import { appendLog } from '../../utils/log';
 import { getUniquePowerForCard } from '../../powers/utils';
 
@@ -280,6 +280,7 @@ function resolveShifumiPickup(state: GameState): GameState {
       ...seq,
       currentJackEntry: undefined,
       pendingShifumiPickup: undefined,
+      pickupPlayerId: loserId,
     },
   };
 
@@ -360,6 +361,18 @@ function finalizeMultiJackSequence(state: GameState, timestamp: number): GameSta
     newState = markPlayerFinished(newState, launcherIdx, timestamp);
   }
   if (isGameOver(newState)) return finalizeGame(newState, timestamp);
+
+  // If a pickup happened during the sequence, the turn must advance from
+  // the player who picked up (rule: "après ramassage → joueur APRÈS le
+  // ramasseur joue"), not from the launcher.
+  if (seq.pickupPlayerId) {
+    const pickupIdx = newState.players.findIndex((p) => p.id === seq.pickupPlayerId);
+    if (pickupIdx !== -1) {
+      const newTurnOrder = buildTurnQueue(newState.players, pickupIdx, newState.direction);
+      newState = { ...newState, currentPlayerIndex: pickupIdx, turnOrder: newTurnOrder };
+      return resolveAutoSkip(advanceTurn(newState, false));
+    }
+  }
 
   return resolveAutoSkip(advanceTurn(newState, finished));
 }

@@ -1600,3 +1600,134 @@ describe('Edge cases', () => {
     expect(result.graveyard.some((c) => c.id === jClubs.id)).toBe(true);
   });
 });
+
+// ─── Turn after multi-jack with pickup ────────────────────────────────────────
+
+describe('Turn after multi-jack with pickup', () => {
+  it('[Shifumi, Révolution]: shifumi loser picks up → turn = player after loser', () => {
+    // 3 players: p0 (launcher), p1, p2. Order: p0→p1→p2
+    // p0 plays J♣ + J♦. Sequence: Shifumi first, then Révolution.
+    // Shifumi targets p1 vs p2, p2 loses and picks up.
+    // Then Révolution resolves.
+    // Expected: turn goes to player after p2 (the loser) = p0.
+    const pileCard = card('5', 'hearts', 5);
+    const state = makeState({
+      pile: [{ cards: [pileCard], playerId: 'p2', playerName: 'p2', timestamp: 0 }],
+      players: [
+        makePlayer('p0', { hand: [jClubs, jDiamonds, card('K', 'hearts')] }),
+        makePlayer('p1', { hand: [card('6', 'hearts')] }),
+        makePlayer('p2', { hand: [card('8', 'spades')] }),
+        makePlayer('p3', { hand: [card('Q', 'hearts')] }),
+      ],
+      turnOrder: [1, 2, 3],
+    });
+
+    let result = applyPlay(state, 'p0', [jClubs.id, jDiamonds.id]);
+    const seq: MultiJackSequenceEntry[] = [
+      { jackCard: jClubs },
+      { jackCard: jDiamonds },
+    ];
+    result = applyMultiJackOrder(result, 'p0', seq);
+
+    // Shifumi: p2 loses
+    expect(result.pendingAction?.type).toBe('shifumi');
+    result = applyShifumiTarget(result, 'p0', 'p1', 'p2');
+    result = applyShifumiChoice(result, 'p1', 'rock');
+    result = applyShifumiChoice(result, 'p2', 'scissors');
+    result = resolveShifumiResult(result);
+
+    // After shifumi, continue → pickup + second jack (Révolution)
+    result = continueMultiJackSequence(result, 1);
+    expect(result.pendingAction?.type).toBe('PendingRevolutionConfirm');
+    result = applyRevolutionConfirm(result, 'p0');
+
+    // Continue → finalize
+    result = continueMultiJackSequence(result, 2);
+
+    // Turn should be player after p2 (loser who picked up), not after p0 (launcher)
+    // p2 is index 2, next player = p3 (index 3)
+    expect(result.currentPlayerIndex).toBe(3);
+    expect(result.multiJackSequence).toBeUndefined();
+  });
+
+  it('[Shifumi, Manouche]: shifumi loser picks up → turn = player after loser', () => {
+    // p0 plays J♣ + J♠. Sequence: Shifumi first, then Manouche.
+    // Shifumi targets p1 vs p3, p3 loses and picks up.
+    // Then Manouche exchange with p1.
+    // Expected: turn goes to player after p3 = p0.
+    const pileCard = card('5', 'hearts', 5);
+    const cardQ = card('Q', 'hearts');
+    const card6 = card('6', 'spades', 3);
+    const state = makeState({
+      pile: [{ cards: [pileCard], playerId: 'p2', playerName: 'p2', timestamp: 0 }],
+      players: [
+        makePlayer('p0', { hand: [jClubs, jSpades, card('K', 'hearts'), card6] }),
+        makePlayer('p1', { hand: [cardQ, card('4', 'hearts')] }),
+        makePlayer('p2', { hand: [card('8', 'spades')] }),
+        makePlayer('p3', { hand: [card('3', 'clubs')] }),
+      ],
+      turnOrder: [1, 2, 3],
+    });
+
+    let result = applyPlay(state, 'p0', [jClubs.id, jSpades.id]);
+    const seq: MultiJackSequenceEntry[] = [
+      { jackCard: jClubs },
+      { jackCard: jSpades },
+    ];
+    result = applyMultiJackOrder(result, 'p0', seq);
+
+    // Shifumi: p3 loses
+    expect(result.pendingAction?.type).toBe('shifumi');
+    result = applyShifumiTarget(result, 'p0', 'p1', 'p3');
+    result = applyShifumiChoice(result, 'p1', 'rock');
+    result = applyShifumiChoice(result, 'p3', 'scissors');
+    result = resolveShifumiResult(result);
+
+    // Continue → pickup + second jack (Manouche)
+    result = continueMultiJackSequence(result, 1);
+    expect(result.pendingAction?.type).toBe('manouche');
+
+    // Manouche: exchange with p1
+    result = applyManoucheTarget(result, 'p0', 'p1');
+    result = applyManouchePick(result, 'p0', cardQ.id, [card6.id]);
+
+    // Continue → finalize
+    result = continueMultiJackSequence(result, 2);
+
+    // Turn should be player after p3 (loser who picked up)
+    // p3 is index 3, next player = p0 (index 0)
+    expect(result.currentPlayerIndex).toBe(0);
+    expect(result.multiJackSequence).toBeUndefined();
+  });
+
+  it('multi-jack without pickup → turn = player after launcher (normal)', () => {
+    // p0 plays J♦ + J♦. Both are Révolution. No pickup.
+    // Expected: turn goes to player after p0 (launcher) = p1.
+    const state = makeState({
+      players: [
+        makePlayer('p0', { hand: [jDiamonds, jDiamonds2, card('K', 'hearts')] }),
+        makePlayer('p1', { hand: [card('6', 'hearts')] }),
+        makePlayer('p2', { hand: [card('8', 'spades')] }),
+        makePlayer('p3', { hand: [card('Q', 'hearts')] }),
+      ],
+      turnOrder: [1, 2, 3],
+    });
+
+    let result = applyPlay(state, 'p0', [jDiamonds.id, jDiamonds2.id]);
+    const seq: MultiJackSequenceEntry[] = [
+      { jackCard: jDiamonds },
+      { jackCard: jDiamonds2 },
+    ];
+    result = applyMultiJackOrder(result, 'p0', seq);
+
+    // Step-by-step: confirm + continue for each revolution
+    result = applyRevolutionConfirm(result, 'p0');
+    result = continueMultiJackSequence(result, 1);
+    result = applyRevolutionConfirm(result, 'p0');
+    result = continueMultiJackSequence(result, 2);
+
+    // Normal: turn after launcher (p0) = p1
+    expect(result.currentPlayerIndex).toBe(1);
+    expect(result.multiJackSequence).toBeUndefined();
+  });
+});

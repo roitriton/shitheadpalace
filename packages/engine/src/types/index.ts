@@ -380,6 +380,12 @@ export interface GameState {
     pendingShifumiPickup?: {
       loserId: string;
     };
+    /**
+     * Set when a player picks up the pile during the multi-jack sequence
+     * (e.g. shifumi loser). After all jacks resolve, the turn advances
+     * from this player instead of the launcher.
+     */
+    pickupPlayerId?: string;
   } | null;
 }
 
