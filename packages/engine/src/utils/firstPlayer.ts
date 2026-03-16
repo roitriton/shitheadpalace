@@ -1,5 +1,4 @@
-import type { Player } from '../types';
-import { RANK_VALUES } from './ranks';
+import type { Player, Rank } from '../types';
 
 /** Returned when a single player is clearly determined as the first to play. */
 export interface SingleFirstPlayer {
@@ -16,12 +15,41 @@ export interface ShifumiTiebreak {
 export type FirstPlayerResult = SingleFirstPlayer | ShifumiTiebreak;
 
 /**
+ * Game-strength score for first-player tiebreak.
+ * Lower score = weaker card = player goes first.
+ *
+ * Strength order (weakest to strongest):
+ *   3 < 4 < 5 < 6 < 8 < J < Q < K < {2, 7, 9, 10, A}
+ *
+ * Power cards (2=Reset, 7=Skip, 9=Mirror, 10=Burn, A=Target) are all
+ * equal at the highest tier because they bypass normal pile ordering.
+ */
+const RANK_STRENGTH: Record<Rank, number> = {
+  '3': 1,
+  '4': 2,
+  '5': 3,
+  '6': 4,
+  '8': 5,
+  J: 6,
+  Q: 7,
+  K: 8,
+  // Power cards — all equal, strongest
+  '2': 9,
+  '7': 9,
+  '9': 9,
+  '10': 9,
+  A: 9,
+};
+
+/**
  * Determines which player goes first at game start based on the cards in hand.
  *
- * Rules (from CLAUDE.md):
- * 1. The player holding the globally lowest-ranked card goes first.
- * 2. Tie on rank → the player holding the most copies of that rank wins.
- * 3. Still tied → shifumi between all remaining tied players.
+ * Algorithm:
+ * 1. Assign a strength score to each rank (see RANK_STRENGTH).
+ * 2. Sort each player's hand by strength ascending.
+ * 3. Compare card-by-card: the player with the first strictly weaker card
+ *    at any position starts.
+ * 4. If all strength scores are identical → shifumi between tied players.
  *
  * @param players - All players with non-empty hands (after dealing).
  * @returns Either a single winner or a list of tied players for shifumi.
@@ -32,33 +60,39 @@ export function findFirstPlayer(players: Player[]): FirstPlayerResult {
     throw new Error('findFirstPlayer requires at least one player');
   }
 
-  // Step 1 — find the globally lowest rank value across all hands
-  let minValue = Infinity;
-
-  for (const player of players) {
-    for (const card of player.hand) {
-      const v = RANK_VALUES[card.rank];
-      if (v < minValue) minValue = v;
-    }
-  }
-
-  if (!isFinite(minValue)) {
+  if (players.every((p) => p.hand.length === 0)) {
     throw new Error('Cannot determine first player: all hands are empty');
   }
 
-  // Step 2 — for each player, count how many cards of that minimum rank they hold
-  const counts = players.map((player) => ({
-    playerId: player.id,
-    count: player.hand.filter((c) => RANK_VALUES[c.rank] === minValue).length,
+  // Sort each player's hand strengths ascending
+  const sorted = players.map((p) => ({
+    playerId: p.id,
+    strengths: p.hand.map((c) => RANK_STRENGTH[c.rank]).sort((a, b) => a - b),
   }));
 
-  // Step 3 — winner(s) = those with the highest count of the minimum rank
-  const maxCount = Math.max(...counts.map((c) => c.count));
-  const winners = counts.filter((c) => c.count === maxCount);
+  const maxLen = Math.max(...sorted.map((s) => s.strengths.length));
 
-  if (winners.length === 1) {
-    return { type: 'single', playerId: (winners[0] as (typeof winners)[0]).playerId };
+  // Card-by-card elimination: at each position, keep only candidates
+  // whose strength equals the minimum at that position.
+  let candidates = sorted;
+
+  for (let i = 0; i < maxLen; i++) {
+    const minStrength = Math.min(
+      ...candidates.map((c) => c.strengths[i] ?? Infinity),
+    );
+    const remaining = candidates.filter(
+      (c) => (c.strengths[i] ?? Infinity) === minStrength,
+    );
+    if (remaining.length === 1) {
+      return { type: 'single', playerId: remaining[0]!.playerId };
+    }
+    candidates = remaining;
   }
 
-  return { type: 'shifumi', playerIds: winners.map((w) => w.playerId) };
+  // All remaining candidates are perfectly tied
+  if (candidates.length === 1) {
+    return { type: 'single', playerId: candidates[0]!.playerId };
+  }
+
+  return { type: 'shifumi', playerIds: candidates.map((c) => c.playerId) };
 }

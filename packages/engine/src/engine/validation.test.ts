@@ -351,6 +351,44 @@ describe('canPlayCards — Jacks on empty pile', () => {
   });
 });
 
+// ─── canPlayCards — Mirror alone ──────────────────────────────────────────────
+
+describe('canPlayCards — Mirror alone', () => {
+  const mirrorVariant = { name: 'S' as const, powerAssignments: { mirror: '9' as const }, playerCount: 2, deckCount: 1 };
+
+  function mirrorState(pile: PileEntry[] = []): GameState {
+    return { ...playingState(pile), variant: mirrorVariant };
+  }
+
+  it('rejects a single Mirror on empty pile', () => {
+    const state = mirrorState([]);
+    expect(canPlayCards([card('9')], state)).toBe(false);
+  });
+
+  it('rejects a single Mirror on non-empty pile', () => {
+    const state = mirrorState([pileEntry([card('5')])]);
+    expect(canPlayCards([card('9')], state)).toBe(false);
+  });
+
+  it('rejects multiple Mirrors alone', () => {
+    const state = mirrorState([pileEntry([card('5')])]);
+    expect(canPlayCards([card('9'), card('9', 'spades')], state)).toBe(false);
+  });
+
+  it('allows Mirror + another card on empty pile (accompanied play)', () => {
+    // canPlayCards is called with the non-Mirror cards by the caller;
+    // the Mirror check only blocks all-Mirror hands.
+    const state = mirrorState([]);
+    expect(canPlayCards([card('K')], state)).toBe(true);
+  });
+
+  it('allows non-Mirror card with same rank as Mirror on empty pile when no mirror power', () => {
+    // 9 is not Mirror in the default variant (no mirror assignment)
+    const state = playingState([]);
+    expect(canPlayCards([card('9')], state)).toBe(true);
+  });
+});
+
 // ─── canPlayerPlayAnything ───────────────────────────────────────────────────
 
 describe('canPlayerPlayAnything', () => {

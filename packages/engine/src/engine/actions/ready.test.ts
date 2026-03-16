@@ -59,10 +59,10 @@ describe('applyReady', () => {
   });
 
   it('transitions to playing when all players signal ready (no tie)', () => {
-    // p0 has the lowest card (2) → goes first
+    // p0 has the weakest hand by strength: [3,4,5]=[1,2,3] vs [6,K,A]=[4,8,9]
     const state = swappingState([
-      makePlayer('p0', [card('2'), card('K'), card('Q')]),
-      makePlayer('p1', [card('5'), card('A'), card('J')]),
+      makePlayer('p0', [card('3'), card('4'), card('5')]),
+      makePlayer('p1', [card('6'), card('K'), card('A')]),
     ]);
     const after0 = applyReady(state, 'p0');
     const after1 = applyReady(after0, 'p1');
@@ -74,9 +74,10 @@ describe('applyReady', () => {
   });
 
   it('sets pendingAction = firstPlayerShifumi when first-player is tied', () => {
+    // Identical strength profiles: [3,5,K]=[1,3,8] → tie
     const state = swappingState([
-      makePlayer('p0', [card('2', 'hearts'), card('K'), card('Q')]),
-      makePlayer('p1', [card('2', 'spades'), card('A'), card('J')]),
+      makePlayer('p0', [card('3', 'hearts'), card('5'), card('K')]),
+      makePlayer('p1', [card('3', 'spades'), card('5', 'spades'), card('K', 'spades')]),
     ]);
     const after0 = applyReady(state, 'p0');
     const after1 = applyReady(after0, 'p1');
@@ -90,11 +91,12 @@ describe('applyReady', () => {
   });
 
   it('works with 4 players — transitions when last one signals ready', () => {
+    // p1 has weakest hand: [3,4,5]=[1,2,3]
     const state = swappingState([
-      makePlayer('p0', [card('3'), card('K'), card('Q')]),
-      makePlayer('p1', [card('2'), card('A'), card('J')]),
-      makePlayer('p2', [card('5'), card('K'), card('Q')]),
-      makePlayer('p3', [card('7'), card('A'), card('J')]),
+      makePlayer('p0', [card('6'), card('K'), card('Q')]),
+      makePlayer('p1', [card('3'), card('4'), card('5')]),
+      makePlayer('p2', [card('8'), card('K', 'spades'), card('Q', 'spades')]),
+      makePlayer('p3', [card('J', 'spades'), card('A'), card('K', 'diamonds')]),
     ]);
 
     let s = applyReady(state, 'p0');
@@ -108,10 +110,11 @@ describe('applyReady', () => {
   });
 
   it('sets firstPlayerShifumi when 3 players are tied', () => {
+    // Identical strength profiles: [3,5,K]=[1,3,8] → 3-way tie
     const state = swappingState([
-      makePlayer('p0', [card('3', 'hearts'), card('A'), card('K')]),
-      makePlayer('p1', [card('3', 'spades'), card('Q'), card('J')]),
-      makePlayer('p2', [card('3', 'diamonds'), card('K'), card('Q')]),
+      makePlayer('p0', [card('3', 'hearts'), card('5'), card('K')]),
+      makePlayer('p1', [card('3', 'spades'), card('5', 'spades'), card('K', 'spades')]),
+      makePlayer('p2', [card('3', 'diamonds'), card('5', 'diamonds'), card('K', 'diamonds')]),
     ]);
     let s = applyReady(state, 'p0');
     s = applyReady(s, 'p1');
@@ -128,11 +131,12 @@ describe('applyReady', () => {
   });
 
   it('sets firstPlayerShifumi when all 4 players are tied', () => {
+    // Identical strength profiles: [3,5,K]=[1,3,8] → 4-way tie
     const state = swappingState([
-      makePlayer('p0', [card('2', 'hearts'), card('K'), card('Q')]),
-      makePlayer('p1', [card('2', 'spades'), card('A'), card('J')]),
-      makePlayer('p2', [card('2', 'diamonds'), card('K'), card('Q')]),
-      makePlayer('p3', [card('2', 'clubs'), card('A'), card('J')]),
+      makePlayer('p0', [card('3', 'hearts'), card('5'), card('K')]),
+      makePlayer('p1', [card('3', 'spades'), card('5', 'spades'), card('K', 'spades')]),
+      makePlayer('p2', [card('3', 'diamonds'), card('5', 'diamonds'), card('K', 'diamonds')]),
+      makePlayer('p3', [card('3', 'clubs'), card('5', 'clubs'), card('K', 'clubs')]),
     ]);
     let s = applyReady(state, 'p0');
     s = applyReady(s, 'p1');
@@ -151,12 +155,12 @@ describe('applyReady', () => {
   });
 
   it('excludes non-tied players when only some tie for first', () => {
-    // p0 and p1 tie on lowest '2'; p2 and p3 don't have a '2'
+    // p0 and p1 tie: [3,5,K]=[1,3,8]; p2 and p3 are weaker at some position
     const state = swappingState([
-      makePlayer('p0', [card('2', 'hearts'), card('K'), card('Q')]),
-      makePlayer('p1', [card('2', 'spades'), card('A'), card('J')]),
-      makePlayer('p2', [card('4'), card('K'), card('Q')]),
-      makePlayer('p3', [card('5'), card('A'), card('J')]),
+      makePlayer('p0', [card('3', 'hearts'), card('5'), card('K')]),
+      makePlayer('p1', [card('3', 'spades'), card('5', 'spades'), card('K', 'spades')]),
+      makePlayer('p2', [card('4'), card('5', 'diamonds'), card('K', 'diamonds')]),
+      makePlayer('p3', [card('6'), card('8'), card('Q')]),
     ]);
     let s = applyReady(state, 'p0');
     s = applyReady(s, 'p1');
@@ -474,11 +478,11 @@ describe('applyFirstPlayerShifumiChoice — 3+ players (elimination)', () => {
   });
 
   it('full integration: applyReady 3-way tie → shifumi → game start', () => {
-    // 3 players all have one '3' → tie
+    // 3 players with identical strength profiles: [3,K]=[1,8] → tie
     const state = swappingState([
       makePlayer('p0', [card('3', 'hearts'), card('K')]),
-      makePlayer('p1', [card('3', 'spades'), card('Q')]),
-      makePlayer('p2', [card('3', 'diamonds'), card('J')]),
+      makePlayer('p1', [card('3', 'spades'), card('K', 'spades')]),
+      makePlayer('p2', [card('3', 'diamonds'), card('K', 'diamonds')]),
     ]);
     let s = applyReady(state, 'p0');
     s = applyReady(s, 'p1');

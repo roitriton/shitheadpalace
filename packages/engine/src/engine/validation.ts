@@ -105,6 +105,9 @@ export function canPlayCards(cards: Card[], state: GameState, effectiveCount?: n
   if (cards.length === 0) return false;
   if (!allSameRank(cards)) return false;
 
+  // Mirror cards alone are never playable — Mirror must accompany another card
+  if (cards.every((c) => matchesPowerRank(c.rank, state.variant, 'mirror'))) return false;
+
   const count = effectiveCount ?? cards.length;
   const isRevolution = state.phase === 'revolution' || state.phase === 'superRevolution';
   const topValue = getTopPileValue(state);
