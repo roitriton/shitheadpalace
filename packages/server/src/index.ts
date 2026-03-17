@@ -596,7 +596,8 @@ io.on('connection', (rawSocket) => {
     if (!s) return;
 
     // Block all player actions during overlay animations and cemetery transit
-    if (s.state.pendingActionDelayed || s.state.pendingCemeteryTransit) return;
+    // (but allow actions that resolve a pending action — cemetery transit waits for pendingAction to clear)
+    if (s.state.pendingActionDelayed || (s.state.pendingCemeteryTransit && !s.state.pendingAction)) return;
 
     try {
       const prevState = s.state;
@@ -722,7 +723,8 @@ io.on('connection', (rawSocket) => {
     if (!s) return;
 
     // Block all player actions during overlay animations and cemetery transit
-    if (s.state.pendingActionDelayed || s.state.pendingCemeteryTransit) return;
+    // (but allow actions that resolve a pending action — cemetery transit waits for pendingAction to clear)
+    if (s.state.pendingActionDelayed || (s.state.pendingCemeteryTransit && !s.state.pendingAction)) return;
 
     try {
       const prevState = s.state;

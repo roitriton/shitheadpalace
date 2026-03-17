@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyPlay } from '../engine/actions/play';
+import { resolveIllegalDarkFlop } from '../engine/actions/resolveIllegalDarkFlop';
 import { applyPickUpPile } from '../engine/actions/pickUp';
 import { applySwap } from '../engine/actions/swap';
 import type { Card, GameState, PileEntry, Player } from '../types';
@@ -140,20 +141,25 @@ describe('log integration — actions generate correct log entries', () => {
     expect(swapLog!.data.flopCardId).toBe(fCard.id);
   });
 
-  it('dark flop fail generates a "darkPlayFail" log entry with rank and pileCardCount', () => {
+  it('dark flop fail generates "darkPlay" then "darkPlayFail" log entries', () => {
     // Player has only faceDown cards (no hand, no faceUp) → dark flop play
     const darkCard = card('3');
     const state = makeState(
       { hand: [], faceUp: [], faceDown: [darkCard] },
-      pile('K'), // K > 3 → the 3 cannot be played on K → darkPlayFail
+      pile('K'), // K > 3 → the 3 cannot be played on K → illegalDarkFlop
     );
 
-    const next = applyPlay(state, 'p0', [darkCard.id]);
+    const intermediate = applyPlay(state, 'p0', [darkCard.id]);
+    // Card goes to pile first, darkPlay logged
+    const playLog = intermediate.log.find((e) => e.type === 'darkPlay');
+    expect(playLog).toBeDefined();
+    expect(playLog!.playerId).toBe('p0');
 
+    // Resolve picks up pile, darkPlayFail logged
+    const next = resolveIllegalDarkFlop(intermediate);
     const failLog = next.log.find((e) => e.type === 'darkPlayFail');
     expect(failLog).toBeDefined();
     expect(failLog!.playerId).toBe('p0');
-    expect(failLog!.data.rank).toBe('3');
     expect(failLog!.data.pileCardCount).toBeGreaterThan(0);
   });
 });

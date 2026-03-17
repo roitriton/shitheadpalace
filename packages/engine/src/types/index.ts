@@ -244,6 +244,19 @@ export interface PendingShifumiResult {
   _savedInitiatorId?: string;
 }
 
+/**
+ * Intermediate state after a dark flop card is placed on the pile but
+ * determined to be illegal. The server shows a cross overlay, then resolves
+ * the pickup via resolveIllegalDarkFlop.
+ */
+export interface PendingIllegalDarkFlop {
+  type: 'illegalDarkFlop';
+  /** ID of the player who played the illegal card(s). */
+  playerId: string;
+  /** IDs of the card(s) that were placed on the pile illegally. */
+  cardIds: string[];
+}
+
 export type PendingAction =
   | PendingShifumi
   | PendingManouche
@@ -254,7 +267,8 @@ export type PendingAction =
   | PendingAllBlockedShifumi
   | PendingMultiJackOrder
   | PendingRevolutionConfirm
-  | PendingShifumiResult;
+  | PendingShifumiResult
+  | PendingIllegalDarkFlop;
 
 // ─── Log ──────────────────────────────────────────────────────────────────────
 
@@ -409,6 +423,7 @@ export type GameAction =
   | { type: 'manoucheTarget'; targetPlayerId: string }
   | { type: 'revolutionConfirm' }
   | { type: 'resolveShifumiResult' }
+  | { type: 'resolveIllegalDarkFlop' }
   | { type: 'manoucheSkip' }
   | { type: 'skipTurn' };
 

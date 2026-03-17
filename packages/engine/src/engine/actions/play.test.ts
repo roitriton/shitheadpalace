@@ -232,18 +232,23 @@ describe('applyPlay — from faceDown (dark flop)', () => {
     expect(next.currentPlayerIndex).toBe(1); // turn advanced
   });
 
-  it('invalid blind play: player picks up pile + revealed card', () => {
+  it('invalid blind play: card goes to pile, pendingAction illegalDarkFlop set', () => {
     // Pile has K (13); p0 blind-plays 5 (too low)
     const state = makeState({ hand: [], faceUp: [], faceDown: [c5] }, pile('K'));
     const next = applyPlay(state, 'p0', [c5.id]);
-    // pile cleared
-    expect(next.pile).toHaveLength(0);
-    // p0's hand now contains the old pile card (K) + the revealed card (5)
-    expect(next.players[0]!.hand).toHaveLength(2);
-    expect(next.players[0]!.hand.map((c) => c.rank)).toContain('5');
-    expect(next.players[0]!.hand.map((c) => c.rank)).toContain('K');
+    // Card is on the pile (revealed to all)
+    expect(next.pile).toHaveLength(2); // original K + revealed 5
+    expect(next.pile.at(-1)!.cards[0]!.rank).toBe('5');
+    // pendingAction set for cross overlay
+    expect(next.pendingAction).toEqual({
+      type: 'illegalDarkFlop',
+      playerId: 'p0',
+      cardIds: [c5.id],
+    });
     // card removed from faceDown
     expect(next.players[0]!.faceDown).toHaveLength(0);
+    // hand still empty (no pickup yet)
+    expect(next.players[0]!.hand).toHaveLength(0);
   });
 
   it('throws when trying to play two dark-flop cards at once', () => {

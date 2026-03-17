@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { isFlopReverseCard, isFlopReverseTriggered, isFlopRemakeTriggered } from './flopReverse';
 import { applyFlopReverseTarget, applyFlopRemakeTarget, applyFlopRemake } from '../engine/actions/applyFlopReverseChoice';
 import { applyPlay } from '../engine/actions/play';
+import { resolveIllegalDarkFlop } from '../engine/actions/resolveIllegalDarkFlop';
 import type { Card, GameState, GameVariant, Player } from '../types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -754,22 +755,30 @@ describe('After Flop Reverse: revealed dark flop', () => {
     expect(next.players[0]!.faceDown).toHaveLength(0);
   });
 
-  it('different ranks from known dark flop → pickup pile + all attempted cards', () => {
+  it('different ranks from known dark flop → cards go to pile, then resolve picks up', () => {
     const state = makeRevealedState([c5a, c6a]);
-    const next = applyPlay(state, 'p0', [c5a.id, c6a.id]);
-    // Player picks up pile (empty) + both attempted cards
+    const intermediate = applyPlay(state, 'p0', [c5a.id, c6a.id]);
+    // Intermediate: cards on pile, pendingAction set
+    expect(intermediate.pendingAction?.type).toBe('illegalDarkFlop');
+    expect(intermediate.pile.at(-1)!.cards).toHaveLength(2);
+
+    const next = resolveIllegalDarkFlop(intermediate);
+    // Player picks up pile (empty before) + both attempted cards
     expect(next.players[0]!.hand).toHaveLength(2);
     expect(next.players[0]!.hand.map((c) => c.rank).sort()).toEqual(['5', '6']);
     expect(next.players[0]!.faceDown).toHaveLength(0);
     expect(next.pile).toHaveLength(0);
   });
 
-  it('cards cannot beat pile from known dark flop → pickup pile + attempted cards', () => {
-    // Pile top = K; playing 5 (value < K) → invalid → pickup
+  it('cards cannot beat pile from known dark flop → cards go to pile, then resolve picks up', () => {
+    // Pile top = K; playing 5 (value < K) → invalid → intermediate state
     const pile = [{ cards: [cK], playerId: 'p1', playerName: 'p1', timestamp: 0 }];
     const state = makeRevealedState([c5a, c5b]);
     const withPile = { ...state, pile };
-    const next = applyPlay(withPile, 'p0', [c5a.id]);
+    const intermediate = applyPlay(withPile, 'p0', [c5a.id]);
+    expect(intermediate.pendingAction?.type).toBe('illegalDarkFlop');
+
+    const next = resolveIllegalDarkFlop(intermediate);
     // Player picks up pile (K) + attempted card (5) = 2 cards
     expect(next.players[0]!.hand).toHaveLength(2);
     expect(next.players[0]!.faceDown).toHaveLength(1); // c5b remains

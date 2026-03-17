@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyPlay } from './play';
+import { resolveIllegalDarkFlop } from './resolveIllegalDarkFlop';
 import type { Card, GameState, PileEntry, Player } from '../../types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -83,9 +84,10 @@ describe('Dark flop — blind (no hasSeenDarkFlop)', () => {
     expect(next.players[0]!.faceDown).toHaveLength(1);
     expect(next.players[0]!.faceDown[0]!.id).toBe(cK.id);
     expect(next.currentPlayerIndex).toBe(1);
+    expect(next.pendingAction).toBeNull();
   });
 
-  it('illegal card → player picks up pile + that card only', () => {
+  it('illegal card → card goes to pile with pendingAction illegalDarkFlop', () => {
     const c3 = card('3', 'hearts', 0);
     const c5 = card('5', 'spades', 1);
     const state = makeState(
@@ -95,6 +97,33 @@ describe('Dark flop — blind (no hasSeenDarkFlop)', () => {
 
     const next = applyPlay(state, 'p0', [c3.id]);
 
+    // Card is now on the pile (revealed)
+    expect(next.pile).toHaveLength(2); // original K + revealed 3
+    expect(next.pile.at(-1)!.cards[0]!.rank).toBe('3');
+    // pendingAction set for cross overlay
+    expect(next.pendingAction).toEqual({
+      type: 'illegalDarkFlop',
+      playerId: 'p0',
+      cardIds: [c3.id],
+    });
+    // Card removed from dark flop
+    expect(next.players[0]!.faceDown).toHaveLength(1);
+    expect(next.players[0]!.faceDown[0]!.id).toBe(c5.id);
+    // Hand still empty (no pickup yet)
+    expect(next.players[0]!.hand).toHaveLength(0);
+  });
+
+  it('illegal card → resolveIllegalDarkFlop picks up pile + card', () => {
+    const c3 = card('3', 'hearts', 0);
+    const c5 = card('5', 'spades', 1);
+    const state = makeState(
+      { hand: [], faceUp: [], faceDown: [c3, c5] },
+      pile('K'),
+    );
+
+    const intermediate = applyPlay(state, 'p0', [c3.id]);
+    const next = resolveIllegalDarkFlop(intermediate);
+
     // pile cleared
     expect(next.pile).toHaveLength(0);
     // player picked up pile (K) + revealed card (3)
@@ -103,6 +132,10 @@ describe('Dark flop — blind (no hasSeenDarkFlop)', () => {
     // other dark flop card remains
     expect(next.players[0]!.faceDown).toHaveLength(1);
     expect(next.players[0]!.faceDown[0]!.id).toBe(c5.id);
+    // pendingAction cleared
+    expect(next.pendingAction).toBeNull();
+    // turn advanced
+    expect(next.currentPlayerIndex).toBe(1);
   });
 
   it('multiple card selection → refused (throw)', () => {
@@ -126,21 +159,61 @@ describe('Dark flop — blind (no hasSeenDarkFlop)', () => {
     const next = applyPlay(state, 'p0', [c2.id]);
     expect(next.pile).toHaveLength(1);
     expect(next.pile[0]!.cards[0]!.rank).toBe('2');
+    expect(next.pendingAction).toBeNull();
   });
 
-  it('illegal blind play clears activeUnder and pileResetActive', () => {
+  it('illegal blind play → resolve clears activeUnder and pileResetActive', () => {
     const c3 = card('3', 'hearts', 0);
     const cK = card('K', 'spades', 1);
-    const state = {
-      ...makeState({ hand: [], faceUp: [], faceDown: [c3, cK] }, pile('K')),
-      activeUnder: 8,
-      pileResetActive: true,
-    };
+    const state = makeState(
+      { hand: [], faceUp: [], faceDown: [c3, cK] },
+      pile('K'),
+    );
 
-    const next = applyPlay(state, 'p0', [c3.id]);
+    const intermediate = applyPlay(state, 'p0', [c3.id]);
+    expect(intermediate.pendingAction?.type).toBe('illegalDarkFlop');
 
+    // Manually add activeUnder/pileResetActive to intermediate state
+    const withFlags = { ...intermediate, activeUnder: 8, pileResetActive: true };
+    const next = resolveIllegalDarkFlop(withFlags);
     expect(next.activeUnder).toBeNull();
     expect(next.pileResetActive).toBe(false);
+  });
+
+  it('blind dark flop Mirror alone → illegal → pendingAction illegalDarkFlop', () => {
+    const c9 = card('9', 'hearts', 0);
+    const cK = card('K', 'spades', 1);
+    const state = {
+      ...makeState({ hand: [], faceUp: [], faceDown: [c9, cK] }, pile('3')),
+      variant: mirrorVariant,
+    };
+
+    const next = applyPlay(state, 'p0', [c9.id]);
+
+    // Mirror alone is invalid even on blind dark flop
+    expect(next.pendingAction).toEqual({
+      type: 'illegalDarkFlop',
+      playerId: 'p0',
+      cardIds: [c9.id],
+    });
+    // Card is on pile
+    expect(next.pile.at(-1)!.cards[0]!.rank).toBe('9');
+  });
+
+  it('illegal blind play logs darkPlay first, then darkPlayFail on resolve', () => {
+    const c3 = card('3', 'hearts', 0);
+    const state = makeState(
+      { hand: [], faceUp: [], faceDown: [c3, card('5', 'spades', 1)] },
+      pile('K'),
+    );
+
+    const intermediate = applyPlay(state, 'p0', [c3.id]);
+    // darkPlay log entry is present (card revealed)
+    expect(intermediate.log.some((l) => l.type === 'darkPlay')).toBe(true);
+
+    const next = resolveIllegalDarkFlop(intermediate);
+    // darkPlayFail log entry added on resolve
+    expect(next.log.some((l) => l.type === 'darkPlayFail')).toBe(true);
   });
 });
 
@@ -164,9 +237,10 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
     expect(next.pile.at(-1)!.cards.map((c) => c.rank)).toEqual(['5', '5']);
     expect(next.players[0]!.faceDown).toHaveLength(1);
     expect(next.players[0]!.faceDown[0]!.id).toBe(cK.id);
+    expect(next.pendingAction).toBeNull();
   });
 
-  it('illegal combo (different ranks) → pickup pile + all attempted cards', () => {
+  it('illegal combo (different ranks) → cards go to pile with pendingAction', () => {
     const c5 = card('5', 'hearts', 0);
     const c8 = card('8', 'spades', 1);
     const cK = card('K', 'clubs', 2);
@@ -178,6 +252,33 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
 
     const next = applyPlay(state, 'p0', [c5.id, c8.id]);
 
+    // Cards are on the pile
+    expect(next.pile).toHaveLength(2); // original + invalid entry
+    expect(next.pile.at(-1)!.cards).toHaveLength(2);
+    // pendingAction set
+    expect(next.pendingAction).toEqual({
+      type: 'illegalDarkFlop',
+      playerId: 'p0',
+      cardIds: [c5.id, c8.id],
+    });
+    // Cards removed from dark flop
+    expect(next.players[0]!.faceDown).toHaveLength(1);
+    expect(next.players[0]!.faceDown[0]!.id).toBe(cK.id);
+  });
+
+  it('illegal combo (different ranks) → resolve picks up pile + all attempted cards', () => {
+    const c5 = card('5', 'hearts', 0);
+    const c8 = card('8', 'spades', 1);
+    const cK = card('K', 'clubs', 2);
+    const pileCard = card('3', 'diamonds', 99);
+    const state = makeState(
+      { hand: [], faceUp: [], faceDown: [c5, c8, cK], hasSeenDarkFlop: true },
+      [{ cards: [pileCard], playerId: 'px', playerName: 'PX', timestamp: 0 }],
+    );
+
+    const intermediate = applyPlay(state, 'p0', [c5.id, c8.id]);
+    const next = resolveIllegalDarkFlop(intermediate);
+
     // Player picks up pile (1) + attempted cards (2) = 3
     expect(next.players[0]!.hand).toHaveLength(3);
     expect(next.players[0]!.hand.map((c) => c.rank).sort()).toEqual(['3', '5', '8']);
@@ -185,9 +286,10 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
     expect(next.players[0]!.faceDown).toHaveLength(1);
     expect(next.players[0]!.faceDown[0]!.id).toBe(cK.id);
     expect(next.pile).toHaveLength(0);
+    expect(next.pendingAction).toBeNull();
   });
 
-  it('illegal combo (value too low) → pickup pile + attempted cards', () => {
+  it('illegal combo (value too low) → cards go to pile with pendingAction', () => {
     const c3 = card('3', 'hearts', 0);
     const cK = card('K', 'clubs', 1);
     const state = makeState(
@@ -196,6 +298,26 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
     );
 
     const next = applyPlay(state, 'p0', [c3.id]);
+
+    expect(next.pendingAction).toEqual({
+      type: 'illegalDarkFlop',
+      playerId: 'p0',
+      cardIds: [c3.id],
+    });
+    // Card is on pile
+    expect(next.pile).toHaveLength(2);
+  });
+
+  it('illegal combo (value too low) → resolve picks up pile + attempted cards', () => {
+    const c3 = card('3', 'hearts', 0);
+    const cK = card('K', 'clubs', 1);
+    const state = makeState(
+      { hand: [], faceUp: [], faceDown: [c3, cK], hasSeenDarkFlop: true },
+      pile('K'),
+    );
+
+    const intermediate = applyPlay(state, 'p0', [c3.id]);
+    const next = resolveIllegalDarkFlop(intermediate);
 
     // Player picks up pile (K) + attempted card (3) = 2
     expect(next.players[0]!.hand).toHaveLength(2);
@@ -264,9 +386,10 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
     expect(next.pile.at(-1)!.cards).toHaveLength(2);
     expect(next.players[0]!.faceDown).toHaveLength(1);
     expect(next.players[0]!.faceDown[0]!.id).toBe(cK.id);
+    expect(next.pendingAction).toBeNull();
   });
 
-  it('combo with mirror (9) but value too low → pickup', () => {
+  it('combo with mirror (9) but value too low → pendingAction illegalDarkFlop', () => {
     const c3 = card('3', 'hearts', 0);
     const c9 = card('9', 'spades', 1); // mirror
     const cK = card('K', 'clubs', 2);
@@ -280,13 +403,32 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
 
     const next = applyPlay(state, 'p0', [c3.id, c9.id]);
 
-    // 3 + mirror(9)=effective rank 3, can't beat K → pickup
+    // 3 + mirror(9)=effective rank 3, can't beat K → intermediate state
+    expect(next.pendingAction?.type).toBe('illegalDarkFlop');
+    expect(next.pile.at(-1)!.cards).toHaveLength(2);
+  });
+
+  it('combo with mirror (9) but value too low → resolve picks up', () => {
+    const c3 = card('3', 'hearts', 0);
+    const c9 = card('9', 'spades', 1); // mirror
+    const cK = card('K', 'clubs', 2);
+    const state = {
+      ...makeState(
+        { hand: [], faceUp: [], faceDown: [c3, c9, cK], hasSeenDarkFlop: true },
+        pile('K'),
+      ),
+      variant: mirrorVariant,
+    };
+
+    const intermediate = applyPlay(state, 'p0', [c3.id, c9.id]);
+    const next = resolveIllegalDarkFlop(intermediate);
+
     expect(next.players[0]!.hand).toHaveLength(3); // pile(K) + 3 + 9
     expect(next.players[0]!.faceDown).toHaveLength(1);
     expect(next.pile).toHaveLength(0);
   });
 
-  it('mirrors alone → pickup (not throw)', () => {
+  it('mirrors alone → pendingAction illegalDarkFlop (not throw)', () => {
     const c9a = card('9', 'hearts', 0);
     const c9b = card('9', 'spades', 1);
     const cK = card('K', 'clubs', 2);
@@ -300,31 +442,32 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
 
     const next = applyPlay(state, 'p0', [c9a.id, c9b.id]);
 
-    // Mirrors alone = invalid → pickup pile (1) + attempted (2)
+    // Mirrors alone = invalid → intermediate state (not throw)
+    expect(next.pendingAction?.type).toBe('illegalDarkFlop');
+    expect(next.pile.at(-1)!.cards).toHaveLength(2);
+  });
+
+  it('mirrors alone → resolve picks up pile + attempted cards', () => {
+    const c9a = card('9', 'hearts', 0);
+    const c9b = card('9', 'spades', 1);
+    const cK = card('K', 'clubs', 2);
+    const state = {
+      ...makeState(
+        { hand: [], faceUp: [], faceDown: [c9a, c9b, cK], hasSeenDarkFlop: true },
+        pile('3'),
+      ),
+      variant: mirrorVariant,
+    };
+
+    const intermediate = applyPlay(state, 'p0', [c9a.id, c9b.id]);
+    const next = resolveIllegalDarkFlop(intermediate);
+
     expect(next.players[0]!.hand).toHaveLength(3);
     expect(next.players[0]!.faceDown).toHaveLength(1);
     expect(next.pile).toHaveLength(0);
   });
 
-  it('invalid play clears activeUnder and pileResetActive', () => {
-    const c3 = card('3', 'hearts', 0);
-    const cK = card('K', 'clubs', 1);
-    const state = {
-      ...makeState(
-        { hand: [], faceUp: [], faceDown: [c3, cK], hasSeenDarkFlop: true },
-        pile('K'),
-      ),
-      activeUnder: 8,
-      pileResetActive: true,
-    };
-
-    const next = applyPlay(state, 'p0', [c3.id]);
-
-    expect(next.activeUnder).toBeNull();
-    expect(next.pileResetActive).toBe(false);
-  });
-
-  it('invalid play advances turn to next player', () => {
+  it('invalid play → resolve clears activeUnder and pileResetActive', () => {
     const c3 = card('3', 'hearts', 0);
     const cK = card('K', 'clubs', 1);
     const state = makeState(
@@ -332,12 +475,32 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
       pile('K'),
     );
 
-    const next = applyPlay(state, 'p0', [c3.id]);
+    const intermediate = applyPlay(state, 'p0', [c3.id]);
+    expect(intermediate.pendingAction?.type).toBe('illegalDarkFlop');
+
+    // Manually add activeUnder/pileResetActive to intermediate state
+    const withFlags = { ...intermediate, activeUnder: 8, pileResetActive: true };
+    const next = resolveIllegalDarkFlop(withFlags);
+
+    expect(next.activeUnder).toBeNull();
+    expect(next.pileResetActive).toBe(false);
+  });
+
+  it('invalid play → resolve advances turn to next player', () => {
+    const c3 = card('3', 'hearts', 0);
+    const cK = card('K', 'clubs', 1);
+    const state = makeState(
+      { hand: [], faceUp: [], faceDown: [c3, cK], hasSeenDarkFlop: true },
+      pile('K'),
+    );
+
+    const intermediate = applyPlay(state, 'p0', [c3.id]);
+    const next = resolveIllegalDarkFlop(intermediate);
 
     expect(next.currentPlayerIndex).toBe(1);
   });
 
-  it('invalid play logs darkPlayFail with all card info', () => {
+  it('invalid play logs darkPlay first, then darkPlayFail on resolve', () => {
     const c5 = card('5', 'hearts', 0);
     const c8 = card('8', 'spades', 1);
     const state = makeState(
@@ -345,10 +508,88 @@ describe('Dark flop — known (hasSeenDarkFlop)', () => {
       pile('K'),
     );
 
-    const next = applyPlay(state, 'p0', [c5.id, c8.id]);
+    const intermediate = applyPlay(state, 'p0', [c5.id, c8.id]);
+    // darkPlay logged (cards revealed on pile)
+    expect(intermediate.log.some((l) => l.type === 'darkPlay')).toBe(true);
+    expect(intermediate.pendingAction).toEqual({
+      type: 'illegalDarkFlop',
+      playerId: 'p0',
+      cardIds: [c5.id, c8.id],
+    });
 
+    const next = resolveIllegalDarkFlop(intermediate);
     const failLog = next.log.find((l) => l.type === 'darkPlayFail');
     expect(failLog).toBeDefined();
     expect(failLog!.data.cardIds).toEqual([c5.id, c8.id]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// resolveIllegalDarkFlop — standalone tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('resolveIllegalDarkFlop', () => {
+  it('throws when no pending illegalDarkFlop action', () => {
+    const state = makeState({ hand: [], faceUp: [], faceDown: [card('5')] });
+    expect(() => resolveIllegalDarkFlop(state)).toThrow(/No pending illegalDarkFlop/);
+  });
+
+  it('picks up entire pile including the illegal card(s)', () => {
+    const c3 = card('3', 'hearts', 0);
+    const pileK = card('K', 'spades', 99);
+    const state: GameState = {
+      ...makeState({ hand: [], faceUp: [], faceDown: [card('5', 'clubs', 1)] }),
+      pile: [
+        { cards: [pileK], playerId: 'px', playerName: 'PX', timestamp: 0 },
+        { cards: [c3], playerId: 'p0', playerName: 'p0', timestamp: 0 },
+      ],
+      pendingAction: { type: 'illegalDarkFlop', playerId: 'p0', cardIds: [c3.id] },
+    };
+
+    const next = resolveIllegalDarkFlop(state);
+
+    expect(next.pile).toHaveLength(0);
+    expect(next.players[0]!.hand).toHaveLength(2); // K + 3
+    expect(next.players[0]!.hand.map((c) => c.rank).sort()).toEqual(['3', 'K']);
+    expect(next.pendingAction).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// hasSeenDarkFlop flag tracking
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('hasSeenDarkFlop flag', () => {
+  it('is undefined by default on a new player', () => {
+    const p = makePlayer('p0');
+    expect(p.hasSeenDarkFlop).toBeUndefined();
+  });
+
+  it('persists after a valid dark flop play', () => {
+    const c6 = card('6', 'hearts', 0);
+    const cK = card('K', 'spades', 1);
+    const state = makeState(
+      { hand: [], faceUp: [], faceDown: [c6, cK], hasSeenDarkFlop: true },
+      pile('3'),
+    );
+
+    const next = applyPlay(state, 'p0', [c6.id]);
+
+    expect(next.players[0]!.hasSeenDarkFlop).toBe(true);
+  });
+
+  it('persists after an invalid dark flop play + resolve', () => {
+    const c3 = card('3', 'hearts', 0);
+    const cK = card('K', 'clubs', 1);
+    const state = makeState(
+      { hand: [], faceUp: [], faceDown: [c3, cK], hasSeenDarkFlop: true },
+      pile('K'),
+    );
+
+    const intermediate = applyPlay(state, 'p0', [c3.id]);
+    expect(intermediate.players[0]!.hasSeenDarkFlop).toBe(true);
+
+    const next = resolveIllegalDarkFlop(intermediate);
+    expect(next.players[0]!.hasSeenDarkFlop).toBe(true);
   });
 });

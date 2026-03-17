@@ -302,7 +302,8 @@ export class GameRoom {
     }
 
     // Block all player actions during overlay animations and cemetery transit
-    if (this.state.pendingActionDelayed || this.state.pendingCemeteryTransit) {
+    // (but allow actions that resolve a pending action — cemetery transit waits for pendingAction to clear)
+    if (this.state.pendingActionDelayed || (this.state.pendingCemeteryTransit && !this.state.pendingAction)) {
       throw new Error('Action blocked: overlay or cemetery transit in progress');
     }
 

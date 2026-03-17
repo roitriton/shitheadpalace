@@ -286,25 +286,32 @@ export function applyPlay(
       }
 
       if (isInvalid) {
-        // Invalid known dark-flop play: player picks up pile + all attempted cards
-        const pileCards = state.pile.flatMap((e) => e.cards);
-        const newHand = [...player.hand, ...pileCards, ...cardsToPlay];
+        // Invalid known dark-flop play: cards go to pile for visual reveal,
+        // then intermediate state for cross overlay
         const remaining = player.faceDown.filter((c) => !cardIds.includes(c.id));
-        const newPlayers = [...state.players];
-        newPlayers[playerIndex] = { ...player, hand: newHand, faceDown: remaining };
-        let newState: GameState = {
-          ...state,
-          players: newPlayers,
-          pile: [],
-          activeUnder: null,
-          pileResetActive: false,
+        const entryInvalid: PileEntry = {
+          cards: cardsToPlay,
+          playerId: player.id,
+          playerName: player.name,
+          timestamp,
         };
-        newState = appendLog(newState, 'darkPlayFail', timestamp, player.id, player.name, {
+        const newPlayersInvalid = [...state.players];
+        newPlayersInvalid[playerIndex] = { ...player, faceDown: remaining };
+        let newStateInvalid: GameState = {
+          ...state,
+          players: newPlayersInvalid,
+          pile: [...state.pile, entryInvalid],
+        };
+        newStateInvalid = appendLog(newStateInvalid, 'darkPlay', timestamp, player.id, player.name, {
           cardIds,
           ranks: cardsToPlay.map((c) => c.rank),
-          pileCardCount: pileCards.length,
+          suits: cardsToPlay.map((c) => c.suit),
+          zone,
         });
-        return resolveAutoSkip(advanceTurn(newState, false));
+        return {
+          ...newStateInvalid,
+          pendingAction: { type: 'illegalDarkFlop', playerId, cardIds },
+        };
       }
 
       // Valid known dark-flop play
@@ -410,29 +417,7 @@ export function applyPlay(
     const newFaceDown = player.faceDown.filter((c) => c.id !== revealedCard.id);
     const playerWithoutCard: typeof player = { ...player, faceDown: newFaceDown };
 
-    if (!canPlayCards([revealedCard], state)) {
-      // Invalid blind play: player picks up the pile AND the revealed card
-      const pileCards = state.pile.flatMap((e) => e.cards);
-      const newHand = [...player.hand, ...pileCards, revealedCard];
-      const newPlayers = [...state.players];
-      newPlayers[playerIndex] = { ...playerWithoutCard, hand: newHand };
-      // Clear Under/Reset (current player's constraint consumed)
-      let newState: GameState = {
-        ...state,
-        players: newPlayers,
-        pile: [],
-        activeUnder: null,
-        pileResetActive: false,
-      };
-      newState = appendLog(newState, 'darkPlayFail', timestamp, player.id, player.name, {
-        cardId: revealedCard.id,
-        rank: revealedCard.rank,
-        pileCardCount: pileCards.length,
-      });
-      return resolveAutoSkip(advanceTurn(newState, false));
-    }
-
-    // Valid blind play — place card on pile
+    // Card always goes to pile first (revealed to all players)
     const entry: PileEntry = {
       cards: [revealedCard],
       playerId: player.id,
@@ -448,6 +433,15 @@ export function applyPlay(
       ranks: [revealedCard.rank],
       suits: [revealedCard.suit],
     });
+
+    // Validate against the pile state BEFORE the card was added
+    if (!canPlayCards([revealedCard], state)) {
+      // Illegal blind play: card visible on pile, intermediate state for cross overlay
+      return {
+        ...newState,
+        pendingAction: { type: 'illegalDarkFlop', playerId, cardIds: [revealedCard.id] },
+      };
+    }
 
     // Resolve power effects (Mirror is a no-op for a single dark-flop card)
     const {
