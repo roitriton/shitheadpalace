@@ -87,6 +87,9 @@ function finalizeGame(state: GameState, timestamp: number): GameState {
     finishOrder,
     phase: 'finished',
     turnOrder: [],
+    pendingAction: null,
+    pendingActionDelayed: undefined,
+    pendingCardsPlayed: undefined,
   };
 
   if (lastActive) {
@@ -392,6 +395,10 @@ export function applyPlay(
       if (psRevealed !== null && !finishedRevealed) {
         return setPendingShifumi(newStateRevealed, psRevealed, playerId, player.name, timestamp);
       }
+      // Clear overlay fields when jack power is skipped (player finished)
+      if (newStateRevealed.pendingActionDelayed) {
+        newStateRevealed = { ...newStateRevealed, lastPowerTriggered: null, pendingActionDelayed: undefined, pendingCardsPlayed: undefined };
+      }
       return resolveAutoSkip(advanceTurn(newStateRevealed, finishedRevealed, scRevealed));
     }
 
@@ -478,6 +485,10 @@ export function applyPlay(
     }
     if (pendingShifumiType !== null && !finished) {
       return setPendingShifumi(newState, pendingShifumiType, playerId, player.name, timestamp);
+    }
+    // Clear overlay fields when jack power is skipped (player finished)
+    if (newState.pendingActionDelayed) {
+      newState = { ...newState, lastPowerTriggered: null, pendingActionDelayed: undefined, pendingCardsPlayed: undefined };
     }
     return resolveAutoSkip(advanceTurn(newState, finished, skipCount));
   }
@@ -682,7 +693,7 @@ export function applyPlay(
   }
   // Clear overlay fields when jack power is skipped (player finished)
   if (newState.pendingActionDelayed) {
-    newState = { ...newState, lastPowerTriggered: null, pendingActionDelayed: undefined };
+    newState = { ...newState, lastPowerTriggered: null, pendingActionDelayed: undefined, pendingCardsPlayed: undefined };
   }
   return resolveAutoSkip(advanceTurn(newState, finished, skipCount));
 }

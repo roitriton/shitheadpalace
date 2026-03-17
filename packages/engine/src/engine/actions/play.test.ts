@@ -427,3 +427,99 @@ describe('applyPlay — Jack cards set pendingCemeteryTransit', () => {
     expect(next.pendingCemeteryTransit).toBeFalsy();
   });
 });
+
+// ─── Powers skipped on last card (player finishing) ─────────────────────────
+
+describe('applyPlay — powers skipped when player finishes', () => {
+  it('Target (Ace) as last card → no pendingAction, player marked finished', () => {
+    const aceCard = card('A', 'spades');
+    // 3 players so p0 finishing does not trigger game-over
+    const players = [
+      makePlayer('p0', { hand: [aceCard] }),
+      makePlayer('p1', { hand: [c5, cK] }),
+      makePlayer('p2', { hand: [c5, cK] }),
+    ];
+    const state: GameState = {
+      id: 'g1',
+      phase: 'playing',
+      players,
+      deck: [],
+      pile: [],
+      graveyard: [],
+      currentPlayerIndex: 0,
+      direction: 1,
+      turnOrder: [1, 2],
+      finishOrder: [],
+      variant: { name: 'S', powerAssignments: { target: 'A' }, playerCount: 3, deckCount: 1 },
+      pendingAction: null,
+      log: [],
+      lastPowerTriggered: null,
+    };
+    const next = applyPlay(state, 'p0', [aceCard.id]);
+    expect(next.pendingAction).toBeNull();
+    expect(next.pendingActionDelayed).toBeFalsy();
+    expect(next.pendingCardsPlayed).toBeFalsy();
+    expect(next.players[0]!.isFinished).toBe(true);
+    // Game continues — turn advances past p0
+    expect(next.currentPlayerIndex).toBe(1);
+  });
+
+  it('Skip (7) as last card → no pendingAction, player marked finished', () => {
+    const c7card = card('7', 'clubs');
+    const players = [
+      makePlayer('p0', { hand: [c7card] }),
+      makePlayer('p1', { hand: [c5, cK] }),
+      makePlayer('p2', { hand: [c5, cK] }),
+    ];
+    const state: GameState = {
+      id: 'g1',
+      phase: 'playing',
+      players,
+      deck: [],
+      pile: [],
+      graveyard: [],
+      currentPlayerIndex: 0,
+      direction: 1,
+      turnOrder: [1, 2],
+      finishOrder: [],
+      variant: { name: 'S', powerAssignments: { skip: '7' }, playerCount: 3, deckCount: 1 },
+      pendingAction: null,
+      log: [],
+      lastPowerTriggered: null,
+    };
+    const next = applyPlay(state, 'p0', [c7card.id]);
+    expect(next.pendingAction).toBeNull();
+    expect(next.players[0]!.isFinished).toBe(true);
+  });
+
+  it('Target with cards remaining → normal pendingAction', () => {
+    const aceCard = card('A', 'spades');
+    const state: GameState = {
+      ...makeState({ hand: [aceCard, c5] }, [], [], { hand: [cK] }),
+      variant: { name: 'S', powerAssignments: { target: 'A' }, playerCount: 2, deckCount: 1 },
+    };
+    const next = applyPlay(state, 'p0', [aceCard.id]);
+    expect(next.pendingAction).toEqual({ type: 'target', launcherId: 'p0' });
+    expect(next.players[0]!.isFinished).toBe(false);
+  });
+
+  it('Target as last card in game-over scenario → phase finished, no pendingAction', () => {
+    const aceCard = card('A', 'spades');
+    // p1 already finished, so when p0 finishes it's game over
+    const state: GameState = {
+      ...makeState(
+        { hand: [aceCard] },
+        [],
+        [],
+        { hand: [], faceUp: [], faceDown: [], isFinished: true },
+      ),
+      variant: { name: 'S', powerAssignments: { target: 'A' }, playerCount: 2, deckCount: 1 },
+      finishOrder: ['p1'],
+    };
+    const next = applyPlay(state, 'p0', [aceCard.id]);
+    expect(next.phase).toBe('finished');
+    expect(next.pendingAction).toBeNull();
+    expect(next.pendingActionDelayed).toBeFalsy();
+    expect(next.pendingCardsPlayed).toBeFalsy();
+  });
+});

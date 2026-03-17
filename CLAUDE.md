@@ -68,8 +68,9 @@ Shit Head Palace est une application web de jeu de cartes multijoueur en temps r
 - [x] **Étape 12N-1** — Fix Mirror solo interdit + tiebreak premier joueur par force de carte (1209 tests)
 - [x] **Étape 12N-2** — Fix tour après multi-valets avec ramassage : prochain joueur = après le ramasseur (1212 tests)
 - [x] **Étape 12N-3** — Lock actions joueur pendant overlays et transit cimetière (1214 tests)
+- [x] **Étape 12N-4** — Fix pouvoirs inutiles sur dernière carte (Target, Skip, Manouche, Shifumi) (1218 tests)
 
-### Nombre total de tests : 1214 (1010 engine + 191 server + 13 client)
+### Nombre total de tests : 1218 (1014 engine + 191 server + 13 client)
 
 ### Étapes à venir
 - [ ] Étape 13 — IA (bots intermédiaire et expert)

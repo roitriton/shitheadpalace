@@ -19,6 +19,7 @@ import {
 } from '../powers/flopReverse';
 import { isShifumiTriggered, isSuperShifumiTriggered } from '../powers/shifumi';
 import { matchesPowerRank, hasAnyUniquePower } from '../powers/utils';
+import { isPlayerFinished } from './turn';
 
 export interface PowerResult {
   /** Updated game state after all power effects are applied. */
@@ -167,10 +168,16 @@ export function resolvePowers(
     newState = applyUnder(newState, underValue, playerId, timestamp);
   }
 
+  // ── 7b. Check if the acting player is finishing (no cards left) ──────────
+  // When true, pendingAction-creating powers (Target, Manouche, Flop, Shifumi)
+  // are skipped — there is no point requiring a choice from a finished player.
+  const actingPlayer = newState.players.find((p) => p.id === playerId)!;
+  const playerFinishing = isPlayerFinished(actingPlayer);
+
   // ── 8. Target — sets pendingAction; turn is not advanced until resolved ───
   // lastPowerTriggered is forced to null — it will be set in applyTargetChoice
   // after the player makes their choice, so the overlay shows only once.
-  if (isTargetTriggered(playedCards, newState.variant, newState.phase)) {
+  if (isTargetTriggered(playedCards, newState.variant, newState.phase) && !playerFinishing) {
     newState = applyTarget(newState, playerId, timestamp);
     newState = { ...newState, lastPowerTriggered: { type: 'target', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: true, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
@@ -194,10 +201,11 @@ export function resolvePowers(
   // if J♦ was also played — in that case the Manouche checks will return false.
   // lastPowerTriggered is forced to null — it will be set in applyManouchePick /
   // applySuperManouchePick after the choice is resolved.
-  if (isSuperManoucheTriggered(playedCards, newState.variant, newState.phase)) {
+  // Skipped when the acting player is finishing (no cards left to exchange).
+  if (isSuperManoucheTriggered(playedCards, newState.variant, newState.phase) && !playerFinishing) {
     newState = { ...newState, lastPowerTriggered: { type: 'superManouche', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'superManouche', pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
-  } else if (isManoucheTriggered(playedCards, newState.variant, newState.phase)) {
+  } else if (isManoucheTriggered(playedCards, newState.variant, newState.phase) && !playerFinishing) {
     newState = { ...newState, lastPowerTriggered: { type: 'manouche', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: 'manouche', pendingFlopType: null, pendingShifumiType: null, pendingRevolutionType: null };
   }
@@ -210,10 +218,11 @@ export function resolvePowers(
   // the player has not finished), mirroring the Manouche pattern.
   // lastPowerTriggered is forced to null — it will be set in
   // applyFlopReverseTarget / applyFlopRemake after the choice is resolved.
-  if (isFlopRemakeTriggered(playedCards, newState.variant, newState.phase)) {
+  // Skipped when the acting player is finishing (no cards left to swap).
+  if (isFlopRemakeTriggered(playedCards, newState.variant, newState.phase) && !playerFinishing) {
     newState = { ...newState, lastPowerTriggered: { type: 'flopRemake', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopRemake', pendingShifumiType: null, pendingRevolutionType: null };
-  } else if (isFlopReverseTriggered(playedCards, newState.variant, newState.phase)) {
+  } else if (isFlopReverseTriggered(playedCards, newState.variant, newState.phase) && !playerFinishing) {
     newState = { ...newState, lastPowerTriggered: { type: 'flopReverse', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: 'flopReverse', pendingShifumiType: null, pendingRevolutionType: null };
   }
@@ -224,10 +233,11 @@ export function resolvePowers(
   // the player has not finished), mirroring the Manouche / Flop pattern.
   // lastPowerTriggered is forced to null — it will be set in
   // applyShifumiChoice (resolveShifumi) after the confrontation is resolved.
-  if (isSuperShifumiTriggered(playedCards, newState.variant, newState.phase)) {
+  // Skipped when the acting player is finishing (no cards left to gamble).
+  if (isSuperShifumiTriggered(playedCards, newState.variant, newState.phase) && !playerFinishing) {
     newState = { ...newState, lastPowerTriggered: { type: 'superShifumi', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'superShifumi', pendingRevolutionType: null };
-  } else if (isShifumiTriggered(playedCards, newState.variant, newState.phase)) {
+  } else if (isShifumiTriggered(playedCards, newState.variant, newState.phase) && !playerFinishing) {
     newState = { ...newState, lastPowerTriggered: { type: 'shifumi', playerId, cardsPlayed: cardsInfo }, pendingActionDelayed: true, pendingCardsPlayed: cardsInfo };
     return { state: newState, playerReplays: false, skipCount, pendingTarget: false, pendingManoucheType: null, pendingFlopType: null, pendingShifumiType: 'shifumi', pendingRevolutionType: null };
   }
