@@ -322,6 +322,8 @@ function App() {
     if (flopRemakePlayerId !== null) return; // Block selection during flop remake animation
     if (isCardAnimating) return; // Block selection during card flight animations
     if (shifumiLoserOverlay !== null) return; // Block selection during shifumi loser overlay
+    if (gameState.pendingActionDelayed) return; // Block selection during power overlay
+    if (gameState.pendingCemeteryTransit) return; // Block selection during cemetery transit
     const human = gameState.players.find((p) => p.id === humanId);
     if (!human) return;
 
@@ -869,7 +871,7 @@ function App() {
           onActionLogToggle={handleActionLogToggle}
           actionLogUnread={actionLogUnread}
           isSelectionLegal={isSelectionLegal}
-          overlayActive={currentPower !== null || flopRemakePlayerId !== null || isCardAnimating || shifumiLoserOverlay !== null}
+          overlayActive={currentPower !== null || flopRemakePlayerId !== null || isCardAnimating || shifumiLoserOverlay !== null || !!gameState.pendingActionDelayed || !!gameState.pendingCemeteryTransit}
           emptyPileBlocked={emptyPileBlocked}
           onSkipTurn={handleSkipTurn}
         />

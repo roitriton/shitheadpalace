@@ -595,6 +595,9 @@ io.on('connection', (rawSocket) => {
     const s = soloSessions.get(socket.id);
     if (!s) return;
 
+    // Block all player actions during overlay animations and cemetery transit
+    if (s.state.pendingActionDelayed || s.state.pendingCemeteryTransit) return;
+
     try {
       const prevState = s.state;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -717,6 +720,9 @@ io.on('connection', (rawSocket) => {
     // Fallback to solo
     const s = soloSessions.get(socket.id);
     if (!s) return;
+
+    // Block all player actions during overlay animations and cemetery transit
+    if (s.state.pendingActionDelayed || s.state.pendingCemeteryTransit) return;
 
     try {
       const prevState = s.state;

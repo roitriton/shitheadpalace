@@ -301,6 +301,11 @@ export class GameRoom {
       throw new Error('Game not in progress');
     }
 
+    // Block all player actions during overlay animations and cemetery transit
+    if (this.state.pendingActionDelayed || this.state.pendingCemeteryTransit) {
+      throw new Error('Action blocked: overlay or cemetery transit in progress');
+    }
+
     const player = this.players.find((p) => p.userId === userId && !p.isBot);
     if (!player) {
       throw new Error('Player not found in this room');

@@ -532,3 +532,42 @@ describe('generateJoinCode', () => {
     expect(code).toMatch(/^[0-9A-F]{6}$/);
   });
 });
+
+// ─── handleAction — overlay/transit lock ──────────────────────────────────────
+
+describe('handleAction — overlay/transit lock', () => {
+  let room: GameRoom;
+
+  beforeEach(() => {
+    room = new GameRoom('lock-test', makeConfig({ maxPlayers: 2 }));
+    room.addPlayer('user-1', 'Alice', 'socket-1');
+    room.addBot('easy');
+    room.start();
+    // Force game into playing phase with a known state
+    if (room.state) {
+      room.state = { ...room.state, phase: 'playing' as const };
+    }
+  });
+
+  afterEach(() => {
+    room.dispose();
+  });
+
+  it('rejects action when pendingActionDelayed is true', () => {
+    if (!room.state) throw new Error('No state');
+    room.state = { ...room.state, pendingActionDelayed: true };
+
+    expect(() =>
+      room.handleAction('user-1', { type: 'playCards', cardIds: ['fake'] } as any),
+    ).toThrow(/overlay|cemetery|blocked/i);
+  });
+
+  it('rejects action when pendingCemeteryTransit is true', () => {
+    if (!room.state) throw new Error('No state');
+    room.state = { ...room.state, pendingCemeteryTransit: true };
+
+    expect(() =>
+      room.handleAction('user-1', { type: 'playCards', cardIds: ['fake'] } as any),
+    ).toThrow(/overlay|cemetery|blocked/i);
+  });
+});
